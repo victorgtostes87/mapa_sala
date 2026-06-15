@@ -271,7 +271,7 @@ def stats():
 
 @app.route('/api/export')
 @login_required
-@requer_papel('coordenador', 'recepcao')
+@requer_papel('coordenador')
 def export_csv():
     conn = get_db()
     rows = conn.execute('SELECT * FROM agendamentos ORDER BY dia_semana, horario, sala').fetchall()

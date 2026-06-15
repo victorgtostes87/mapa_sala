@@ -85,6 +85,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
     <span class="role-badge role-{{ papel }}">{{ papel }}</span>
   </div>
   {% if papel == 'coordenador' %}
+  <a href="/usuarios" class="btn btn-ghost btn-sm">👥 Usuários</a>
   <button class="btn btn-ghost btn-sm" onclick="exportCSV()">&#11015;&#65039; Exportar</button>
   {% endif %}
   {% if papel in ['coordenador', 'recepcao'] %}
@@ -299,7 +300,6 @@ function openModal(id) {
   document.getElementById('modalTitle').textContent = id ? 'Agendamento' : 'Novo Agendamento';
 
   if (!PODE_EDITAR && id) {
-    // Aluno: modo leitura
     document.getElementById('readOnlyView').style.display = 'block';
     document.getElementById('editView').style.display = 'none';
     fetch('/api/agendamentos/'+id).then(r=>r.json()).then(d=>{

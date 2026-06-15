@@ -99,7 +99,6 @@ def init_db():
         "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
         ");"
     )
-    # Cria usuário coordenador padrão se não existir
     existe = conn.execute("SELECT id FROM usuarios WHERE username='coordenador'").fetchone()
     if not existe:
         conn.execute(
@@ -249,7 +248,7 @@ def update_ag(aid):
 
 @app.route('/api/agendamentos/<int:aid>', methods=['DELETE'])
 @login_required
-@requer_papel('coordenador')
+@requer_papel('coordenador', 'recepcao')
 def delete_ag(aid):
     conn = get_db()
     r = conn.execute('SELECT * FROM agendamentos WHERE id=?',(aid,)).fetchone()

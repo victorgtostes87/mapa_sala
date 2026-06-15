@@ -8,30 +8,32 @@
 :root{--bg:#0f172a;--surface:#1e293b;--surface2:#263348;--border:#334155;--text:#e2e8f0;--text2:#94a3b8;--accent:#3b82f6;--accent2:#2563eb;--radius:8px}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;min-height:100vh}
-.navbar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100}
+.navbar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
 .navbar h1{font-size:16px;font-weight:700;color:#f8fafc;white-space:nowrap}.navbar h1 span{color:var(--accent)}
 .navbar-spacer{flex:1}
+.user-info{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2)}
+.role-badge{padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.role-coordenador{background:#7c3aed;color:#fff}
+.role-recepcao{background:#0e7490;color:#fff}
+.role-aluno{background:#374151;color:#d1d5db}
 .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);border:none;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s}
 .btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
 .btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}.btn-ghost:hover{background:var(--surface2);color:var(--text)}
 .btn-sm{padding:4px 10px;font-size:11px}
 .btn-danger{background:#dc2626;color:#fff}.btn-danger:hover{background:#b91c1c}
-/* Abas dias */
-.tabs{display:flex;gap:0;padding:0 20px;background:var(--surface);border-bottom:1px solid var(--border)}
+.btn-logout{background:transparent;color:#f87171;border:1px solid #7f1d1d;font-size:11px;padding:4px 10px;border-radius:var(--radius);cursor:pointer;font-weight:600;transition:all .15s}
+.btn-logout:hover{background:#7f1d1d;color:#fff}
+.tabs{display:flex;gap:0;padding:0 20px;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto}
 .tab{padding:10px 20px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
-.tab:hover{color:var(--text)}
-.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
-/* Stats */
+.tab:hover{color:var(--text)}.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
 .stats-bar{display:flex;gap:10px;padding:10px 20px;flex-wrap:wrap}
 .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 16px;min-width:120px}
 .stat-card .label{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
 .stat-card .value{font-size:22px;font-weight:700;color:#f8fafc;margin-top:1px}
-/* Filters */
 .filters{display:flex;gap:8px;padding:0 20px 10px;flex-wrap:wrap;align-items:center}
 .filters input,.filters select{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:6px 10px;font-size:12px;outline:none}
 .filters input:focus,.filters select:focus{border-color:var(--accent)}
 .filters input{min-width:200px}
-/* Grid */
 .page-body{position:fixed;top:160px;left:0;right:0;bottom:48px;overflow:hidden}
 .grid-wrap{position:absolute;inset:0;overflow:scroll;padding-bottom:8px}
 .mapa-table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%}
@@ -45,13 +47,11 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .patient{font-size:11px;color:rgba(255,255,255,.75);line-height:1.3;word-break:break-word;border-top:1px solid rgba(255,255,255,.15);padding-top:2px;margin-top:2px}
 .edit-btn{display:none;position:absolute;top:3px;right:3px;background:rgba(0,0,0,.4);border:none;color:#fff;border-radius:4px;padding:2px 5px;font-size:10px;cursor:pointer}
 .badge{display:inline-block;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(0,0,0,.25);color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.3px;margin-top:2px}
-/* Category colors */
 .cat-est10{background:#1d4ed8}.cat-est10t{background:#1e40af}.cat-est9{background:#15803d}.cat-est9t{background:#166534}
 .cat-sup{background:#6d28d9}.cat-nace{background:#c2410c}.cat-sou{background:#0e7490}
 .cat-marcar{background:#4d7c0f}.cat-nmarcar{background:#991b1b}.cat-nutri{background:#65a30d}
 .cat-psico{background:#374151}.cat-psiq{background:#1e3a5f}.cat-ambul{background:#78350f}
 .cat-plantao{background:#9d174d}.cat-pront{background:#92400e}.cat-livre{background:#1e293b}.cat-outro{background:#334155}
-/* Modal */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:200;align-items:center;justify-content:center}
 .modal-overlay.open{display:flex}
 .modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;width:500px;max-width:95vw;max-height:90vh;overflow-y:auto;padding:24px}
@@ -63,25 +63,34 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .form-row textarea{resize:vertical;min-height:60px}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid var(--border)}
-/* Legend */
+.read-only-info{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;font-size:13px;line-height:1.8;color:var(--text2)}
+.read-only-info strong{color:var(--text)}
 .legend{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);padding:7px 20px;display:flex;flex-wrap:wrap;gap:8px;z-index:50}
 .leg-item{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text2)}
 .leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
-/* Toast */
 .toast{position:fixed;top:20px;right:20px;padding:10px 18px;border-radius:var(--radius);font-size:13px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none}
 .toast.show{opacity:1}.toast.success{background:#16a34a;color:#fff}.toast.error{background:#dc2626;color:#fff}
 ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+@media(max-width:600px){.navbar{padding:8px 12px;gap:8px}.tabs{padding:0 8px}.stats-bar{padding:8px 12px}.filters{padding:0 12px 8px}.filters input{min-width:140px}}
 </style>
 </head>
 <body>
+
 <!-- Navbar -->
 <nav class="navbar">
   <h1>🏥 Mapa de <span>Salas</span></h1>
   <div class="navbar-spacer"></div>
-  <label class="btn btn-ghost btn-sm" for="csvInput">📂 Importar CSV</label>
-  <input type="file" id="csvInput" accept=".csv" style="display:none" onchange="importCSV(this)">
-  <button class="btn btn-ghost btn-sm" onclick="exportCSV()">⬇️ Exportar</button>
-  <button class="btn btn-primary btn-sm" onclick="openModal(null)">＋ Novo</button>
+  <div class="user-info">
+    <span>👤 {{ usuario }}</span>
+    <span class="role-badge role-{{ papel }}">{{ papel }}</span>
+  </div>
+  {% if papel == 'coordenador' %}
+  <button class="btn btn-ghost btn-sm" onclick="exportCSV()">&#11015;&#65039; Exportar</button>
+  {% endif %}
+  {% if papel in ['coordenador', 'recepcao'] %}
+  <button class="btn btn-primary btn-sm" onclick="openModal(null)">&#65291; Novo</button>
+  {% endif %}
+  <a href="/logout" class="btn-logout">🚪 Sair</a>
 </nav>
 
 <!-- Abas por dia -->
@@ -107,14 +116,13 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
     {% for s in salas %}<option>{{s}}</option>{% endfor %}</select>
   <select id="filterCat" onchange="renderGrid()"><option value="">Todas categorias</option>
     {% for c in categorias %}<option>{{c}}</option>{% endfor %}</select>
-  <button class="btn btn-ghost btn-sm" onclick="clearFilters()">✕ Limpar</button>
+  <button class="btn btn-ghost btn-sm" onclick="clearFilters()">&#x2715; Limpar</button>
 </div>
 
 <!-- Grid -->
 <div class="page-body"><div class="grid-wrap" id="gridWrap">
   <table class="mapa-table"><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table>
-</div>
-</div>
+</div></div>
 
 <!-- Legend -->
 <div class="legend">
@@ -128,7 +136,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
   <div class="leg-item"><div class="leg-dot" style="background:#4d7c0f"></div>Marcar</div>
   <div class="leg-item"><div class="leg-dot" style="background:#991b1b"></div>Não Marcar</div>
   <div class="leg-item"><div class="leg-dot" style="background:#374151"></div>Psicodiagnóstico</div>
-  <div class="leg-item"><div class="leg-dot" style="background:#6d28d9"></div>Psiquiatria</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#1e3a5f"></div>Psiquiatria</div>
   <div class="leg-item"><div class="leg-dot" style="background:#78350f"></div>Amb. Neurop.</div>
   <div class="leg-item"><div class="leg-dot" style="background:#9d174d"></div>Plantão</div>
   <div class="leg-item"><div class="leg-dot" style="background:#92400e"></div>Prontuário</div>
@@ -139,42 +147,56 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
   <div class="modal">
     <h2 id="modalTitle">Agendamento</h2>
     <input type="hidden" id="fId">
-    <div class="form-grid">
-      <div class="form-row"><label>Dia *</label>
-        <select id="fDia">{% for d in dias %}<option>{{d}}</option>{% endfor %}</select></div>
-      <div class="form-row"><label>Horário *</label>
-        <select id="fHorario">{% for h in horarios %}<option>{{h}}</option>{% endfor %}</select></div>
+
+    <!-- Modo leitura (aluno) -->
+    <div id="readOnlyView" style="display:none">
+      <div class="read-only-info" id="readOnlyContent"></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal()">Fechar</button>
+      </div>
     </div>
-    <div class="form-row"><label>Sala *</label>
-      <select id="fSala">{% for s in salas %}<option>{{s}}</option>{% endfor %}</select></div>
-    <div class="form-row"><label>Estagiário / Conteúdo</label>
-      <input type="text" id="fEstagiario" placeholder="Ex: Ana Carolina 9° (Rodrigo)"></div>
-    <div class="form-row"><label>Paciente</label>
-      <input type="text" id="fPaciente" placeholder="Nome do paciente"></div>
-    <div class="form-grid">
-      <div class="form-row"><label>Categoria</label>
-        <select id="fCategoria"><option value="">Auto-detectar</option>
-          {% for c in categorias %}<option>{{c}}</option>{% endfor %}</select></div>
-      <div class="form-row"><label>Triagem?</label>
-        <select id="fTriagem"><option value="0">Não</option><option value="1">Sim</option></select></div>
-    </div>
-    <div class="form-row"><label>Data específica</label>
-      <input type="text" id="fData" placeholder="Ex: 12/03, 19/03"></div>
-    <div class="form-row"><label>Observação</label>
-      <textarea id="fObs" placeholder="Notas adicionais..."></textarea></div>
-    <div class="modal-footer">
-      <button class="btn btn-danger btn-sm" id="deleteBtn" onclick="deleteAg()" style="display:none;margin-right:auto">🗑 Remover</button>
-      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveAg()">💾 Salvar</button>
+
+    <!-- Modo edição (coordenador / recepção) -->
+    <div id="editView">
+      <div class="form-grid">
+        <div class="form-row"><label>Dia *</label>
+          <select id="fDia">{% for d in dias %}<option>{{d}}</option>{% endfor %}</select></div>
+        <div class="form-row"><label>Horário *</label>
+          <select id="fHorario">{% for h in horarios %}<option>{{h}}</option>{% endfor %}</select></div>
+      </div>
+      <div class="form-row"><label>Sala *</label>
+        <select id="fSala">{% for s in salas %}<option>{{s}}</option>{% endfor %}</select></div>
+      <div class="form-row"><label>Estagiário / Conteúdo</label>
+        <input type="text" id="fEstagiario" placeholder="Ex: Ana Carolina 9° (Rodrigo)"></div>
+      <div class="form-row"><label>Paciente</label>
+        <input type="text" id="fPaciente" placeholder="Nome do paciente"></div>
+      <div class="form-grid">
+        <div class="form-row"><label>Categoria</label>
+          <select id="fCategoria"><option value="">Auto-detectar</option>
+            {% for c in categorias %}<option>{{c}}</option>{% endfor %}</select></div>
+        <div class="form-row"><label>Triagem?</label>
+          <select id="fTriagem"><option value="0">Não</option><option value="1">Sim</option></select></div>
+      </div>
+      <div class="form-row"><label>Data específica</label>
+        <input type="text" id="fData" placeholder="Ex: 12/03, 19/03"></div>
+      <div class="form-row"><label>Observação</label>
+        <textarea id="fObs" placeholder="Notas adicionais..."></textarea></div>
+      <div class="modal-footer">
+        <button class="btn btn-danger btn-sm" id="deleteBtn" onclick="deleteAg()" style="display:none;margin-right:auto">🗑 Remover</button>
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveAg()">💾 Salvar</button>
+      </div>
     </div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
 
 <script>
-const SALAS   = {{ salas | tojson }};
-const HORARIOS= {{ horarios | tojson }};
-const DIAS    = {{ dias | tojson }};
+const SALAS    = {{ salas | tojson }};
+const HORARIOS = {{ horarios | tojson }};
+const DIAS     = {{ dias | tojson }};
+const PAPEL    = {{ papel | tojson }};
+const PODE_EDITAR = ['coordenador','recepcao'].includes(PAPEL);
 let currentDay = DIAS[0];
 let debTimer = null;
 
@@ -243,16 +265,23 @@ async function renderGrid() {
         const cls = CAT_CLASS[ag.categoria] || 'cat-outro';
         const badgeHtml = ag.triagem ? '<span class="badge">triagem</span>' : '';
         const dataHtml  = ag.data_especifica ? '<span class="badge">'+ag.data_especifica+'</span>' : '';
+        const editBtn   = PODE_EDITAR ? `<button class="edit-btn" onclick="event.stopPropagation();openModal(${ag.id})">&#9999;&#65039;</button>` : '';
         td.innerHTML = `<div class="cell ${cls}" onclick="openModal(${ag.id})">
-          <button class="edit-btn" onclick="event.stopPropagation();openModal(${ag.id})">✏️</button>
+          ${editBtn}
           <div class="intern">${esc(ag.estagiario)}</div>
           ${ag.paciente ? '<div class="patient">'+esc(ag.paciente)+'</div>' : ''}
           <div style="display:flex;gap:3px;flex-wrap:wrap">${badgeHtml}${dataHtml}</div>
         </div>`;
       } else {
-        td.innerHTML = `<div class="cell cat-livre" onclick="openModalNew('${h}','${s}')">
-          <span style="color:#475569;font-size:10px">livre</span>
-        </div>`;
+        if (PODE_EDITAR) {
+          td.innerHTML = `<div class="cell cat-livre" onclick="openModalNew('${h}','${s}')">
+            <span style="color:#475569;font-size:10px">livre</span>
+          </div>`;
+        } else {
+          td.innerHTML = `<div class="cell cat-livre">
+            <span style="color:#475569;font-size:10px">livre</span>
+          </div>`;
+        }
       }
       tr.appendChild(td);
     }
@@ -267,8 +296,29 @@ function clearFilters(){ document.getElementById('searchInput').value=''; docume
 
 function openModal(id) {
   document.getElementById('fId').value = id||'';
+  document.getElementById('modalTitle').textContent = id ? 'Agendamento' : 'Novo Agendamento';
+
+  if (!PODE_EDITAR && id) {
+    // Aluno: modo leitura
+    document.getElementById('readOnlyView').style.display = 'block';
+    document.getElementById('editView').style.display = 'none';
+    fetch('/api/agendamentos/'+id).then(r=>r.json()).then(d=>{
+      document.getElementById('readOnlyContent').innerHTML =
+        `<strong>Sala:</strong> ${esc(d.sala)}<br>
+         <strong>Horário:</strong> ${esc(d.horario)}<br>
+         <strong>Estagiário:</strong> ${esc(d.estagiario)||'—'}<br>
+         <strong>Paciente:</strong> ${esc(d.paciente)||'—'}<br>
+         <strong>Categoria:</strong> ${esc(d.categoria)||'—'}<br>
+         ${d.observacao ? '<strong>Obs:</strong> '+esc(d.observacao) : ''}`;
+    });
+    document.getElementById('modalOverlay').classList.add('open');
+    return;
+  }
+
+  document.getElementById('readOnlyView').style.display = 'none';
+  document.getElementById('editView').style.display = 'block';
   document.getElementById('deleteBtn').style.display = id ? 'inline-flex' : 'none';
-  document.getElementById('modalTitle').textContent = id ? 'Editar Agendamento' : 'Novo Agendamento';
+
   if (id) {
     fetch('/api/agendamentos/'+id).then(r=>r.json()).then(d=>{
       setF('fDia',d.dia_semana); setF('fHorario',d.horario); setF('fSala',d.sala);
@@ -280,12 +330,18 @@ function openModal(id) {
     });
   } else {
     setF('fDia',currentDay); setF('fCategoria',''); setF('fTriagem',0);
-    document.getElementById('fEstagiario').value=''; document.getElementById('fPaciente').value='';
-    document.getElementById('fData').value=''; document.getElementById('fObs').value='';
+    document.getElementById('fEstagiario').value='';
+    document.getElementById('fPaciente').value='';
+    document.getElementById('fData').value='';
+    document.getElementById('fObs').value='';
   }
   document.getElementById('modalOverlay').classList.add('open');
 }
-function openModalNew(h,s){ openModal(null); setF('fHorario',h); setF('fSala',s); }
+
+function openModalNew(h,s){
+  if (!PODE_EDITAR) return;
+  openModal(null); setF('fHorario',h); setF('fSala',s);
+}
 function setF(id,val){ const el=document.getElementById(id); if(el) el.value=val; }
 function closeModal(){ document.getElementById('modalOverlay').classList.remove('open'); }
 function closeModalIfBg(e){ if(e.target.id==='modalOverlay') closeModal(); }
@@ -306,7 +362,7 @@ async function saveAg() {
   const res = await fetch(id ? '/api/agendamentos/'+id : '/api/agendamentos',
     {method: id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
   if (res.ok){ showToast('✅ Salvo!','success'); closeModal(); renderGrid(); }
-  else showToast('❌ Erro ao salvar','error');
+  else { const e=await res.json(); showToast('❌ '+(e.erro||'Erro ao salvar'),'error'); }
 }
 
 async function deleteAg() {
@@ -314,17 +370,9 @@ async function deleteAg() {
   if (!id || !confirm('Remover este agendamento?')) return;
   const res = await fetch('/api/agendamentos/'+id,{method:'DELETE'});
   if (res.ok){ showToast('🗑 Removido','success'); closeModal(); renderGrid(); }
+  else { const e=await res.json(); showToast('❌ '+(e.erro||'Erro ao remover'),'error'); }
 }
 
-async function importCSV(input) {
-  const file = input.files[0]; if(!file) return;
-  const text = await file.text();
-  const res = await fetch('/api/import',{method:'POST',headers:{'Content-Type':'text/plain'},body:text});
-  const d = await res.json();
-  if (res.ok){ showToast('✅ '+d.message,'success'); renderGrid(); }
-  else showToast('❌ '+(d.erro||'Erro'),'error');
-  input.value='';
-}
 function exportCSV(){ window.location='/api/export'; }
 
 function showToast(msg,type='success'){

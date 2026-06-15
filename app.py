@@ -41,6 +41,18 @@ def requer_papel(*papeis):
         return wrapped
     return decorator
 
+def requer_papel_page(*papeis):
+    """Decorator para rotas que retornam páginas HTML (não JSON)."""
+    def decorator(f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+            if not current_user.is_authenticated or current_user.role not in papeis:
+                flash('Acesso negado.')
+                return redirect(url_for('index'))
+            return f(*args, **kwargs)
+        return wrapped
+    return decorator
+
 # ── Constantes ───────────────────────────────────────────────────────────────
 SALAS = [
     'Consultório 1','Consultório 2','Consultório 3','Consultório 4',
@@ -182,6 +194,90 @@ def index():
     return render_template('index.html', salas=SALAS, horarios=HORARIOS,
                            categorias=CATEGORIAS, dias=DIAS,
                            usuario=current_user.username, papel=current_user.role)
+
+# ── Gerenciamento de usuários ──────────────────────────────────────────────────
+@app.route('/usuarios')
+@login_required
+@requer_papel_page('coordenador')
+def usuarios_page():
+    conn = get_db()
+    rows = conn.execute('SELECT id, username, role, created_at FROM usuarios ORDER BY created_at').fetchall()
+    conn.close()
+    return render_template('usuarios.html', usuarios=[dict(r) for r in rows],
+                           usuario=current_user.username, papel=current_user.role)
+
+@app.route('/api/usuarios', methods=['GET'])
+@login_required
+@requer_papel('coordenador')
+def api_list_usuarios():
+    conn = get_db()
+    rows = conn.execute('SELECT id, username, role, created_at FROM usuarios ORDER BY created_at').fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+@app.route('/api/usuarios', methods=['POST'])
+@login_required
+@requer_papel('coordenador')
+def api_criar_usuario():
+    d = request.json
+    username = (d.get('username') or '').strip()
+    password = (d.get('password') or '').strip()
+    role     = d.get('role', 'aluno')
+    if not username or not password:
+        return jsonify({'erro': 'Usuário e senha são obrigatórios'}), 400
+    if role not in ('coordenador', 'recepcao', 'aluno'):
+        return jsonify({'erro': 'Papel inválido'}), 400
+    try:
+        conn = get_db()
+        conn.execute('INSERT INTO usuarios(username, password_hash, role) VALUES(?,?,?)',
+                     (username, generate_password_hash(password), role))
+        conn.commit(); conn.close()
+        registrar_log('CRIAR_USUARIO', f'Usuário "{username}" ({role}) criado')
+        return jsonify({'message': 'Usuário criado'}), 201
+    except sqlite3.IntegrityError:
+        return jsonify({'erro': 'Nome de usuário já existe'}), 409
+
+@app.route('/api/usuarios/<int:uid>', methods=['PUT'])
+@login_required
+@requer_papel('coordenador')
+def api_editar_usuario(uid):
+    d = request.json
+    conn = get_db()
+    row = conn.execute('SELECT * FROM usuarios WHERE id=?', (uid,)).fetchone()
+    if not row:
+        conn.close()
+        return jsonify({'erro': 'Usuário não encontrado'}), 404
+    new_role = d.get('role', row['role'])
+    if new_role not in ('coordenador', 'recepcao', 'aluno'):
+        conn.close()
+        return jsonify({'erro': 'Papel inválido'}), 400
+    new_pass = (d.get('password') or '').strip()
+    if new_pass:
+        conn.execute('UPDATE usuarios SET role=?, password_hash=? WHERE id=?',
+                     (new_role, generate_password_hash(new_pass), uid))
+        registrar_log('EDITAR_USUARIO', f'Usuário "{row["username"]}" teve papel e senha atualizados')
+    else:
+        conn.execute('UPDATE usuarios SET role=? WHERE id=?', (new_role, uid))
+        registrar_log('EDITAR_USUARIO', f'Usuário "{row["username"]}" teve papel alterado para {new_role}')
+    conn.commit(); conn.close()
+    return jsonify({'message': 'Usuário atualizado'})
+
+@app.route('/api/usuarios/<int:uid>', methods=['DELETE'])
+@login_required
+@requer_papel('coordenador')
+def api_excluir_usuario(uid):
+    conn = get_db()
+    row = conn.execute('SELECT * FROM usuarios WHERE id=?', (uid,)).fetchone()
+    if not row:
+        conn.close()
+        return jsonify({'erro': 'Usuário não encontrado'}), 404
+    if row['id'] == current_user.id:
+        conn.close()
+        return jsonify({'erro': 'Você não pode excluir sua própria conta'}), 400
+    conn.execute('DELETE FROM usuarios WHERE id=?', (uid,))
+    conn.commit(); conn.close()
+    registrar_log('EXCLUIR_USUARIO', f'Usuário "{row["username"]}" excluído')
+    return jsonify({'message': 'Usuário excluído'})
 
 # ── API de agendamentos ──────────────────────────────────────────────────────
 @app.route('/api/agendamentos', methods=['GET'])

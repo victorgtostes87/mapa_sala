@@ -1,5 +1,5 @@
 import sqlite3, csv, io, os, re
-from datetime import datetime
+from datetime import datetime, date
 from functools import wraps
 from flask import Flask, render_template, jsonify, request, send_file, redirect, url_for, flash
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
@@ -9,9 +9,8 @@ app = Flask(__name__)
 app.secret_key = 'mapa_salas_secret_2026'
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 
-VERSAO = '2026-06-16-v3'  # <-- marcador de versão para diagnóstico
+VERSAO = '2026-06-16-v4'
 
-# ── Flask-Login ──────────────────────────────────────────────────────────────
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
@@ -19,20 +18,15 @@ login_manager.login_message = 'Faça login para acessar o sistema.'
 
 class Usuario(UserMixin):
     def __init__(self, id, username, role):
-        self.id = id
-        self.username = username
-        self.role = role
+        self.id = id; self.username = username; self.role = role
 
 @login_manager.user_loader
 def load_user(user_id):
     conn = get_db()
     row = conn.execute('SELECT * FROM usuarios WHERE id=?', (user_id,)).fetchone()
     conn.close()
-    if row:
-        return Usuario(row['id'], row['username'], row['role'])
-    return None
+    return Usuario(row['id'], row['username'], row['role']) if row else None
 
-# ── Decorators ───────────────────────────────────────────────────────────────
 def requer_papel(*papeis):
     def decorator(f):
         @wraps(f)
@@ -54,7 +48,6 @@ def requer_papel_page(*papeis):
         return wrapped
     return decorator
 
-# ── Constantes ───────────────────────────────────────────────────────────────
 SALAS = [
     'Consultório 1','Consultório 2','Consultório 3','Consultório 4',
     'Consultório 5','Consultório 6 (Divã)','Consultório 7 (Divã)',
@@ -64,6 +57,14 @@ SALAS = [
 HORARIOS = ['07:00','08:00','09:00','10:00','11:00','12:00','13:00',
             '14:00','15:00','16:00','17:00','18:00','19:00','20:00']
 DIAS = ['SEGUNDA','TERÇA','QUARTA','QUINTA','SEXTA','SÁBADO']
+DIAS_SEMANA_PT = {
+    'SEGUNDA': 'Segunda-feira', 'TERÇA': 'Terça-feira',
+    'QUARTA': 'Quarta-feira', 'QUINTA': 'Quinta-feira',
+    'SEXTA': 'Sexta-feira', 'SÁBADO': 'Sábado'
+}
+# mapeamento Python weekday() -> chave DIAS
+WEEKDAY_MAP = {0:'SEGUNDA',1:'TERÇA',2:'QUARTA',3:'QUINTA',4:'SEXTA',5:'SÁBADO'}
+
 CATEGORIAS = [
     'ESTAGIÁRIO 10°','ESTAGIÁRIO 10° TRIAGEM',
     'ESTAGIÁRIO 9°','ESTAGIÁRIO 9° TRIAGEM',
@@ -73,7 +74,6 @@ CATEGORIAS = [
     'PRONTUÁRIO/ESTUDAR','LIVRE','OUTRO'
 ]
 
-# ── Banco de dados ───────────────────────────────────────────────────────────
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -118,25 +118,20 @@ def init_db():
             "INSERT INTO usuarios(username, password_hash, role) VALUES(?,?,?)",
             ('coordenador', generate_password_hash('mudar@2026'), 'coordenador')
         )
-    conn.commit()
-    conn.close()
+    conn.commit(); conn.close()
 
 def registrar_log(acao, dados=''):
     usuario = current_user.username if current_user.is_authenticated else 'sistema'
     conn = get_db()
     conn.execute('INSERT INTO historico(usuario, acao, dados) VALUES(?,?,?)', (usuario, acao, dados))
-    conn.commit()
-    conn.close()
+    conn.commit(); conn.close()
 
-# ── Helper: verifica conflito de sala ──────────────────────────────────────────
 def checar_conflito(dia, horario, sala, excluir_id=None):
-    """Retorna o agendamento conflitante ou None."""
     conn = get_db()
     try:
         eid = int(excluir_id) if excluir_id else None
     except (ValueError, TypeError):
         eid = None
-
     if eid:
         r = conn.execute(
             'SELECT * FROM agendamentos WHERE dia_semana=? AND horario=? AND sala=? AND CAST(id AS INTEGER)!=?',
@@ -150,7 +145,6 @@ def checar_conflito(dia, horario, sala, excluir_id=None):
     conn.close()
     return dict(r) if r else None
 
-# ── Helpers texto ─────────────────────────────────────────────────────────────
 def normalize(t):
     if not t: return ''
     for o, n in [('ă','ã'),('Ă','Ã'),('ş','º'),('Ş','º'),('ţ','ç')]:
@@ -184,12 +178,10 @@ def detect_sem(t):
     if re.search(r'9[°º]', t): return 9
     return 0
 
-# ── Rota de diagnóstico ────────────────────────────────────────────────────────
 @app.route('/api/versao')
 def api_versao():
     return jsonify({'versao': VERSAO, 'ok': True})
 
-# ── Rotas de autenticação ────────────────────────────────────────────────────
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
@@ -215,7 +207,6 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# ── Rota principal ───────────────────────────────────────────────────────────
 @app.route('/')
 @login_required
 def index():
@@ -223,7 +214,41 @@ def index():
                            categorias=CATEGORIAS, dias=DIAS,
                            usuario=current_user.username, papel=current_user.role)
 
-# ── Gerenciamento de usuários ──────────────────────────────────────────────────
+# ── Impressão lista de pacientes ────────────────────────────────────────
+@app.route('/imprimir/<dia>')
+@login_required
+def imprimir(dia):
+    dia = dia.upper()
+    if dia not in DIAS:
+        return 'Dia inválido', 400
+    conn = get_db()
+    # Somente registros com paciente preenchido
+    rows = conn.execute(
+        "SELECT horario, paciente FROM agendamentos "
+        "WHERE dia_semana=? AND TRIM(paciente) != '' "
+        "ORDER BY horario, paciente COLLATE NOCASE",
+        (dia,)
+    ).fetchall()
+    conn.close()
+
+    # Calcula a data do próximo dia da semana correspondente
+    hoje = date.today()
+    wd_hoje = hoje.weekday()  # 0=seg, 6=dom
+    wd_alvo = list(WEEKDAY_MAP.keys())[list(WEEKDAY_MAP.values()).index(dia)]
+    delta = (wd_alvo - wd_hoje) % 7
+    data_alvo = hoje if delta == 0 else hoje
+    # usa a data de hoje com o nome do dia selecionado
+    data_str = hoje.strftime('%d/%m/%Y')
+
+    pacientes = [{'horario': r['horario'], 'paciente': r['paciente'].strip().title()} for r in rows]
+
+    return render_template('imprimir.html',
+        dia_nome=DIAS_SEMANA_PT.get(dia, dia),
+        data_hoje=data_str,
+        gerado_em=datetime.now().strftime('%d/%m/%Y %H:%M'),
+        pacientes=pacientes
+    )
+
 @app.route('/usuarios')
 @login_required
 @requer_papel_page('coordenador')
@@ -272,21 +297,17 @@ def api_editar_usuario(uid):
     d = request.json
     conn = get_db()
     row = conn.execute('SELECT * FROM usuarios WHERE id=?', (uid,)).fetchone()
-    if not row:
-        conn.close()
-        return jsonify({'erro': 'Usuário não encontrado'}), 404
+    if not row: conn.close(); return jsonify({'erro': 'Usuário não encontrado'}), 404
     new_role = d.get('role', row['role'])
     if new_role not in ('coordenador', 'recepcao', 'aluno'):
-        conn.close()
-        return jsonify({'erro': 'Papel inválido'}), 400
+        conn.close(); return jsonify({'erro': 'Papel inválido'}), 400
     new_pass = (d.get('password') or '').strip()
     if new_pass:
         conn.execute('UPDATE usuarios SET role=?, password_hash=? WHERE id=?',
                      (new_role, generate_password_hash(new_pass), uid))
-        registrar_log('EDITAR_USUARIO', f'Usuário "{row["username"]}" teve papel e senha atualizados')
     else:
         conn.execute('UPDATE usuarios SET role=? WHERE id=?', (new_role, uid))
-        registrar_log('EDITAR_USUARIO', f'Usuário "{row["username"]}" teve papel alterado para {new_role}')
+    registrar_log('EDITAR_USUARIO', f'Usuário "{row["username"]}" atualizado')
     conn.commit(); conn.close()
     return jsonify({'message': 'Usuário atualizado'})
 
@@ -296,18 +317,14 @@ def api_editar_usuario(uid):
 def api_excluir_usuario(uid):
     conn = get_db()
     row = conn.execute('SELECT * FROM usuarios WHERE id=?', (uid,)).fetchone()
-    if not row:
-        conn.close()
-        return jsonify({'erro': 'Usuário não encontrado'}), 404
+    if not row: conn.close(); return jsonify({'erro': 'Usuário não encontrado'}), 404
     if row['id'] == current_user.id:
-        conn.close()
-        return jsonify({'erro': 'Você não pode excluir sua própria conta'}), 400
+        conn.close(); return jsonify({'erro': 'Você não pode excluir sua própria conta'}), 400
     conn.execute('DELETE FROM usuarios WHERE id=?', (uid,))
     conn.commit(); conn.close()
     registrar_log('EXCLUIR_USUARIO', f'Usuário "{row["username"]}" excluído')
     return jsonify({'message': 'Usuário excluído'})
 
-# ── API: verificar conflito antes de salvar ────────────────────────────────────
 @app.route('/api/conflito', methods=['GET'])
 @login_required
 def api_conflito():
@@ -319,26 +336,20 @@ def api_conflito():
         return jsonify({'conflito': False})
     conflito = checar_conflito(dia, horario, sala, excluir_id=excluir)
     if conflito:
-        return jsonify({
-            'conflito': True,
-            'estagiario': conflito.get('estagiario', ''),
-            'paciente': conflito.get('paciente', ''),
-            'categoria': conflito.get('categoria', ''),
-            'id': conflito.get('id')
-        })
+        return jsonify({'conflito': True, 'estagiario': conflito.get('estagiario',''),
+                        'paciente': conflito.get('paciente',''), 'categoria': conflito.get('categoria',''),
+                        'id': conflito.get('id')})
     return jsonify({'conflito': False})
 
-# ── API de agendamentos ────────────────────────────────────────────────────────
 @app.route('/api/agendamentos', methods=['GET'])
 @login_required
 def list_ag():
-    dia     = request.args.get('dia_semana', 'SEGUNDA')
+    dia   = request.args.get('dia_semana', 'SEGUNDA')
     horario = request.args.get('horario','')
     sala    = request.args.get('sala','')
     cat     = request.args.get('categoria','')
     busca   = request.args.get('busca','').strip()
-    q = 'SELECT * FROM agendamentos WHERE dia_semana=?'
-    p = [dia]
+    q = 'SELECT * FROM agendamentos WHERE dia_semana=?'; p = [dia]
     if horario: q += ' AND horario=?'; p.append(horario)
     if sala:    q += ' AND sala=?';    p.append(sala)
     if cat:     q += ' AND categoria=?'; p.append(cat)
@@ -358,18 +369,12 @@ def get_ag(aid):
 @requer_papel('coordenador', 'recepcao')
 def create_ag():
     d = request.json
-    dia     = d.get('dia_semana', 'SEGUNDA')
-    horario = d.get('horario')
-    sala    = d.get('sala')
-    # Conflito SEMPRE bloqueado — sem opção de forçar
+    dia = d.get('dia_semana', 'SEGUNDA'); horario = d.get('horario'); sala = d.get('sala')
     conflito = checar_conflito(dia, horario, sala)
     if conflito:
         ocu = conflito.get('estagiario') or conflito.get('categoria') or 'outro agendamento'
-        return jsonify({
-            'erro': f'Conflito: {sala} já está ocupada às {horario} ({dia}) por: {ocu}',
-            'conflito': True,
-            'conflito_id': conflito.get('id')
-        }), 409
+        return jsonify({'erro': f'Conflito: {sala} já está ocupada às {horario} ({dia}) por: {ocu}',
+                        'conflito': True, 'conflito_id': conflito.get('id')}), 409
     est = d.get('estagiario',''); pac = d.get('paciente','')
     cat = d.get('categoria','') or detect_cat(est, pac)
     sem = d.get('semestre', 0) or detect_sem(est)
@@ -377,8 +382,7 @@ def create_ag():
     cur = conn.execute(
         'INSERT INTO agendamentos(dia_semana,horario,sala,estagiario,paciente,categoria,semestre,triagem,observacao,data_especifica)'
         ' VALUES(?,?,?,?,?,?,?,?,?,?)',
-        (dia, horario, sala, est, pac, cat, sem,
-         d.get('triagem',0), d.get('observacao',''), d.get('data_especifica',''))
+        (dia, horario, sala, est, pac, cat, sem, d.get('triagem',0), d.get('observacao',''), d.get('data_especifica',''))
     )
     nid = cur.lastrowid; conn.commit(); conn.close()
     registrar_log('CRIAR', f'Agendamento #{nid} criado — sala: {sala} {horario}')
@@ -389,18 +393,12 @@ def create_ag():
 @requer_papel('coordenador', 'recepcao')
 def update_ag(aid):
     d = request.json
-    dia     = d.get('dia_semana', 'SEGUNDA')
-    horario = d.get('horario')
-    sala    = d.get('sala')
-    # Conflito SEMPRE bloqueado — ignora o próprio registro
+    dia = d.get('dia_semana', 'SEGUNDA'); horario = d.get('horario'); sala = d.get('sala')
     conflito = checar_conflito(dia, horario, sala, excluir_id=aid)
     if conflito:
         ocu = conflito.get('estagiario') or conflito.get('categoria') or 'outro agendamento'
-        return jsonify({
-            'erro': f'Conflito: {sala} já está ocupada às {horario} ({dia}) por: {ocu}',
-            'conflito': True,
-            'conflito_id': conflito.get('id')
-        }), 409
+        return jsonify({'erro': f'Conflito: {sala} já está ocupada às {horario} ({dia}) por: {ocu}',
+                        'conflito': True, 'conflito_id': conflito.get('id')}), 409
     est = d.get('estagiario',''); pac = d.get('paciente','')
     cat = d.get('categoria','') or detect_cat(est, pac)
     sem = d.get('semestre', 0) or detect_sem(est)
@@ -408,8 +406,7 @@ def update_ag(aid):
     conn.execute(
         'UPDATE agendamentos SET dia_semana=?,horario=?,sala=?,estagiario=?,paciente=?,categoria=?,semestre=?,'
         'triagem=?,observacao=?,data_especifica=?,updated_at=CURRENT_TIMESTAMP WHERE id=?',
-        (dia, horario, sala, est, pac, cat, sem,
-         d.get('triagem',0), d.get('observacao',''), d.get('data_especifica',''), aid)
+        (dia, horario, sala, est, pac, cat, sem, d.get('triagem',0), d.get('observacao',''), d.get('data_especifica',''), aid)
     )
     conn.commit(); conn.close()
     registrar_log('EDITAR', f'Agendamento #{aid} editado — sala: {sala} {horario}')
@@ -423,8 +420,7 @@ def delete_ag(aid):
     r = conn.execute('SELECT * FROM agendamentos WHERE id=?',(aid,)).fetchone()
     conn.execute('DELETE FROM agendamentos WHERE id=?',(aid,))
     conn.commit(); conn.close()
-    if r:
-        registrar_log('EXCLUIR', f'Agendamento #{aid} excluído — sala: {r["sala"]} {r["horario"]}')
+    if r: registrar_log('EXCLUIR', f'Agendamento #{aid} excluído — sala: {r["sala"]} {r["horario"]}')
     return jsonify({'message': 'Removido'})
 
 @app.route('/api/stats')
@@ -445,13 +441,11 @@ def export_csv():
     conn = get_db()
     rows = conn.execute('SELECT * FROM agendamentos ORDER BY dia_semana, horario, sala').fetchall()
     conn.close()
-    out = io.StringIO()
-    w = csv.writer(out)
+    out = io.StringIO(); w = csv.writer(out)
     w.writerow(['ID','Dia','Horário','Sala','Estagiário','Paciente','Categoria','Semestre','Triagem','Data Esp.','Obs.'])
     for r in rows:
         w.writerow([r['id'],r['dia_semana'],r['horario'],r['sala'],r['estagiario'],r['paciente'],
-                    r['categoria'],r['semestre'],'Sim' if r['triagem'] else 'Não',
-                    r['data_especifica'],r['observacao']])
+                    r['categoria'],r['semestre'],'Sim' if r['triagem'] else 'Não',r['data_especifica'],r['observacao']])
     out.seek(0)
     registrar_log('EXPORTAR', 'CSV exportado')
     return send_file(io.BytesIO(out.read().encode('utf-8-sig')),mimetype='text/csv',as_attachment=True,
@@ -468,11 +462,5 @@ def get_logs():
 
 if __name__ == '__main__':
     init_db()
-    print('\n=================================================')
-    print('  Mapa de Salas - Policlinica de Psicologia')
-    print(f'  Versão: {VERSAO}')
-    print('  Acesse: http://localhost:5000')
-    print('  Login padrão: coordenador / mudar@2026')
-    print('  Ctrl+C para encerrar')
-    print('=================================================\n')
+    print(f'\n  Versão: {VERSAO} | http://localhost:5000\n')
     app.run(debug=True, port=5000)

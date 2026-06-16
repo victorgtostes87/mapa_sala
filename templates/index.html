@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mapa de Salas – Policlínica</title>
 <style>
-:root{--bg:#0f172a;--surface:#1e293b;--surface2:#263348;--border:#334155;--text:#e2e8f0;--text2:#94a3b8;--accent:#3b82f6;--accent2:#2563eb;--radius:8px}
+:root{--bg:#0f172a;--surface:#1e293b;--surface2:#263348;--border:#334155;--text:#e2e8f0;--text2:#94a3b8;--accent:#3b82f6;--accent2:#2563eb;--radius:8px;--warn:#f59e0b;--warn2:#92400e}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;min-height:100vh}
 .navbar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
@@ -21,6 +21,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}.btn-ghost:hover{background:var(--surface2);color:var(--text)}
 .btn-sm{padding:4px 10px;font-size:11px}
 .btn-danger{background:#dc2626;color:#fff}.btn-danger:hover{background:#b91c1c}
+.btn-warn{background:var(--warn);color:#1c1917;font-weight:700}.btn-warn:hover{background:#d97706}
 .btn-logout{background:transparent;color:#f87171;border:1px solid #7f1d1d;font-size:11px;padding:4px 10px;border-radius:var(--radius);cursor:pointer;font-weight:600;transition:all .15s}
 .btn-logout:hover{background:#7f1d1d;color:#fff}
 .tabs{display:flex;gap:0;padding:0 20px;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto}
@@ -65,18 +66,21 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid var(--border)}
 .read-only-info{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;font-size:13px;line-height:1.8;color:var(--text2)}
 .read-only-info strong{color:var(--text)}
+/* Alerta de conflito */
+.conflict-box{display:none;background:#431407;border:1px solid #f97316;border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;font-size:12px;color:#fed7aa}
+.conflict-box.show{display:block}
+.conflict-box strong{color:#fb923c;display:block;margin-bottom:2px}
 .legend{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);padding:7px 20px;display:flex;flex-wrap:wrap;gap:8px;z-index:50}
 .leg-item{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text2)}
 .leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
 .toast{position:fixed;top:20px;right:20px;padding:10px 18px;border-radius:var(--radius);font-size:13px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none}
-.toast.show{opacity:1}.toast.success{background:#16a34a;color:#fff}.toast.error{background:#dc2626;color:#fff}
+.toast.show{opacity:1}.toast.success{background:#16a34a;color:#fff}.toast.error{background:#dc2626;color:#fff}.toast.warn{background:#d97706;color:#fff}
 ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 @media(max-width:600px){.navbar{padding:8px 12px;gap:8px}.tabs{padding:0 8px}.stats-bar{padding:8px 12px}.filters{padding:0 12px 8px}.filters input{min-width:140px}}
 </style>
 </head>
 <body>
 
-<!-- Navbar -->
 <nav class="navbar">
   <h1>🏥 Mapa de <span>Salas</span></h1>
   <div class="navbar-spacer"></div>
@@ -94,21 +98,18 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
   <a href="/logout" class="btn-logout">🚪 Sair</a>
 </nav>
 
-<!-- Abas por dia -->
 <div class="tabs" id="dayTabs">
   {% for d in dias %}
   <div class="tab {% if loop.first %}active{% endif %}" onclick="selectDay('{{d}}',this)">{{d}}</div>
   {% endfor %}
 </div>
 
-<!-- Stats -->
 <div class="stats-bar">
   <div class="stat-card"><div class="label">Total</div><div class="value" id="stTotal">—</div></div>
   <div class="stat-card"><div class="label">Livres</div><div class="value" id="stLivre">—</div></div>
   <div class="stat-card"><div class="label">Estagiários</div><div class="value" id="stEst">—</div></div>
 </div>
 
-<!-- Filters -->
 <div class="filters">
   <input type="text" id="searchInput" placeholder="🔍  Buscar paciente, estagiário..." oninput="debounceRender()">
   <select id="filterHorario" onchange="renderGrid()"><option value="">Todos horários</option>
@@ -120,12 +121,10 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
   <button class="btn btn-ghost btn-sm" onclick="clearFilters()">&#x2715; Limpar</button>
 </div>
 
-<!-- Grid -->
 <div class="page-body"><div class="grid-wrap" id="gridWrap">
   <table class="mapa-table"><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table>
 </div></div>
 
-<!-- Legend -->
 <div class="legend">
   <div class="leg-item"><div class="leg-dot" style="background:#1d4ed8"></div>Estag. 10°</div>
   <div class="leg-item"><div class="leg-dot" style="background:#1e40af"></div>10° Triagem</div>
@@ -149,7 +148,6 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
     <h2 id="modalTitle">Agendamento</h2>
     <input type="hidden" id="fId">
 
-    <!-- Modo leitura (aluno) -->
     <div id="readOnlyView" style="display:none">
       <div class="read-only-info" id="readOnlyContent"></div>
       <div class="modal-footer">
@@ -157,16 +155,21 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
       </div>
     </div>
 
-    <!-- Modo edição (coordenador / recepção) -->
     <div id="editView">
+      <!-- Alerta de conflito -->
+      <div class="conflict-box" id="conflictBox">
+        <strong>⚠️ Conflito de sala detectado!</strong>
+        <span id="conflictMsg"></span>
+      </div>
+
       <div class="form-grid">
         <div class="form-row"><label>Dia *</label>
-          <select id="fDia">{% for d in dias %}<option>{{d}}</option>{% endfor %}</select></div>
+          <select id="fDia" onchange="verificarConflito()">{% for d in dias %}<option>{{d}}</option>{% endfor %}</select></div>
         <div class="form-row"><label>Horário *</label>
-          <select id="fHorario">{% for h in horarios %}<option>{{h}}</option>{% endfor %}</select></div>
+          <select id="fHorario" onchange="verificarConflito()">{% for h in horarios %}<option>{{h}}</option>{% endfor %}</select></div>
       </div>
       <div class="form-row"><label>Sala *</label>
-        <select id="fSala">{% for s in salas %}<option>{{s}}</option>{% endfor %}</select></div>
+        <select id="fSala" onchange="verificarConflito()">{% for s in salas %}<option>{{s}}</option>{% endfor %}</select></div>
       <div class="form-row"><label>Estagiário / Conteúdo</label>
         <input type="text" id="fEstagiario" placeholder="Ex: Ana Carolina 9° (Rodrigo)"></div>
       <div class="form-row"><label>Paciente</label>
@@ -185,7 +188,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
       <div class="modal-footer">
         <button class="btn btn-danger btn-sm" id="deleteBtn" onclick="deleteAg()" style="display:none;margin-right:auto">🗑 Remover</button>
         <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
-        <button class="btn btn-primary" onclick="saveAg()">💾 Salvar</button>
+        <button class="btn btn-primary" id="saveBtn" onclick="saveAg()">💾 Salvar</button>
       </div>
     </div>
   </div>
@@ -200,6 +203,8 @@ const PAPEL    = {{ papel | tojson }};
 const PODE_EDITAR = ['coordenador','recepcao'].includes(PAPEL);
 let currentDay = DIAS[0];
 let debTimer = null;
+let conflictTimer = null;
+let temConflito = false;
 
 const CAT_CLASS = {
   'ESTAGIÁRIO 10°':'cat-est10','ESTAGIÁRIO 10° TRIAGEM':'cat-est10t',
@@ -295,7 +300,46 @@ function esc(t){ if(!t)return''; return t.replace(/&/g,'&amp;').replace(/</g,'&l
 function debounceRender(){ clearTimeout(debTimer); debTimer=setTimeout(renderGrid,300); }
 function clearFilters(){ document.getElementById('searchInput').value=''; document.getElementById('filterHorario').value=''; document.getElementById('filterSala').value=''; document.getElementById('filterCat').value=''; renderGrid(); }
 
+// ── Verificação de conflito em tempo real ────────────────────────────────────
+async function verificarConflito() {
+  clearTimeout(conflictTimer);
+  conflictTimer = setTimeout(async () => {
+    const id      = document.getElementById('fId').value;
+    const dia     = document.getElementById('fDia').value;
+    const horario = document.getElementById('fHorario').value;
+    const sala    = document.getElementById('fSala').value;
+    const p = new URLSearchParams({dia_semana: dia, horario, sala});
+    if (id) p.set('excluir_id', id);
+    const res  = await fetch('/api/conflito?' + p);
+    const data = await res.json();
+    const box  = document.getElementById('conflictBox');
+    const msg  = document.getElementById('conflictMsg');
+    const btn  = document.getElementById('saveBtn');
+    if (data.conflito) {
+      const ocupado = data.estagiario || data.categoria || 'outro agendamento';
+      msg.textContent = `${sala} já está ocupada às ${horario} (${dia}) por: ${ocupado}`;
+      box.classList.add('show');
+      btn.classList.remove('btn-primary');
+      btn.classList.add('btn-warn');
+      btn.textContent = '⚠️ Salvar mesmo assim';
+      temConflito = true;
+    } else {
+      box.classList.remove('show');
+      btn.classList.remove('btn-warn');
+      btn.classList.add('btn-primary');
+      btn.innerHTML = '💾 Salvar';
+      temConflito = false;
+    }
+  }, 300);
+}
+
 function openModal(id) {
+  temConflito = false;
+  document.getElementById('conflictBox').classList.remove('show');
+  const btn = document.getElementById('saveBtn');
+  btn.classList.remove('btn-warn'); btn.classList.add('btn-primary');
+  btn.innerHTML = '💾 Salvar';
+
   document.getElementById('fId').value = id||'';
   document.getElementById('modalTitle').textContent = id ? 'Agendamento' : 'Novo Agendamento';
 
@@ -340,13 +384,19 @@ function openModal(id) {
 
 function openModalNew(h,s){
   if (!PODE_EDITAR) return;
-  openModal(null); setF('fHorario',h); setF('fSala',s);
+  openModal(null);
+  setF('fHorario',h); setF('fSala',s);
+  verificarConflito();
 }
 function setF(id,val){ const el=document.getElementById(id); if(el) el.value=val; }
 function closeModal(){ document.getElementById('modalOverlay').classList.remove('open'); }
 function closeModalIfBg(e){ if(e.target.id==='modalOverlay') closeModal(); }
 
 async function saveAg() {
+  if (temConflito) {
+    const ok = confirm('⚠️ Esta sala já está ocupada neste horário!\n\nDeseja salvar mesmo assim?');
+    if (!ok) return;
+  }
   const id = document.getElementById('fId').value;
   const body = {
     dia_semana: document.getElementById('fDia').value,
@@ -361,8 +411,13 @@ async function saveAg() {
   };
   const res = await fetch(id ? '/api/agendamentos/'+id : '/api/agendamentos',
     {method: id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  const data = await res.json();
   if (res.ok){ showToast('✅ Salvo!','success'); closeModal(); renderGrid(); }
-  else { const e=await res.json(); showToast('❌ '+(e.erro||'Erro ao salvar'),'error'); }
+  else if (res.status === 409) {
+    // Conflito recusado pelo backend — não deveria chegar aqui normalmente
+    showToast('⚠️ ' + data.erro, 'warn');
+  }
+  else { showToast('❌ '+(data.erro||'Erro ao salvar'),'error'); }
 }
 
 async function deleteAg() {

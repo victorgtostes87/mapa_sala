@@ -30,7 +30,7 @@ def load_user(user_id):
         return Usuario(row['id'], row['username'], row['role'])
     return None
 
-# ── Decorator de papel ───────────────────────────────────────────────────────
+# ── Decorators ───────────────────────────────────────────────────────────────
 def requer_papel(*papeis):
     def decorator(f):
         @wraps(f)
@@ -42,7 +42,6 @@ def requer_papel(*papeis):
     return decorator
 
 def requer_papel_page(*papeis):
-    """Decorator para rotas que retornam páginas HTML (não JSON)."""
     def decorator(f):
         @wraps(f)
         def wrapped(*args, **kwargs):
@@ -127,7 +126,24 @@ def registrar_log(acao, dados=''):
     conn.commit()
     conn.close()
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
+# ── Helper: verifica conflito de sala ──────────────────────────────────────────
+def checar_conflito(dia, horario, sala, excluir_id=None):
+    """Retorna o agendamento conflitante ou None."""
+    conn = get_db()
+    if excluir_id:
+        r = conn.execute(
+            'SELECT * FROM agendamentos WHERE dia_semana=? AND horario=? AND sala=? AND id!=?',
+            (dia, horario, sala, excluir_id)
+        ).fetchone()
+    else:
+        r = conn.execute(
+            'SELECT * FROM agendamentos WHERE dia_semana=? AND horario=? AND sala=?',
+            (dia, horario, sala)
+        ).fetchone()
+    conn.close()
+    return dict(r) if r else None
+
+# ── Helpers gerão de texto ─────────────────────────────────────────────────────
 def normalize(t):
     if not t: return ''
     for o, n in [('ă','ã'),('Ă','Ã'),('ş','º'),('Ş','º'),('ţ','ç')]:
@@ -279,6 +295,27 @@ def api_excluir_usuario(uid):
     registrar_log('EXCLUIR_USUARIO', f'Usuário "{row["username"]}" excluído')
     return jsonify({'message': 'Usuário excluído'})
 
+# ── API: verificar conflito antes de salvar ───────────────────────────────────
+@app.route('/api/conflito', methods=['GET'])
+@login_required
+def api_conflito():
+    dia     = request.args.get('dia_semana', '')
+    horario = request.args.get('horario', '')
+    sala    = request.args.get('sala', '')
+    excluir = request.args.get('excluir_id', None)
+    if not dia or not horario or not sala:
+        return jsonify({'conflito': False})
+    conflito = checar_conflito(dia, horario, sala, excluir_id=excluir)
+    if conflito:
+        return jsonify({
+            'conflito': True,
+            'estagiario': conflito.get('estagiario', ''),
+            'paciente': conflito.get('paciente', ''),
+            'categoria': conflito.get('categoria', ''),
+            'id': conflito.get('id')
+        })
+    return jsonify({'conflito': False})
+
 # ── API de agendamentos ──────────────────────────────────────────────────────
 @app.route('/api/agendamentos', methods=['GET'])
 @login_required
@@ -309,6 +346,18 @@ def get_ag(aid):
 @requer_papel('coordenador', 'recepcao')
 def create_ag():
     d = request.json
+    dia     = d.get('dia_semana', 'SEGUNDA')
+    horario = d.get('horario')
+    sala    = d.get('sala')
+    # ── Bloqueia conflito no backend ───────────────────────────────────────
+    conflito = checar_conflito(dia, horario, sala)
+    if conflito:
+        msg = f'{conflito.get("estagiario") or conflito.get("categoria","outro agendamento")}'
+        return jsonify({
+            'erro': f'Conflito: {sala} já está ocupada às {horario} ({dia}) por {msg}',
+            'conflito': True,
+            'conflito_id': conflito.get('id')
+        }), 409
     est = d.get('estagiario',''); pac = d.get('paciente','')
     cat = d.get('categoria','') or detect_cat(est, pac)
     sem = d.get('semestre', 0) or detect_sem(est)
@@ -316,11 +365,11 @@ def create_ag():
     cur = conn.execute(
         'INSERT INTO agendamentos(dia_semana,horario,sala,estagiario,paciente,categoria,semestre,triagem,observacao,data_especifica)'
         ' VALUES(?,?,?,?,?,?,?,?,?,?)',
-        (d.get('dia_semana','SEGUNDA'), d.get('horario'), d.get('sala'), est, pac, cat, sem,
+        (dia, horario, sala, est, pac, cat, sem,
          d.get('triagem',0), d.get('observacao',''), d.get('data_especifica',''))
     )
     nid = cur.lastrowid; conn.commit(); conn.close()
-    registrar_log('CRIAR', f'Agendamento #{nid} criado — sala: {d.get("sala")} {d.get("horario")}')
+    registrar_log('CRIAR', f'Agendamento #{nid} criado — sala: {sala} {horario}')
     return jsonify({'id': nid, 'message': 'Criado'}), 201
 
 @app.route('/api/agendamentos/<int:aid>', methods=['PUT'])
@@ -328,6 +377,18 @@ def create_ag():
 @requer_papel('coordenador', 'recepcao')
 def update_ag(aid):
     d = request.json
+    dia     = d.get('dia_semana', 'SEGUNDA')
+    horario = d.get('horario')
+    sala    = d.get('sala')
+    # ── Bloqueia conflito no backend (ignora o próprio registro) ─────────────
+    conflito = checar_conflito(dia, horario, sala, excluir_id=aid)
+    if conflito:
+        msg = f'{conflito.get("estagiario") or conflito.get("categoria","outro agendamento")}'
+        return jsonify({
+            'erro': f'Conflito: {sala} já está ocupada às {horario} ({dia}) por {msg}',
+            'conflito': True,
+            'conflito_id': conflito.get('id')
+        }), 409
     est = d.get('estagiario',''); pac = d.get('paciente','')
     cat = d.get('categoria','') or detect_cat(est, pac)
     sem = d.get('semestre', 0) or detect_sem(est)
@@ -335,11 +396,11 @@ def update_ag(aid):
     conn.execute(
         'UPDATE agendamentos SET dia_semana=?,horario=?,sala=?,estagiario=?,paciente=?,categoria=?,semestre=?,'
         'triagem=?,observacao=?,data_especifica=?,updated_at=CURRENT_TIMESTAMP WHERE id=?',
-        (d.get('dia_semana','SEGUNDA'), d.get('horario'), d.get('sala'), est, pac, cat, sem,
+        (dia, horario, sala, est, pac, cat, sem,
          d.get('triagem',0), d.get('observacao',''), d.get('data_especifica',''), aid)
     )
     conn.commit(); conn.close()
-    registrar_log('EDITAR', f'Agendamento #{aid} editado — sala: {d.get("sala")} {d.get("horario")}')
+    registrar_log('EDITAR', f'Agendamento #{aid} editado — sala: {sala} {horario}')
     return jsonify({'message': 'Atualizado'})
 
 @app.route('/api/agendamentos/<int:aid>', methods=['DELETE'])
@@ -384,7 +445,6 @@ def export_csv():
     return send_file(io.BytesIO(out.read().encode('utf-8-sig')),mimetype='text/csv',as_attachment=True,
                      download_name=f'mapa_salas_{datetime.now().strftime("%Y%m%d_%H%M")}.csv')
 
-# ── Painel de log (só coordenador) ───────────────────────────────────────────
 @app.route('/api/logs')
 @login_required
 @requer_papel('coordenador')

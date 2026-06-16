@@ -2,66 +2,72 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Lista de Pacientes – {{ dia_nome }} {{ data_hoje }}</title>
+<title>Lista de Pacientes – {{ dia_nome }}</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: Arial, sans-serif; font-size: 13px; color: #000; background: #fff; padding: 30px 40px; }
-  header { border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 20px; }
-  header h1 { font-size: 18px; font-weight: bold; text-transform: uppercase; }
-  header p { font-size: 12px; color: #444; margin-top: 4px; }
-  table { width: 100%; border-collapse: collapse; }
-  thead tr { border-bottom: 1px solid #000; }
-  thead th { text-align: left; padding: 6px 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: #555; }
-  tbody tr { border-bottom: 1px solid #ddd; }
-  tbody tr:last-child { border-bottom: none; }
-  tbody td { padding: 7px 8px; font-size: 13px; }
-  .horario { width: 70px; font-weight: bold; color: #333; white-space: nowrap; }
-  .empty { text-align: center; color: #888; padding: 40px; font-style: italic; }
-  footer { margin-top: 30px; border-top: 1px solid #ccc; padding-top: 10px; font-size: 10px; color: #888; display: flex; justify-content: space-between; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; font-size: 13px; color: #111; background: #fff; padding: 24px; }
+
+  .header { text-align: center; border-bottom: 2px solid #1d4ed8; padding-bottom: 12px; margin-bottom: 20px; }
+  .header h1 { font-size: 22px; color: #1d4ed8; }
+  .header p  { font-size: 12px; color: #555; margin-top: 4px; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th { background: #1d4ed8; color: #fff; padding: 8px 12px; text-align: left; font-size: 12px; }
+  td { padding: 7px 12px; border-bottom: 1px solid #ddd; font-size: 13px; }
+  tr:nth-child(even) td { background: #f0f4ff; }
+
+  .empty { text-align: center; color: #888; padding: 40px; font-size: 14px; }
+  .total { margin-top: 14px; font-size: 12px; color: #555; text-align: right; }
+
+  .rodape { margin-top: 24px; font-size: 10px; color: #aaa; text-align: center; border-top: 1px solid #eee; padding-top: 8px; }
+
+  /* Botoes — sumiram na impressao */
+  .no-print { margin-bottom: 16px; display: flex; gap: 10px; }
+  .btn { padding: 8px 18px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
+  .btn-print { background: #1d4ed8; color: #fff; }
+  .btn-back  { background: #e5e7eb; color: #111; text-decoration: none; display: inline-flex; align-items: center; }
+
   @media print {
-    body { padding: 15px 20px; }
     .no-print { display: none !important; }
-    footer { position: fixed; bottom: 10px; left: 20px; right: 20px; }
+    body { padding: 10px; }
   }
 </style>
 </head>
 <body>
 
-<div class="no-print" style="margin-bottom:20px;display:flex;gap:10px;align-items:center">
-  <button onclick="window.print()" style="padding:8px 20px;background:#1d4ed8;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer">🖨️ Imprimir / Salvar PDF</button>
-  <a href="/" style="font-size:12px;color:#555;text-decoration:none">← Voltar ao mapa</a>
+<div class="no-print">
+  <a href="/" class="btn btn-back">← Voltar</a>
+  <button class="btn btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
 </div>
 
-<header>
-  <h1>Policlínica de Psicologia — Lista de Pacientes</h1>
-  <p>{{ dia_nome }} — {{ data_hoje }} &nbsp;|&nbsp; Gerado em: {{ gerado_em }}</p>
-</header>
+<div class="header">
+  <h1>Lista de Pacientes – {{ dia_nome }}</h1>
+  <p>Policlínica de Psicologia &nbsp;|&nbsp; Gerado em: {{ gerado_em }}</p>
+</div>
 
 {% if pacientes %}
 <table>
   <thead>
     <tr>
-      <th class="horario">Horário</th>
+      <th style="width:90px">Horário</th>
       <th>Paciente</th>
     </tr>
   </thead>
   <tbody>
     {% for p in pacientes %}
     <tr>
-      <td class="horario">{{ p.horario }}</td>
+      <td>{{ p.horario }}</td>
       <td>{{ p.paciente }}</td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
+<p class="total">Total: {{ pacientes|length }} paciente(s)</p>
 {% else %}
-<div class="empty">Nenhum paciente agendado para este dia.</div>
+<p class="empty">📂 Nenhum paciente cadastrado para {{ dia_nome }}.</p>
 {% endif %}
 
-<footer>
-  <span>Policlínica de Psicologia</span>
-  <span>Total de pacientes: {{ pacientes|length }}</span>
-</footer>
+<div class="rodape">Lista gerada automaticamente pelo sistema de agendamento.</div>
 
 </body>
 </html>

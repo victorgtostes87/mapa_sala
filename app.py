@@ -9,7 +9,7 @@ app = Flask(__name__)
 app.secret_key = 'mapa_salas_secret_2026'
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 
-VERSAO = '2026-06-16-v4'
+VERSAO = '2026-06-16-v5'
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -57,14 +57,10 @@ SALAS = [
 HORARIOS = ['07:00','08:00','09:00','10:00','11:00','12:00','13:00',
             '14:00','15:00','16:00','17:00','18:00','19:00','20:00']
 DIAS = ['SEGUNDA','TERÇA','QUARTA','QUINTA','SEXTA','SÁBADO']
-DIAS_SEMANA_PT = {
-    'SEGUNDA': 'Segunda-feira', 'TERÇA': 'Terça-feira',
-    'QUARTA': 'Quarta-feira', 'QUINTA': 'Quinta-feira',
-    'SEXTA': 'Sexta-feira', 'SÁBADO': 'Sábado'
+DIAS_PT = {
+    'SEGUNDA':'Segunda-feira','TERÇA':'Terça-feira','QUARTA':'Quarta-feira',
+    'QUINTA':'Quinta-feira','SEXTA':'Sexta-feira','SÁBADO':'Sábado'
 }
-# mapeamento Python weekday() -> chave DIAS
-WEEKDAY_MAP = {0:'SEGUNDA',1:'TERÇA',2:'QUARTA',3:'QUINTA',4:'SEXTA',5:'SÁBADO'}
-
 CATEGORIAS = [
     'ESTAGIÁRIO 10°','ESTAGIÁRIO 10° TRIAGEM',
     'ESTAGIÁRIO 9°','ESTAGIÁRIO 9° TRIAGEM',
@@ -114,10 +110,8 @@ def init_db():
     )
     existe = conn.execute("SELECT id FROM usuarios WHERE username='coordenador'").fetchone()
     if not existe:
-        conn.execute(
-            "INSERT INTO usuarios(username, password_hash, role) VALUES(?,?,?)",
-            ('coordenador', generate_password_hash('mudar@2026'), 'coordenador')
-        )
+        conn.execute("INSERT INTO usuarios(username, password_hash, role) VALUES(?,?,?)",
+            ('coordenador', generate_password_hash('mudar@2026'), 'coordenador'))
     conn.commit(); conn.close()
 
 def registrar_log(acao, dados=''):
@@ -135,13 +129,11 @@ def checar_conflito(dia, horario, sala, excluir_id=None):
     if eid:
         r = conn.execute(
             'SELECT * FROM agendamentos WHERE dia_semana=? AND horario=? AND sala=? AND CAST(id AS INTEGER)!=?',
-            (dia, horario, sala, eid)
-        ).fetchone()
+            (dia, horario, sala, eid)).fetchone()
     else:
         r = conn.execute(
             'SELECT * FROM agendamentos WHERE dia_semana=? AND horario=? AND sala=?',
-            (dia, horario, sala)
-        ).fetchone()
+            (dia, horario, sala)).fetchone()
     conn.close()
     return dict(r) if r else None
 
@@ -178,6 +170,7 @@ def detect_sem(t):
     if re.search(r'9[°º]', t): return 9
     return 0
 
+# ── Rotas ────────────────────────────────────────────────────
 @app.route('/api/versao')
 def api_versao():
     return jsonify({'versao': VERSAO, 'ok': True})
@@ -214,7 +207,14 @@ def index():
                            categorias=CATEGORIAS, dias=DIAS,
                            usuario=current_user.username, papel=current_user.role)
 
-# ── Impressão lista de pacientes ────────────────────────────────────────
+# ── Impressão lista porteiros ─────────────────────────────────────
+@app.route('/imprimir')
+@login_required
+def imprimir_selecao():
+    """Página para selecionar dia e abrir lista de impressão."""
+    return render_template('imprimir_selecao.html', dias=DIAS, dias_pt=DIAS_PT,
+                           usuario=current_user.username, papel=current_user.role)
+
 @app.route('/imprimir/<dia>')
 @login_required
 def imprimir(dia):
@@ -222,7 +222,6 @@ def imprimir(dia):
     if dia not in DIAS:
         return 'Dia inválido', 400
     conn = get_db()
-    # Somente registros com paciente preenchido
     rows = conn.execute(
         "SELECT horario, paciente FROM agendamentos "
         "WHERE dia_semana=? AND TRIM(paciente) != '' "
@@ -230,25 +229,14 @@ def imprimir(dia):
         (dia,)
     ).fetchall()
     conn.close()
-
-    # Calcula a data do próximo dia da semana correspondente
-    hoje = date.today()
-    wd_hoje = hoje.weekday()  # 0=seg, 6=dom
-    wd_alvo = list(WEEKDAY_MAP.keys())[list(WEEKDAY_MAP.values()).index(dia)]
-    delta = (wd_alvo - wd_hoje) % 7
-    data_alvo = hoje if delta == 0 else hoje
-    # usa a data de hoje com o nome do dia selecionado
-    data_str = hoje.strftime('%d/%m/%Y')
-
     pacientes = [{'horario': r['horario'], 'paciente': r['paciente'].strip().title()} for r in rows]
-
     return render_template('imprimir.html',
-        dia_nome=DIAS_SEMANA_PT.get(dia, dia),
-        data_hoje=data_str,
+        dia_nome=DIAS_PT.get(dia, dia),
         gerado_em=datetime.now().strftime('%d/%m/%Y %H:%M'),
         pacientes=pacientes
     )
 
+# ── Usuários ────────────────────────────────────────────────────
 @app.route('/usuarios')
 @login_required
 @requer_papel_page('coordenador')
@@ -344,7 +332,7 @@ def api_conflito():
 @app.route('/api/agendamentos', methods=['GET'])
 @login_required
 def list_ag():
-    dia   = request.args.get('dia_semana', 'SEGUNDA')
+    dia     = request.args.get('dia_semana', 'SEGUNDA')
     horario = request.args.get('horario','')
     sala    = request.args.get('sala','')
     cat     = request.args.get('categoria','')

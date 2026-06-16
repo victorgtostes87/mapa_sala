@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Logs do Sistema</title>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text2:#94a3b8;--accent:#3b82f6;--radius:8px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;font-size:13px;min-height:100vh}
+.navbar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:12px}
+.navbar h1{font-size:15px;font-weight:700;color:#f8fafc}
+.navbar-spacer{flex:1}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:var(--radius);border:none;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;text-decoration:none}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}.btn-ghost:hover{background:#263348;color:var(--text)}
+.container{max-width:960px;margin:24px auto;padding:0 20px}
+.filters{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.filters input,.filters select{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:6px 10px;font-size:12px;outline:none}
+.filters input{min-width:220px}
+.filters input:focus,.filters select:focus{border-color:var(--accent)}
+table{width:100%;border-collapse:collapse}
+th{background:var(--surface);color:var(--text2);font-size:10px;text-transform:uppercase;letter-spacing:.4px;padding:8px 12px;border-bottom:2px solid var(--border);text-align:left;white-space:nowrap}
+td{padding:8px 12px;border-bottom:1px solid var(--border);font-size:12px;vertical-align:top}
+tr:hover td{background:#1a2744}
+.badge-acao{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+.acao-criar{background:#14532d;color:#86efac}.acao-editar{background:#1e3a5f;color:#93c5fd}
+.acao-excluir{background:#7f1d1d;color:#fca5a5}.acao-login{background:#312e81;color:#c4b5fd}
+.acao-logout{background:#374151;color:#d1d5db}.acao-exportar{background:#78350f;color:#fde68a}
+.acao-outro{background:#1e293b;color:#94a3b8}
+.ts{color:var(--text2);white-space:nowrap;font-size:11px}
+.dados{color:var(--text2);font-size:11px;max-width:380px;word-break:break-word}
+.empty{text-align:center;padding:60px;color:var(--text2)}
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <h1>📋 Logs do Sistema</h1>
+  <div class="navbar-spacer"></div>
+  <a href="/" class="btn btn-ghost">← Voltar</a>
+</nav>
+<div class="container">
+  <div class="filters">
+    <input type="text" id="busca" placeholder="🔍 Filtrar por usuário, ação ou dados..." oninput="filtrar()">
+    <select id="filtroAcao" onchange="filtrar()">
+      <option value="">Todas as ações</option>
+      <option>LOGIN</option><option>LOGOUT</option>
+      <option>CRIAR</option><option>EDITAR</option><option>EXCLUIR</option>
+      <option>CRIAR_USUARIO</option><option>EDITAR_USUARIO</option><option>EXCLUIR_USUARIO</option>
+      <option>EXPORTAR</option>
+    </select>
+  </div>
+  <table>
+    <thead><tr><th>Data/Hora</th><th>Usuário</th><th>Ação</th><th>Detalhes</th></tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div class="empty" id="empty" style="display:none">Nenhum log encontrado.</div>
+</div>
+<script>
+let todos = [];
+
+const CORES = {
+  CRIAR:'acao-criar', EDITAR:'acao-editar', EXCLUIR:'acao-excluir',
+  LOGIN:'acao-login', LOGOUT:'acao-logout', EXPORTAR:'acao-exportar',
+  CRIAR_USUARIO:'acao-criar', EDITAR_USUARIO:'acao-editar', EXCLUIR_USUARIO:'acao-excluir'
+};
+
+function formatTs(ts){
+  if(!ts) return '—';
+  // ts vem como "2026-06-16 21:00:00"
+  return ts.replace('T',' ').substring(0,16).replace('-','/'). replace('-','/');
+}
+
+function classeAcao(a){
+  return CORES[a] || 'acao-outro';
+}
+
+function render(lista){
+  const tbody = document.getElementById('tbody');
+  const empty = document.getElementById('empty');
+  if(!lista.length){ tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  tbody.innerHTML = lista.map(r=>`
+    <tr>
+      <td class="ts">${formatTs(r.ts)}</td>
+      <td>${r.usuario||'—'}</td>
+      <td><span class="badge-acao ${classeAcao(r.acao)}">${r.acao}</span></td>
+      <td class="dados">${r.dados||''}</td>
+    </tr>
+  `).join('');
+}
+
+function filtrar(){
+  const busca = document.getElementById('busca').value.toLowerCase();
+  const acao  = document.getElementById('filtroAcao').value;
+  const lista = todos.filter(r=>{
+    const ok_acao  = !acao  || r.acao === acao;
+    const ok_busca = !busca || (r.usuario||'').toLowerCase().includes(busca)
+                            || (r.acao||'').toLowerCase().includes(busca)
+                            || (r.dados||'').toLowerCase().includes(busca);
+    return ok_acao && ok_busca;
+  });
+  render(lista);
+}
+
+async function carregar(){
+  const res = await fetch('/api/logs');
+  todos = await res.json();
+  render(todos);
+}
+
+carregar();
+</script>
+</body>
+</html>

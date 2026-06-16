@@ -9,7 +9,7 @@ app = Flask(__name__)
 app.secret_key = 'mapa_salas_secret_2026'
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 
-VERSAO = '2026-06-16-v6'
+VERSAO = '2026-06-16-v7'
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -70,6 +70,8 @@ CATEGORIAS = [
     'PRONTUÁRIO/ESTUDAR','LIVRE','OUTRO'
 ]
 
+LOG_RETENCAO_DIAS = 15
+
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -118,6 +120,10 @@ def registrar_log(acao, dados=''):
     usuario = current_user.username if current_user.is_authenticated else 'sistema'
     conn = get_db()
     conn.execute('INSERT INTO historico(usuario, acao, dados) VALUES(?,?,?)', (usuario, acao, dados))
+    conn.execute(
+        "DELETE FROM historico WHERE ts < datetime('now', '-' || ? || ' days')",
+        (LOG_RETENCAO_DIAS,)
+    )
     conn.commit(); conn.close()
 
 def checar_conflito(dia, horario, sala, excluir_id=None):
@@ -450,7 +456,7 @@ def export_csv():
 @requer_papel('coordenador')
 def get_logs():
     conn = get_db()
-    rows = conn.execute('SELECT * FROM historico ORDER BY ts DESC LIMIT 200').fetchall()
+    rows = conn.execute('SELECT * FROM historico ORDER BY ts DESC LIMIT 500').fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
 

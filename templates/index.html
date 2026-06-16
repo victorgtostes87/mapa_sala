@@ -90,6 +90,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
   <a href="/usuarios" class="btn btn-ghost btn-sm">👥 Usuários</a>
   <button class="btn btn-ghost btn-sm" onclick="exportCSV()">&#11015;&#65039; Exportar</button>
   {% endif %}
+  <a href="/imprimir" class="btn btn-ghost btn-sm" target="_blank">🖨️ Imprimir</a>
   {% if papel in ['coordenador', 'recepcao'] %}
   <button class="btn btn-primary btn-sm" onclick="openModal(null)">&#65291; Novo</button>
   {% endif %}
@@ -154,7 +155,6 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
     </div>
 
     <div id="editView">
-      <!-- Caixa de conflito — aparece quando sala+horário+dia já estão ocupados -->
       <div class="conflict-box" id="conflictBox">
         <strong>🚫 Sala já está ocupada!</strong>
         <span id="conflictMsg"></span>
@@ -299,7 +299,6 @@ function esc(t){ if(!t)return''; return t.replace(/&/g,'&amp;').replace(/</g,'&l
 function debounceRender(){ clearTimeout(debTimer); debTimer=setTimeout(renderGrid,300); }
 function clearFilters(){ document.getElementById('searchInput').value=''; document.getElementById('filterHorario').value=''; document.getElementById('filterSala').value=''; document.getElementById('filterCat').value=''; renderGrid(); }
 
-// ── Verificação de conflito em tempo real ─────────────────────────────────────
 async function verificarConflito() {
   clearTimeout(conflictTimer);
   conflictTimer = setTimeout(async () => {
@@ -318,7 +317,6 @@ async function verificarConflito() {
       const ocupado = data.estagiario || data.categoria || 'outro agendamento';
       msg.textContent = `${sala} — ${horario} (${dia}): ocupada por ${ocupado}`;
       box.classList.add('show');
-      // Desabilita botão salvar enquanto houver conflito
       btn.disabled = true;
       btn.style.opacity = '0.4';
       btn.style.cursor = 'not-allowed';
@@ -377,7 +375,6 @@ function openModal(id) {
       setF('fCategoria',d.categoria); setF('fTriagem',d.triagem);
       document.getElementById('fData').value=d.data_especifica||'';
       document.getElementById('fObs').value=d.observacao||'';
-      // ao abrir edição não verifica (o próprio já está lá)
     });
   } else {
     setF('fDia',currentDay); setF('fCategoria',''); setF('fTriagem',0);
@@ -402,7 +399,6 @@ function closeModal(){ document.getElementById('modalOverlay').classList.remove(
 function closeModalIfBg(e){ if(e.target.id==='modalOverlay') closeModal(); }
 
 async function saveAg() {
-  // Dupla checagem no front: não salva se houver conflito detectado
   if (temConflito) {
     showToast('🚫 Resolva o conflito de sala antes de salvar!', 'error');
     return;
@@ -425,7 +421,6 @@ async function saveAg() {
   if (res.ok){
     showToast('✅ Salvo!','success'); closeModal(); renderGrid();
   } else if (res.status === 409) {
-    // Backend bloqueou — mostra na caixa de conflito
     document.getElementById('conflictMsg').textContent = data.erro || 'Conflito de sala.';
     document.getElementById('conflictBox').classList.add('show');
     const btn = document.getElementById('saveBtn');

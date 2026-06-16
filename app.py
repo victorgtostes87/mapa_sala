@@ -9,6 +9,8 @@ app = Flask(__name__)
 app.secret_key = 'mapa_salas_secret_2026'
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 
+VERSAO = '2026-06-16-v3'  # <-- marcador de versão para diagnóstico
+
 # ── Flask-Login ──────────────────────────────────────────────────────────────
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -128,9 +130,7 @@ def registrar_log(acao, dados=''):
 
 # ── Helper: verifica conflito de sala ──────────────────────────────────────────
 def checar_conflito(dia, horario, sala, excluir_id=None):
-    """Retorna o agendamento conflitante ou None.
-    excluir_id: int ou str — convertemos para int para garantir comparação correta.
-    """
+    """Retorna o agendamento conflitante ou None."""
     conn = get_db()
     try:
         eid = int(excluir_id) if excluir_id else None
@@ -139,7 +139,7 @@ def checar_conflito(dia, horario, sala, excluir_id=None):
 
     if eid:
         r = conn.execute(
-            'SELECT * FROM agendamentos WHERE dia_semana=? AND horario=? AND sala=? AND id!=?',
+            'SELECT * FROM agendamentos WHERE dia_semana=? AND horario=? AND sala=? AND CAST(id AS INTEGER)!=?',
             (dia, horario, sala, eid)
         ).fetchone()
     else:
@@ -150,7 +150,7 @@ def checar_conflito(dia, horario, sala, excluir_id=None):
     conn.close()
     return dict(r) if r else None
 
-# ── Helpers texto ─────────────────────────────────────────────────────────
+# ── Helpers texto ─────────────────────────────────────────────────────────────
 def normalize(t):
     if not t: return ''
     for o, n in [('ă','ã'),('Ă','Ã'),('ş','º'),('Ş','º'),('ţ','ç')]:
@@ -183,6 +183,11 @@ def detect_sem(t):
     if re.search(r'10[°º]', t): return 10
     if re.search(r'9[°º]', t): return 9
     return 0
+
+# ── Rota de diagnóstico ────────────────────────────────────────────────────────
+@app.route('/api/versao')
+def api_versao():
+    return jsonify({'versao': VERSAO, 'ok': True})
 
 # ── Rotas de autenticação ────────────────────────────────────────────────────
 @app.route('/login', methods=['GET', 'POST'])
@@ -302,14 +307,14 @@ def api_excluir_usuario(uid):
     registrar_log('EXCLUIR_USUARIO', f'Usuário "{row["username"]}" excluído')
     return jsonify({'message': 'Usuário excluído'})
 
-# ── API: verificar conflito antes de salvar ───────────────────────────────────
+# ── API: verificar conflito antes de salvar ────────────────────────────────────
 @app.route('/api/conflito', methods=['GET'])
 @login_required
 def api_conflito():
     dia     = request.args.get('dia_semana', '')
     horario = request.args.get('horario', '')
     sala    = request.args.get('sala', '')
-    excluir = request.args.get('excluir_id', None)  # vem como string da URL
+    excluir = request.args.get('excluir_id', None)
     if not dia or not horario or not sala:
         return jsonify({'conflito': False})
     conflito = checar_conflito(dia, horario, sala, excluir_id=excluir)
@@ -323,7 +328,7 @@ def api_conflito():
         })
     return jsonify({'conflito': False})
 
-# ── API de agendamentos ──────────────────────────────────────────────────────
+# ── API de agendamentos ────────────────────────────────────────────────────────
 @app.route('/api/agendamentos', methods=['GET'])
 @login_required
 def list_ag():
@@ -356,18 +361,15 @@ def create_ag():
     dia     = d.get('dia_semana', 'SEGUNDA')
     horario = d.get('horario')
     sala    = d.get('sala')
-    forcar  = d.get('forcar', False)  # True = usuário confirmou salvar mesmo com conflito
-
-    if not forcar:
-        conflito = checar_conflito(dia, horario, sala)
-        if conflito:
-            ocu = conflito.get('estagiario') or conflito.get('categoria') or 'outro agendamento'
-            return jsonify({
-                'erro': f'Conflito: {sala} já está ocupada às {horario} ({dia}) por: {ocu}',
-                'conflito': True,
-                'conflito_id': conflito.get('id')
-            }), 409
-
+    # Conflito SEMPRE bloqueado — sem opção de forçar
+    conflito = checar_conflito(dia, horario, sala)
+    if conflito:
+        ocu = conflito.get('estagiario') or conflito.get('categoria') or 'outro agendamento'
+        return jsonify({
+            'erro': f'Conflito: {sala} já está ocupada às {horario} ({dia}) por: {ocu}',
+            'conflito': True,
+            'conflito_id': conflito.get('id')
+        }), 409
     est = d.get('estagiario',''); pac = d.get('paciente','')
     cat = d.get('categoria','') or detect_cat(est, pac)
     sem = d.get('semestre', 0) or detect_sem(est)
@@ -390,18 +392,15 @@ def update_ag(aid):
     dia     = d.get('dia_semana', 'SEGUNDA')
     horario = d.get('horario')
     sala    = d.get('sala')
-    forcar  = d.get('forcar', False)  # True = usuário confirmou salvar mesmo com conflito
-
-    if not forcar:
-        conflito = checar_conflito(dia, horario, sala, excluir_id=aid)
-        if conflito:
-            ocu = conflito.get('estagiario') or conflito.get('categoria') or 'outro agendamento'
-            return jsonify({
-                'erro': f'Conflito: {sala} já está ocupada às {horario} ({dia}) por: {ocu}',
-                'conflito': True,
-                'conflito_id': conflito.get('id')
-            }), 409
-
+    # Conflito SEMPRE bloqueado — ignora o próprio registro
+    conflito = checar_conflito(dia, horario, sala, excluir_id=aid)
+    if conflito:
+        ocu = conflito.get('estagiario') or conflito.get('categoria') or 'outro agendamento'
+        return jsonify({
+            'erro': f'Conflito: {sala} já está ocupada às {horario} ({dia}) por: {ocu}',
+            'conflito': True,
+            'conflito_id': conflito.get('id')
+        }), 409
     est = d.get('estagiario',''); pac = d.get('paciente','')
     cat = d.get('categoria','') or detect_cat(est, pac)
     sem = d.get('semestre', 0) or detect_sem(est)
@@ -471,6 +470,7 @@ if __name__ == '__main__':
     init_db()
     print('\n=================================================')
     print('  Mapa de Salas - Policlinica de Psicologia')
+    print(f'  Versão: {VERSAO}')
     print('  Acesse: http://localhost:5000')
     print('  Login padrão: coordenador / mudar@2026')
     print('  Ctrl+C para encerrar')

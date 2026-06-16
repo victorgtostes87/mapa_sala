@@ -9,7 +9,7 @@ app = Flask(__name__)
 app.secret_key = 'mapa_salas_secret_2026'
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 
-VERSAO = '2026-06-16-v5'
+VERSAO = '2026-06-16-v6'
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -211,7 +211,6 @@ def index():
 @app.route('/imprimir')
 @login_required
 def imprimir_selecao():
-    """Página para selecionar dia e abrir lista de impressão."""
     return render_template('imprimir_selecao.html', dias=DIAS, dias_pt=DIAS_PT,
                            usuario=current_user.username, papel=current_user.role)
 
@@ -235,6 +234,13 @@ def imprimir(dia):
         gerado_em=datetime.now().strftime('%d/%m/%Y %H:%M'),
         pacientes=pacientes
     )
+
+# ── Logs ────────────────────────────────────────────────────
+@app.route('/logs')
+@login_required
+@requer_papel_page('coordenador')
+def logs_page():
+    return render_template('logs.html', usuario=current_user.username, papel=current_user.role)
 
 # ── Usuários ────────────────────────────────────────────────────
 @app.route('/usuarios')

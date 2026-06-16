@@ -88,6 +88,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
   </div>
   {% if papel == 'coordenador' %}
   <a href="/usuarios" class="btn btn-ghost btn-sm">👥 Usuários</a>
+  <a href="/logs" class="btn btn-ghost btn-sm">📋 Logs</a>
   <button class="btn btn-ghost btn-sm" onclick="exportCSV()">&#11015;&#65039; Exportar</button>
   {% endif %}
   <a href="/imprimir" class="btn btn-ghost btn-sm" target="_blank">🖨️ Imprimir</a>
@@ -146,21 +147,16 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
   <div class="modal">
     <h2 id="modalTitle">Agendamento</h2>
     <input type="hidden" id="fId">
-
     <div id="readOnlyView" style="display:none">
       <div class="read-only-info" id="readOnlyContent"></div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" onclick="closeModal()">Fechar</button>
-      </div>
+      <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button></div>
     </div>
-
     <div id="editView">
       <div class="conflict-box" id="conflictBox">
         <strong>🚫 Sala já está ocupada!</strong>
         <span id="conflictMsg"></span>
         <div style="margin-top:8px;font-size:11px;color:#fca5a5">Escolha outro horário ou outra sala antes de salvar.</div>
       </div>
-
       <div class="form-grid">
         <div class="form-row"><label>Dia *</label>
           <select id="fDia" onchange="verificarConflito()">{% for d in dias %}<option>{{d}}</option>{% endfor %}</select></div>
@@ -222,7 +218,6 @@ function selectDay(dia, el) {
   el.classList.add('active');
   renderGrid();
 }
-
 async function loadData() {
   const horario = document.getElementById('filterHorario').value;
   const sala    = document.getElementById('filterSala').value;
@@ -236,7 +231,6 @@ async function loadData() {
   const res = await fetch('/api/agendamentos?' + p);
   return await res.json();
 }
-
 async function loadStats() {
   const res = await fetch('/api/stats?dia_semana='+currentDay);
   const d = await res.json();
@@ -245,7 +239,6 @@ async function loadStats() {
   const est = (d.por_categoria||[]).filter(c=>c.categoria&&c.categoria.startsWith('ESTAGIÁRIO')).reduce((a,c)=>a+c.n,0);
   document.getElementById('stEst').textContent = est;
 }
-
 async function renderGrid() {
   const data = await loadData();
   const filterSala = document.getElementById('filterSala').value;
@@ -254,10 +247,8 @@ async function renderGrid() {
   const hors  = filterHor  ? [filterHor]  : HORARIOS;
   const lk = {};
   for (const ag of data) lk[ag.horario+'|'+ag.sala] = ag;
-
   document.getElementById('tableHead').innerHTML =
     '<tr><th>Hora</th>' + salas.map(s=>'<th>'+s+'</th>').join('') + '</tr>';
-
   const tbody = document.getElementById('tableBody');
   tbody.innerHTML = '';
   for (const h of hors) {
@@ -280,12 +271,10 @@ async function renderGrid() {
       } else {
         if (PODE_EDITAR) {
           td.innerHTML = `<div class="cell cat-livre" onclick="openModalNew('${h}','${s}')">
-            <span style="color:#475569;font-size:10px">livre</span>
-          </div>`;
+            <span style="color:#475569;font-size:10px">livre</span></div>`;
         } else {
           td.innerHTML = `<div class="cell cat-livre">
-            <span style="color:#475569;font-size:10px">livre</span>
-          </div>`;
+            <span style="color:#475569;font-size:10px">livre</span></div>`;
         }
       }
       tr.appendChild(td);
@@ -294,80 +283,60 @@ async function renderGrid() {
   }
   loadStats();
 }
-
 function esc(t){ if(!t)return''; return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function debounceRender(){ clearTimeout(debTimer); debTimer=setTimeout(renderGrid,300); }
 function clearFilters(){ document.getElementById('searchInput').value=''; document.getElementById('filterHorario').value=''; document.getElementById('filterSala').value=''; document.getElementById('filterCat').value=''; renderGrid(); }
-
 async function verificarConflito() {
   clearTimeout(conflictTimer);
   conflictTimer = setTimeout(async () => {
-    const id      = document.getElementById('fId').value;
-    const dia     = document.getElementById('fDia').value;
-    const horario = document.getElementById('fHorario').value;
-    const sala    = document.getElementById('fSala').value;
-    const p = new URLSearchParams({dia_semana: dia, horario, sala});
-    if (id) p.set('excluir_id', id);
-    const res  = await fetch('/api/conflito?' + p);
-    const data = await res.json();
-    const box  = document.getElementById('conflictBox');
-    const msg  = document.getElementById('conflictMsg');
-    const btn  = document.getElementById('saveBtn');
-    if (data.conflito) {
-      const ocupado = data.estagiario || data.categoria || 'outro agendamento';
-      msg.textContent = `${sala} — ${horario} (${dia}): ocupada por ${ocupado}`;
+    const id=document.getElementById('fId').value;
+    const dia=document.getElementById('fDia').value;
+    const horario=document.getElementById('fHorario').value;
+    const sala=document.getElementById('fSala').value;
+    const p=new URLSearchParams({dia_semana:dia,horario,sala});
+    if(id) p.set('excluir_id',id);
+    const res=await fetch('/api/conflito?'+p);
+    const data=await res.json();
+    const box=document.getElementById('conflictBox');
+    const msg=document.getElementById('conflictMsg');
+    const btn=document.getElementById('saveBtn');
+    if(data.conflito){
+      msg.textContent=`${sala} — ${horario} (${dia}): ocupada por ${data.estagiario||data.categoria||'outro'}`;
       box.classList.add('show');
-      btn.disabled = true;
-      btn.style.opacity = '0.4';
-      btn.style.cursor = 'not-allowed';
-      temConflito = true;
+      btn.disabled=true; btn.style.opacity='0.4'; btn.style.cursor='not-allowed'; temConflito=true;
     } else {
       box.classList.remove('show');
-      btn.disabled = false;
-      btn.style.opacity = '1';
-      btn.style.cursor = 'pointer';
-      temConflito = false;
+      btn.disabled=false; btn.style.opacity='1'; btn.style.cursor='pointer'; temConflito=false;
     }
-  }, 300);
+  },300);
 }
-
-function resetSaveBtn() {
-  const btn = document.getElementById('saveBtn');
-  btn.disabled = false;
-  btn.style.opacity = '1';
-  btn.style.cursor = 'pointer';
-  btn.className = 'btn btn-primary';
-  btn.innerHTML = '💾 Salvar';
-  temConflito = false;
-  document.getElementById('conflictBox').classList.remove('show');
+function resetSaveBtn(){
+  const btn=document.getElementById('saveBtn');
+  btn.disabled=false; btn.style.opacity='1'; btn.style.cursor='pointer';
+  btn.className='btn btn-primary'; btn.innerHTML='💾 Salvar';
+  temConflito=false; document.getElementById('conflictBox').classList.remove('show');
 }
-
-function openModal(id) {
+function openModal(id){
   resetSaveBtn();
-  document.getElementById('fId').value = id||'';
-  document.getElementById('modalTitle').textContent = id ? 'Agendamento' : 'Novo Agendamento';
-
-  if (!PODE_EDITAR && id) {
-    document.getElementById('readOnlyView').style.display = 'block';
-    document.getElementById('editView').style.display = 'none';
+  document.getElementById('fId').value=id||'';
+  document.getElementById('modalTitle').textContent=id?'Agendamento':'Novo Agendamento';
+  if(!PODE_EDITAR&&id){
+    document.getElementById('readOnlyView').style.display='block';
+    document.getElementById('editView').style.display='none';
     fetch('/api/agendamentos/'+id).then(r=>r.json()).then(d=>{
-      document.getElementById('readOnlyContent').innerHTML =
-        `<strong>Sala:</strong> ${esc(d.sala)}<br>
-         <strong>Horário:</strong> ${esc(d.horario)}<br>
+      document.getElementById('readOnlyContent').innerHTML=
+        `<strong>Sala:</strong> ${esc(d.sala)}<br><strong>Horário:</strong> ${esc(d.horario)}<br>
          <strong>Estagiário:</strong> ${esc(d.estagiario)||'—'}<br>
          <strong>Paciente:</strong> ${esc(d.paciente)||'—'}<br>
          <strong>Categoria:</strong> ${esc(d.categoria)||'—'}<br>
-         ${d.observacao ? '<strong>Obs:</strong> '+esc(d.observacao) : ''}`;
+         ${d.observacao?'<strong>Obs:</strong> '+esc(d.observacao):''}`;
     });
-    document.getElementById('modalOverlay').classList.add('open');
-    return;
+    document.getElementById('modalOverlay').classList.add('open'); return;
   }
-
-  document.getElementById('readOnlyView').style.display = 'none';
-  document.getElementById('editView').style.display = 'block';
-  document.getElementById('deleteBtn').style.display = id ? 'inline-flex' : 'none';
-
-  if (id) {
+  document.getElementById('readOnlyView').style.display='none';
+  document.getElementById('editView').style.display='block';
+  document.getElementById('deleteBtn').style.display=id?'inline-flex':'none';
+  if(id){
     fetch('/api/agendamentos/'+id).then(r=>r.json()).then(d=>{
       setF('fDia',d.dia_semana); setF('fHorario',d.horario); setF('fSala',d.sala);
       document.getElementById('fEstagiario').value=d.estagiario||'';
@@ -378,75 +347,53 @@ function openModal(id) {
     });
   } else {
     setF('fDia',currentDay); setF('fCategoria',''); setF('fTriagem',0);
-    document.getElementById('fEstagiario').value='';
-    document.getElementById('fPaciente').value='';
-    document.getElementById('fData').value='';
-    document.getElementById('fObs').value='';
+    ['fEstagiario','fPaciente','fData','fObs'].forEach(id=>document.getElementById(id).value='');
   }
   document.getElementById('modalOverlay').classList.add('open');
 }
-
-function openModalNew(h,s){
-  if (!PODE_EDITAR) return;
-  openModal(null);
-  setTimeout(() => {
-    setF('fHorario',h); setF('fSala',s);
-    verificarConflito();
-  }, 50);
-}
+function openModalNew(h,s){ if(!PODE_EDITAR)return; openModal(null); setTimeout(()=>{setF('fHorario',h);setF('fSala',s);verificarConflito();},50); }
 function setF(id,val){ const el=document.getElementById(id); if(el) el.value=val; }
 function closeModal(){ document.getElementById('modalOverlay').classList.remove('open'); }
 function closeModalIfBg(e){ if(e.target.id==='modalOverlay') closeModal(); }
-
-async function saveAg() {
-  if (temConflito) {
-    showToast('🚫 Resolva o conflito de sala antes de salvar!', 'error');
-    return;
-  }
-  const id = document.getElementById('fId').value;
-  const body = {
-    dia_semana: document.getElementById('fDia').value,
-    horario: document.getElementById('fHorario').value,
-    sala: document.getElementById('fSala').value,
-    estagiario: document.getElementById('fEstagiario').value.trim(),
-    paciente: document.getElementById('fPaciente').value.trim(),
-    categoria: document.getElementById('fCategoria').value,
-    triagem: parseInt(document.getElementById('fTriagem').value)||0,
-    data_especifica: document.getElementById('fData').value.trim(),
-    observacao: document.getElementById('fObs').value.trim()
+async function saveAg(){
+  if(temConflito){ showToast('🚫 Resolva o conflito antes de salvar!','error'); return; }
+  const id=document.getElementById('fId').value;
+  const body={
+    dia_semana:document.getElementById('fDia').value,
+    horario:document.getElementById('fHorario').value,
+    sala:document.getElementById('fSala').value,
+    estagiario:document.getElementById('fEstagiario').value.trim(),
+    paciente:document.getElementById('fPaciente').value.trim(),
+    categoria:document.getElementById('fCategoria').value,
+    triagem:parseInt(document.getElementById('fTriagem').value)||0,
+    data_especifica:document.getElementById('fData').value.trim(),
+    observacao:document.getElementById('fObs').value.trim()
   };
-  const res = await fetch(id ? '/api/agendamentos/'+id : '/api/agendamentos',
-    {method: id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
-  const data = await res.json();
-  if (res.ok){
-    showToast('✅ Salvo!','success'); closeModal(); renderGrid();
-  } else if (res.status === 409) {
-    document.getElementById('conflictMsg').textContent = data.erro || 'Conflito de sala.';
+  const res=await fetch(id?'/api/agendamentos/'+id:'/api/agendamentos',
+    {method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const data=await res.json();
+  if(res.ok){ showToast('✅ Salvo!','success'); closeModal(); renderGrid(); }
+  else if(res.status===409){
+    document.getElementById('conflictMsg').textContent=data.erro||'Conflito de sala.';
     document.getElementById('conflictBox').classList.add('show');
-    const btn = document.getElementById('saveBtn');
-    btn.disabled = true; btn.style.opacity='0.4'; btn.style.cursor='not-allowed';
-    showToast('🚫 Conflito de sala!', 'error');
-  } else {
-    showToast('❌ '+(data.erro||'Erro ao salvar'),'error');
-  }
+    const btn=document.getElementById('saveBtn');
+    btn.disabled=true; btn.style.opacity='0.4'; btn.style.cursor='not-allowed';
+    showToast('🚫 Conflito de sala!','error');
+  } else { showToast('❌ '+(data.erro||'Erro ao salvar'),'error'); }
 }
-
-async function deleteAg() {
-  const id = document.getElementById('fId').value;
-  if (!id || !confirm('Remover este agendamento?')) return;
-  const res = await fetch('/api/agendamentos/'+id,{method:'DELETE'});
-  if (res.ok){ showToast('🗑 Removido','success'); closeModal(); renderGrid(); }
-  else { const e=await res.json(); showToast('❌ '+(e.erro||'Erro ao remover'),'error'); }
+async function deleteAg(){
+  const id=document.getElementById('fId').value;
+  if(!id||!confirm('Remover este agendamento?')) return;
+  const res=await fetch('/api/agendamentos/'+id,{method:'DELETE'});
+  if(res.ok){ showToast('🗑 Removido','success'); closeModal(); renderGrid(); }
+  else{ const e=await res.json(); showToast('❌ '+(e.erro||'Erro ao remover'),'error'); }
 }
-
 function exportCSV(){ window.location='/api/export'; }
-
 function showToast(msg,type='success'){
   const t=document.getElementById('toast');
   t.textContent=msg; t.className='toast show '+type;
   setTimeout(()=>t.className='toast',3000);
 }
-
 renderGrid();
 </script>
 </body>

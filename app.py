@@ -9,7 +9,7 @@ app = Flask(__name__)
 app.secret_key = 'mapa_salas_secret_2026'
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 
-VERSAO = '2026-06-16-v7'
+VERSAO = '2026-06-16-v8'
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -42,7 +42,7 @@ def requer_papel_page(*papeis):
         @wraps(f)
         def wrapped(*args, **kwargs):
             if not current_user.is_authenticated or current_user.role not in papeis:
-                flash('Acesso negado.')
+                flash('Acesso negado.', 'error')
                 return redirect(url_for('index'))
             return f(*args, **kwargs)
         return wrapped
@@ -212,6 +212,39 @@ def index():
     return render_template('index.html', salas=SALAS, horarios=HORARIOS,
                            categorias=CATEGORIAS, dias=DIAS,
                            usuario=current_user.username, papel=current_user.role)
+
+# ── Troca de senha ─────────────────────────────────────────────
+@app.route('/trocar-senha', methods=['GET', 'POST'])
+@login_required
+def trocar_senha():
+    if request.method == 'POST':
+        senha_atual   = request.form.get('senha_atual', '')
+        nova_senha    = request.form.get('nova_senha', '').strip()
+        confirmar     = request.form.get('confirmar_senha', '').strip()
+
+        conn = get_db()
+        row = conn.execute('SELECT * FROM usuarios WHERE id=?', (current_user.id,)).fetchone()
+        conn.close()
+
+        if not check_password_hash(row['password_hash'], senha_atual):
+            flash('Senha atual incorreta.', 'error')
+            return redirect(url_for('trocar_senha'))
+        if len(nova_senha) < 6:
+            flash('A nova senha deve ter no mínimo 6 caracteres.', 'error')
+            return redirect(url_for('trocar_senha'))
+        if nova_senha != confirmar:
+            flash('As senhas não coincidem.', 'error')
+            return redirect(url_for('trocar_senha'))
+
+        conn = get_db()
+        conn.execute('UPDATE usuarios SET password_hash=? WHERE id=?',
+                     (generate_password_hash(nova_senha), current_user.id))
+        conn.commit(); conn.close()
+        registrar_log('TROCAR_SENHA', f'Usuário {current_user.username} alterou a própria senha')
+        flash('Senha alterada com sucesso!', 'success')
+        return redirect(url_for('trocar_senha'))
+
+    return render_template('trocar_senha.html', usuario=current_user.username)
 
 # ── Impressão lista porteiros ─────────────────────────────────────
 @app.route('/imprimir')

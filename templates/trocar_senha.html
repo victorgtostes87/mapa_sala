@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trocar Senha — Mapa de Salas</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      padding: 1rem;
+    }
+    .card {
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 2.5rem 2rem;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.4);
+    }
+    .logo { text-align: center; margin-bottom: 2rem; }
+    .logo-icon { font-size: 2.5rem; display: block; margin-bottom: 0.5rem; }
+    .logo h1 { color: #ffffff; font-size: 1.3rem; font-weight: 700; }
+    .logo p { color: rgba(255,255,255,0.45); font-size: 0.83rem; margin-top: 0.3rem; }
+    .alert {
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      font-size: 0.875rem;
+      margin-bottom: 1.25rem;
+      text-align: center;
+    }
+    .alert-error { background: rgba(255,80,80,.15); border: 1px solid rgba(255,80,80,.3); color: #ff8080; }
+    .alert-success { background: rgba(34,197,94,.15); border: 1px solid rgba(34,197,94,.3); color: #4ade80; }
+    .form-group { margin-bottom: 1.25rem; }
+    label {
+      display: block;
+      color: rgba(255,255,255,0.7);
+      font-size: 0.82rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 0.5rem;
+    }
+    input {
+      width: 100%;
+      padding: 0.85rem 1rem;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      color: #ffffff;
+      font-size: 1rem;
+      transition: all 0.2s;
+      outline: none;
+    }
+    input::placeholder { color: rgba(255,255,255,0.3); }
+    input:focus { border-color: #4f8ef7; background: rgba(79,142,247,0.1); box-shadow: 0 0 0 3px rgba(79,142,247,0.15); }
+    .btn {
+      width: 100%;
+      padding: 0.95rem;
+      background: linear-gradient(135deg, #4f8ef7, #7c3aed);
+      border: none;
+      border-radius: 12px;
+      color: #ffffff;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 0.5rem;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 8px 25px rgba(79,142,247,0.4); }
+    .btn:active { transform: translateY(0); }
+    .back-link {
+      display: block;
+      text-align: center;
+      margin-top: 1.4rem;
+      color: rgba(255,255,255,0.4);
+      font-size: 0.82rem;
+      text-decoration: none;
+    }
+    .back-link:hover { color: rgba(255,255,255,0.75); }
+    .hint { font-size: 0.78rem; color: rgba(255,255,255,0.35); margin-top: 0.35rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <span class="logo-icon">🔑</span>
+      <h1>Trocar Senha</h1>
+      <p>Olá, <strong style="color:rgba(255,255,255,.7)">{{ usuario }}</strong></p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for cat, msg in messages %}
+          <div class="alert alert-{{ cat }}">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="/trocar-senha">
+      <div class="form-group">
+        <label for="senha_atual">Senha atual</label>
+        <input type="password" id="senha_atual" name="senha_atual"
+               placeholder="Digite sua senha atual" required autofocus>
+      </div>
+      <div class="form-group">
+        <label for="nova_senha">Nova senha</label>
+        <input type="password" id="nova_senha" name="nova_senha"
+               placeholder="Mínimo 6 caracteres" minlength="6" required>
+        <p class="hint">Mínimo 6 caracteres.</p>
+      </div>
+      <div class="form-group">
+        <label for="confirmar_senha">Confirmar nova senha</label>
+        <input type="password" id="confirmar_senha" name="confirmar_senha"
+               placeholder="Repita a nova senha" required>
+      </div>
+      <button type="submit" class="btn">💾 Salvar nova senha</button>
+    </form>
+
+    <a href="/" class="back-link">← Voltar ao mapa</a>
+  </div>
+</body>
+</html>

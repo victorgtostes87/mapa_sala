@@ -128,12 +128,19 @@ def registrar_log(acao, dados=''):
 
 # ── Helper: verifica conflito de sala ──────────────────────────────────────────
 def checar_conflito(dia, horario, sala, excluir_id=None):
-    """Retorna o agendamento conflitante ou None."""
+    """Retorna o agendamento conflitante ou None.
+    excluir_id: int ou str — convertemos para int para garantir comparação correta.
+    """
     conn = get_db()
-    if excluir_id:
+    try:
+        eid = int(excluir_id) if excluir_id else None
+    except (ValueError, TypeError):
+        eid = None
+
+    if eid:
         r = conn.execute(
             'SELECT * FROM agendamentos WHERE dia_semana=? AND horario=? AND sala=? AND id!=?',
-            (dia, horario, sala, excluir_id)
+            (dia, horario, sala, eid)
         ).fetchone()
     else:
         r = conn.execute(
@@ -143,7 +150,7 @@ def checar_conflito(dia, horario, sala, excluir_id=None):
     conn.close()
     return dict(r) if r else None
 
-# ── Helpers gerão de texto ─────────────────────────────────────────────────────
+# ── Helpers texto ─────────────────────────────────────────────────────────
 def normalize(t):
     if not t: return ''
     for o, n in [('ă','ã'),('Ă','Ã'),('ş','º'),('Ş','º'),('ţ','ç')]:
@@ -302,7 +309,7 @@ def api_conflito():
     dia     = request.args.get('dia_semana', '')
     horario = request.args.get('horario', '')
     sala    = request.args.get('sala', '')
-    excluir = request.args.get('excluir_id', None)
+    excluir = request.args.get('excluir_id', None)  # vem como string da URL
     if not dia or not horario or not sala:
         return jsonify({'conflito': False})
     conflito = checar_conflito(dia, horario, sala, excluir_id=excluir)
@@ -349,15 +356,18 @@ def create_ag():
     dia     = d.get('dia_semana', 'SEGUNDA')
     horario = d.get('horario')
     sala    = d.get('sala')
-    # ── Bloqueia conflito no backend ───────────────────────────────────────
-    conflito = checar_conflito(dia, horario, sala)
-    if conflito:
-        msg = f'{conflito.get("estagiario") or conflito.get("categoria","outro agendamento")}'
-        return jsonify({
-            'erro': f'Conflito: {sala} já está ocupada às {horario} ({dia}) por {msg}',
-            'conflito': True,
-            'conflito_id': conflito.get('id')
-        }), 409
+    forcar  = d.get('forcar', False)  # True = usuário confirmou salvar mesmo com conflito
+
+    if not forcar:
+        conflito = checar_conflito(dia, horario, sala)
+        if conflito:
+            ocu = conflito.get('estagiario') or conflito.get('categoria') or 'outro agendamento'
+            return jsonify({
+                'erro': f'Conflito: {sala} já está ocupada às {horario} ({dia}) por: {ocu}',
+                'conflito': True,
+                'conflito_id': conflito.get('id')
+            }), 409
+
     est = d.get('estagiario',''); pac = d.get('paciente','')
     cat = d.get('categoria','') or detect_cat(est, pac)
     sem = d.get('semestre', 0) or detect_sem(est)
@@ -380,15 +390,18 @@ def update_ag(aid):
     dia     = d.get('dia_semana', 'SEGUNDA')
     horario = d.get('horario')
     sala    = d.get('sala')
-    # ── Bloqueia conflito no backend (ignora o próprio registro) ─────────────
-    conflito = checar_conflito(dia, horario, sala, excluir_id=aid)
-    if conflito:
-        msg = f'{conflito.get("estagiario") or conflito.get("categoria","outro agendamento")}'
-        return jsonify({
-            'erro': f'Conflito: {sala} já está ocupada às {horario} ({dia}) por {msg}',
-            'conflito': True,
-            'conflito_id': conflito.get('id')
-        }), 409
+    forcar  = d.get('forcar', False)  # True = usuário confirmou salvar mesmo com conflito
+
+    if not forcar:
+        conflito = checar_conflito(dia, horario, sala, excluir_id=aid)
+        if conflito:
+            ocu = conflito.get('estagiario') or conflito.get('categoria') or 'outro agendamento'
+            return jsonify({
+                'erro': f'Conflito: {sala} já está ocupada às {horario} ({dia}) por: {ocu}',
+                'conflito': True,
+                'conflito_id': conflito.get('id')
+            }), 409
+
     est = d.get('estagiario',''); pac = d.get('paciente','')
     cat = d.get('categoria','') or detect_cat(est, pac)
     sem = d.get('semestre', 0) or detect_sem(est)

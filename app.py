@@ -493,6 +493,17 @@ def get_logs():
     conn.close()
     return jsonify([dict(r) for r in rows])
 
+@app.route('/api/backup')
+@login_required
+@requer_papel('coordenador')
+def backup_db():
+    registrar_log('BACKUP', 'Backup manual do banco baixado')
+    return send_file(
+        DB_PATH,
+        as_attachment=True,
+        download_name=f'backup_mapa_{datetime.now().strftime("%Y%m%d_%H%M")}.db'
+    )
+
 if __name__ == '__main__':
     init_db()
     print(f'\n  Versão: {VERSAO} | http://localhost:5000\n')

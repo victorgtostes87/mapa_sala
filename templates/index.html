@@ -80,23 +80,34 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 <body>
 
 <nav class="navbar">
-  <h1>🏥 Mapa de <span>Salas</span></h1>
+  <h1><i data-lucide="layout-grid"></i> Mapa de <span>Salas</span></h1>
   <div class="navbar-spacer"></div>
   <div class="user-info">
-    <span>👤 {{ usuario }}</span>
+    <span><i data-lucide="user-round"></i> {{ usuario }}</span>
     <span class="role-badge role-{{ papel }}">{{ papel }}</span>
   </div>
+
   {% if papel == 'coordenador' %}
-  <a href="/usuarios" class="btn btn-ghost btn-sm">👥 Usuários</a>
-  <a href="/logs" class="btn btn-ghost btn-sm">📋 Logs</a>
-  <button class="btn btn-ghost btn-sm" onclick="exportCSV()">&#11015;&#65039; Exportar</button>
+  <a href="/usuarios" class="btn btn-ghost btn-sm"><i data-lucide="users"></i> Usuários</a>
+  <a href="/logs" class="btn btn-ghost btn-sm"><i data-lucide="clipboard-list"></i> Logs</a>
+  <button class="btn btn-ghost btn-sm" onclick="exportCSV()"><i data-lucide="download"></i> Exportar</button>
+  <a href="/imprimir" class="btn btn-ghost btn-sm" target="_blank"><i data-lucide="printer"></i> Imprimir</a>
+  <a href="/perfil" class="btn btn-ghost btn-sm"><i data-lucide="user-round"></i> Perfil</a>
+  <a href="/trocar-senha" class="btn btn-ghost btn-sm"><i data-lucide="key-round"></i> Senha</a>
+  {% elif papel == 'recepcao' %}
+  <button class="btn btn-ghost btn-sm" onclick="exportCSV()"><i data-lucide="download"></i> Exportar</button>
+  <a href="/imprimir" class="btn btn-ghost btn-sm" target="_blank"><i data-lucide="printer"></i> Imprimir</a>
+  <a href="/perfil" class="btn btn-ghost btn-sm"><i data-lucide="user-round"></i> Perfil</a>
+  <a href="/trocar-senha" class="btn btn-ghost btn-sm"><i data-lucide="key-round"></i> Senha</a>
+  {% else %}
+  <a href="/perfil" class="btn btn-ghost btn-sm"><i data-lucide="user-round"></i> Perfil</a>
+  <a href="/trocar-senha" class="btn btn-ghost btn-sm"><i data-lucide="key-round"></i> Senha</a>
   {% endif %}
-  <a href="/imprimir" class="btn btn-ghost btn-sm" target="_blank">🖨️ Imprimir</a>
-  <a href="/trocar-senha" class="btn btn-ghost btn-sm">🔑 Senha</a>
+
   {% if papel in ['coordenador', 'recepcao'] %}
-  <button class="btn btn-primary btn-sm" onclick="openModal(null)">&#65291; Novo</button>
+  <button class="btn btn-primary btn-sm" onclick="openModal(null)"><i data-lucide="circle-plus"></i> Novo</button>
   {% endif %}
-  <a href="/logout" class="btn-logout">🚪 Sair</a>
+  <a href="/logout" class="btn-logout"><i data-lucide="log-out"></i> Sair</a>
 </nav>
 
 <div class="tabs" id="dayTabs">
@@ -182,9 +193,9 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
       <div class="form-row"><label>Observação</label>
         <textarea id="fObs" placeholder="Notas adicionais..."></textarea></div>
       <div class="modal-footer">
-        <button class="btn btn-danger btn-sm" id="deleteBtn" onclick="deleteAg()" style="display:none;margin-right:auto">🗑 Remover</button>
-        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
-        <button class="btn btn-primary" id="saveBtn" onclick="saveAg()">💾 Salvar</button>
+        <button class="btn btn-danger btn-sm" id="deleteBtn" onclick="deleteAg()" style="display:none;margin-right:auto"><i data-lucide="trash-2"></i> Remover</button>
+        <button class="btn btn-ghost" onclick="closeModal()"><i data-lucide="x"></i> Cancelar</button>
+        <button class="btn btn-primary" id="saveBtn" onclick="saveAg()"><i data-lucide="save"></i> Salvar</button>
       </div>
     </div>
   </div>
@@ -314,7 +325,7 @@ async function verificarConflito() {
 function resetSaveBtn(){
   const btn=document.getElementById('saveBtn');
   btn.disabled=false; btn.style.opacity='1'; btn.style.cursor='pointer';
-  btn.className='btn btn-primary'; btn.innerHTML='💾 Salvar';
+  btn.className='btn btn-primary'; btn.innerHTML='<i data-lucide="save"></i> Salvar';
   temConflito=false; document.getElementById('conflictBox').classList.remove('show');
 }
 function openModal(id){
@@ -397,5 +408,5 @@ function showToast(msg,type='success'){
 }
 renderGrid();
 </script>
-</body>
+<script>lucide.createIcons();</script>\n</body>
 </html>

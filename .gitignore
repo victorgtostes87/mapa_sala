@@ -2,3 +2,6 @@ __pycache__/
 *.pyc
 mapa_salas.db
 
+*.xlsx
+*.pyc
+__pycache__/

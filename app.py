@@ -114,6 +114,10 @@ def init_db():
     if not existe:
         conn.execute("INSERT INTO usuarios(username, password_hash, role) VALUES(?,?,?)",
             ('coordenador', generate_password_hash('mudar@2026'), 'coordenador'))
+    conn.executescript(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_conflito ON agendamentos(dia_semana, horario, sala);"
+        "CREATE INDEX IF NOT EXISTS idx_dia_semana ON agendamentos(dia_semana);"
+    )
     conn.commit(); conn.close()
 
 def registrar_log(acao, dados=''):

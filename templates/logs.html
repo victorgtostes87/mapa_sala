@@ -30,12 +30,15 @@ tr:hover td{background:#1a2744}
 .dados{color:var(--text2);font-size:11px;max-width:380px;word-break:break-word}
 .empty{text-align:center;padding:60px;color:var(--text2)}
 </style>
-</head>
+  <script src="https://unpkg.com/lucide@latest"></script>\n</head>
 <body>
 <nav class="navbar">
-  <h1>📋 Logs do Sistema</h1>
+  <h1><i data-lucide="clipboard-list"></i> Logs do Sistema</h1>
   <div class="navbar-spacer"></div>
-  <a href="/" class="btn btn-ghost">← Voltar</a>
+  <span style="font-size:12px;color:var(--text2)"><i data-lucide="user-round"></i> {{ usuario }}</span>
+  <span class="role-badge role-{{ papel }}">{{ papel }}</span>
+  <a href="/perfil" class="btn btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
+  <a href="/" class="btn btn-ghost"><i data-lucide="arrow-left"></i> Voltar</a>
   <a href="/api/backup" style="display:inline-block;padding:8px 16px;background:#2563eb;color:#fff;border-radius:6px;text-decoration:none;font-size:0.85rem;margin-left:8px;">⬇ Backup do Banco</a>
 </nav>
 <div class="container">
@@ -110,5 +113,5 @@ async function carregar(){
 
 carregar();
 </script>
-</body>
+<script>lucide.createIcons();</script>\n</body>
 </html>

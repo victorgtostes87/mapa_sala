@@ -119,22 +119,79 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
   .leg-i{font-size:9px}
 }
 
-@media (max-width:600px){
-  .navbar{padding:6px 10px;gap:4px;flex-wrap:nowrap}
-  .navbar h1{font-size:13px}
-  .btn{padding:5px 8px;font-size:11px}
-  .tabs{padding:0 8px}
-  .tab{padding:8px 10px;font-size:11px}
-  .stats-bar{flex-wrap:nowrap;padding:6px 10px;gap:6px;overflow-x:auto}
-  .stat-card{min-width:80px;padding:6px 10px;flex-shrink:0}
-  .stat-card .val{font-size:18px}
-  .stat-card .lbl{font-size:9px}
-  .filters{flex-wrap:nowrap;padding:4px 10px 6px;gap:5px;overflow-x:auto}
-  .filters input,.filters select{font-size:11px;padding:4px 7px;flex-shrink:0;min-width:0;width:auto}
-  .page-body{top:230px}
-  .legbar{padding:4px 8px;gap:6px}
-  .leg-i{font-size:9px}
+
+
+@media (max-width: 600px) {
+  /* ── Navbar ── */
+  .navbar {
+    padding: 6px 10px;
+    gap: 4px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+  .navbar h1 { font-size: 12px; white-space: nowrap; }
+  .btn { padding: 4px 7px; font-size: 10px; white-space: nowrap; }
+  .navbar-spacer { display: none; }
+
+  /* ── Tabs (dias) ── */
+  .tabs { padding: 0 6px; gap: 4px; }
+  .tab { padding: 6px 8px; font-size: 10px; white-space: nowrap; }
+
+  /* ── Stats bar ── */
+  .stats-bar {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 6px 10px;
+    gap: 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .stat-card {
+    flex: 0 0 auto;
+    min-width: 72px;
+    padding: 6px 8px;
+  }
+  .stat-card .val, .stat-card .value { font-size: 18px; }
+  .stat-card .lbl, .stat-card .label { font-size: 9px; }
+
+  /* ── Filters: grid 2 colunas ── */
+  .filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+    padding: 6px 10px;
+  }
+  .filters input {
+    grid-column: 1 / -1;
+    width: 100%;
+    font-size: 11px;
+    padding: 6px 8px;
+  }
+  .filters select {
+    width: 100%;
+    font-size: 11px;
+    padding: 6px 8px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .filters .btn {
+    grid-column: 1 / -1;
+    width: 100%;
+    text-align: center;
+    font-size: 11px;
+    padding: 6px 8px;
+  }
+
+  /* ── Page body offset ── */
+  .page-body { top: 260px; }
+
+  /* ── Legenda ── */
+  .legbar { padding: 4px 8px; gap: 5px; }
+  .leg-i { font-size: 9px; }
 }
+
 </style>
 <script src="https://unpkg.com/lucide@latest"></script>
 </head>

@@ -103,13 +103,17 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .leg-d{width:9px;height:9px;border-radius:2px;flex-shrink:0}
 </style>
 <script src="https://unpkg.com/lucide@latest">
-document.getElementById('legBtn').addEventListener('click',function(){
-  var el=document.getElementById('legItems');
-  var t=document.getElementById('legBar');
-  var hidden=el.style.display==='none';
-  el.style.display=hidden?'flex':'none';
-  this.textContent=hidden?'−':'+';
-  t.style.justifyContent=hidden?'':'flex-end';
+
+
+document.getElementById('legBtn').addEventListener('click', function(){
+  var el = document.getElementById('legItems');
+  if(el.style.display === 'none'){
+    el.style.display = 'flex';
+    this.textContent = '−';
+  } else {
+    el.style.display = 'none';
+    this.textContent = '+';
+  }
 });
 </script>
 </head>

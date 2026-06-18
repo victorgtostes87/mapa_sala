@@ -213,12 +213,9 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 
 <div class="filters">
   <input type="text" id="searchInput" placeholder="🔍  Buscar paciente, estagiário..." oninput="debounceRender()">
-  <select id="filterHorario" onchange="renderGrid()"><option value="">Todos horários</option>
-    {% for h in horarios %}<option>{{h}}</option>{% endfor %}</select>
-  <select id="filterSala" onchange="renderGrid()"><option value="">Todas salas</option>
-    {% for s in salas %}<option>{{s}}</option>{% endfor %}</select>
-  <select id="filterCat" onchange="renderGrid()"><option value="">Todas categorias</option>
-    {% for c in categorias %}<option>{{c}}</option>{% endfor %}</select>
+  
+  
+  
   <button class="btn btn-ghost btn-sm" onclick="clearFilters()">&#x2715; Limpar</button>
 </div>
 

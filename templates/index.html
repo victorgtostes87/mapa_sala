@@ -75,6 +75,18 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .toast.show{opacity:1}.toast.success{background:#16a34a;color:#fff}.toast.error{background:#dc2626;color:#fff}.toast.warn{background:#d97706;color:#fff}
 ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 @media(max-width:600px){.navbar{padding:8px 12px;gap:8px}.tabs{padding:0 8px}.stats-bar{padding:8px 12px}.filters{padding:0 12px 8px}.filters input{min-width:140px}}
+
+.dropdown{position:relative}
+.dropdown-menu{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#1e293b;border:1px solid #334155;border-radius:10px;min-width:180px;z-index:300;box-shadow:0 8px 24px rgba(0,0,0,.4);overflow:hidden}
+.dropdown-menu.open{display:block}
+.dropdown-menu a,.dropdown-menu button{display:flex;align-items:center;gap:8px;padding:10px 16px;color:#e2e8f0;text-decoration:none;font-size:12px;font-weight:600;background:transparent;border:none;width:100%;cursor:pointer;transition:background .15s}
+.dropdown-menu a:hover,.dropdown-menu button:hover{background:#263348}
+.dropdown-menu a+a,.dropdown-menu a+button,.dropdown-menu button+a{border-top:1px solid #334155}
+.btn-xs{padding:3px 10px;font-size:11px}
+.stats-bar{display:flex;gap:8px;padding:8px 20px;flex-wrap:wrap}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:6px 14px;min-width:100px}
+.stat-card .label{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.stat-card .value{font-size:20px;font-weight:700;color:#f8fafc;margin-top:1px}
 </style>
 <script src="https://unpkg.com/lucide@latest"></script>
 </head>
@@ -88,22 +100,26 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
     <span class="role-badge role-{{ papel }}">{{ papel }}</span>
   </div>
 
-  {% if papel == 'coordenador' %}
-  <a href="/usuarios" class="btn btn-ghost btn-sm"><i data-lucide="users"></i> Usuários</a>
-  <a href="/logs" class="btn btn-ghost btn-sm"><i data-lucide="clipboard-list"></i> Logs</a>
-  <button class="btn btn-ghost btn-sm" onclick="exportCSV()"><i data-lucide="download"></i> Exportar</button>
-  <a href="/imprimir" class="btn btn-ghost btn-sm" target="_blank"><i data-lucide="printer"></i> Imprimir</a>
-  <a href="/perfil" class="btn btn-ghost btn-sm"><i data-lucide="user-round"></i> Perfil</a>
-  {% elif papel == 'recepcao' %}
-  <button class="btn btn-ghost btn-sm" onclick="exportCSV()"><i data-lucide="download"></i> Exportar</button>
-  <a href="/imprimir" class="btn btn-ghost btn-sm" target="_blank"><i data-lucide="printer"></i> Imprimir</a>
-  <a href="/perfil" class="btn btn-ghost btn-sm"><i data-lucide="user-round"></i> Perfil</a>
-  {% else %}
-  <a href="/perfil" class="btn btn-ghost btn-sm"><i data-lucide="user-round"></i> Perfil</a>
-  {% endif %}
+  <div class="dropdown" id="menuDropdown">
+    <button class="btn btn-ghost btn-sm" onclick="toggleMenu(event)">
+      <i data-lucide="menu"></i> Menu
+    </button>
+    <div class="dropdown-menu" id="dropdownMenu">
+      {% if papel == 'coordenador' %}
+      <a href="/usuarios"><i data-lucide="users"></i> Usuários</a>
+      <a href="/logs"><i data-lucide="clipboard-list"></i> Logs</a>
+      <button onclick="exportCSV()"><i data-lucide="download"></i> Exportar</button>
+      <a href="/imprimir" target="_blank"><i data-lucide="printer"></i> Imprimir</a>
+      {% elif papel == 'recepcao' %}
+      <button onclick="exportCSV()"><i data-lucide="download"></i> Exportar</button>
+      <a href="/imprimir" target="_blank"><i data-lucide="printer"></i> Imprimir</a>
+      {% endif %}
+      <a href="/perfil"><i data-lucide="user-round"></i> Perfil</a>
+    </div>
+  </div>
 
   {% if papel in ['coordenador', 'recepcao'] %}
-  <button class="btn btn-primary btn-sm" onclick="openModal(null)"><i data-lucide="circle-plus"></i> Novo</button>
+  <button class="btn btn-primary btn-xs" onclick="openModal(null)"><i data-lucide="circle-plus"></i> Novo</button>
   {% endif %}
   <a href="/logout" class="btn-logout"><i data-lucide="log-out"></i> Sair</a>
 </nav>
@@ -405,6 +421,15 @@ function showToast(msg,type='success'){
   setTimeout(()=>t.className='toast',3000);
 }
 renderGrid();
+
+function toggleMenu(e){
+  e.stopPropagation();
+  document.getElementById('dropdownMenu').classList.toggle('open');
+}
+document.addEventListener('click', function(){
+  const m = document.getElementById('dropdownMenu');
+  if(m) m.classList.remove('open');
+});
 </script>
 <script>lucide.createIcons();</script>
 </body>

@@ -107,20 +107,21 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 
 
 
+
+
 (function(){
   var btn   = document.getElementById('legBtn');
   var items = document.getElementById('legItems');
-  var bar   = document.getElementById('legBar');
+  var title = document.getElementById('legTitle');
   btn.addEventListener('click', function(){
-    var open = bar.getAttribute('data-open') !== 'false';
-    if(open){
-      items.style.display = 'none';
-      btn.textContent = '+';
-      bar.setAttribute('data-open','false');
-    } else {
+    if(items.style.display === 'none'){
       items.style.display = 'flex';
+      title.style.display = '';
       btn.textContent = '−';
-      bar.setAttribute('data-open','true');
+    } else {
+      items.style.display = 'none';
+      title.style.display = 'none';
+      btn.textContent = '▲ Legenda';
     }
   });
 })();
@@ -188,7 +189,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 </div></div>
 
 <div class="legbar" id="legBar">
-  <span class="legbar-title">Legenda</span>
+  <span class="legbar-title" id="legTitle">Legenda</span>
   <div class="legbar-items" id="legItems">
     <div class="leg-i"><div class="leg-d" style="background:#1d4ed8"></div>Estag. 10°</div>
     <div class="leg-i"><div class="leg-d" style="background:#1e40af"></div>10° Triagem</div>

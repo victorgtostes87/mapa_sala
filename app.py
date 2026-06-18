@@ -9,23 +9,32 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-local-apenas')
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 
-VERSAO = '2026-06-16-v8'
+VERSAO = '2026-06-17-v9'
 
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Faça login para acessar o sistema.'
 
+PAPEIS_VALIDOS = ('coordenador', 'recepcao', 'professor', 'aluno')
+
 class Usuario(UserMixin):
-    def __init__(self, id, username, role):
-        self.id = id; self.username = username; self.role = role
+    def __init__(self, id, username, role, nome_completo='', email=''):
+        self.id = id
+        self.username = username
+        self.role = role
+        self.nome_completo = nome_completo
+        self.email = email
 
 @login_manager.user_loader
 def load_user(user_id):
     conn = get_db()
     row = conn.execute('SELECT * FROM usuarios WHERE id=?', (user_id,)).fetchone()
     conn.close()
-    return Usuario(row['id'], row['username'], row['role']) if row else None
+    if not row:
+        return None
+    return Usuario(row['id'], row['username'], row['role'],
+                   row['nome_completo'] or '', row['email'] or '')
 
 def requer_papel(*papeis):
     def decorator(f):
@@ -56,10 +65,10 @@ SALAS = [
 ]
 HORARIOS = ['07:00','08:00','09:00','10:00','11:00','12:00','13:00',
             '14:00','15:00','16:00','17:00','18:00','19:00','20:00']
-DIAS = ['SEGUNDA','TERÇA','QUARTA','QUINTA','SEXTA','SÁBADO']
+DIAS = ['SEGUNDA','TERÇA','QUARTA','QUINTA','SEXTA']
 DIAS_PT = {
     'SEGUNDA':'Segunda-feira','TERÇA':'Terça-feira','QUARTA':'Quarta-feira',
-    'QUINTA':'Quinta-feira','SEXTA':'Sexta-feira','SÁBADO':'Sábado'
+    'QUINTA':'Quinta-feira','SEXTA':'Sexta-feira',
 }
 CATEGORIAS = [
     'ESTAGIÁRIO 10°','ESTAGIÁRIO 10° TRIAGEM',
@@ -69,6 +78,12 @@ CATEGORIAS = [
     'AMBULATÓRIO NEUROPSICOLOGIA','PLANTÃO PSICOLÓGICO',
     'PRONTUÁRIO/ESTUDAR','LIVRE','OUTRO'
 ]
+PAPEIS_LABEL = {
+    'coordenador': 'Coordenador',
+    'recepcao': 'Recepção',
+    'professor': 'Professor Supervisor',
+    'aluno': 'Estagiário'
+}
 
 LOG_RETENCAO_DIAS = 15
 
@@ -107,6 +122,8 @@ def init_db():
         "username TEXT NOT NULL UNIQUE,"
         "password_hash TEXT NOT NULL,"
         "role TEXT NOT NULL DEFAULT 'aluno',"
+        "nome_completo TEXT DEFAULT '',"
+        "email TEXT DEFAULT '',"
         "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
         ");"
     )
@@ -118,7 +135,8 @@ def init_db():
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_conflito ON agendamentos(dia_semana, horario, sala);"
         "CREATE INDEX IF NOT EXISTS idx_dia_semana ON agendamentos(dia_semana);"
     )
-    conn.commit(); conn.close()
+    conn.commit()
+    conn.close()
 
 def registrar_log(acao, dados=''):
     usuario = current_user.username if current_user.is_authenticated else 'sistema'
@@ -128,7 +146,8 @@ def registrar_log(acao, dados=''):
         "DELETE FROM historico WHERE ts < datetime('now', '-' || ? || ' days')",
         (LOG_RETENCAO_DIAS,)
     )
-    conn.commit(); conn.close()
+    conn.commit()
+    conn.close()
 
 def checar_conflito(dia, horario, sala, excluir_id=None):
     conn = get_db()
@@ -196,7 +215,8 @@ def login():
         row = conn.execute('SELECT * FROM usuarios WHERE username=?', (username,)).fetchone()
         conn.close()
         if row and check_password_hash(row['password_hash'], password):
-            user = Usuario(row['id'], row['username'], row['role'])
+            user = Usuario(row['id'], row['username'], row['role'],
+                           row['nome_completo'] or '', row['email'] or '')
             login_user(user)
             registrar_log('LOGIN', f'Usuário {username} fez login')
             return redirect(url_for('index'))
@@ -217,14 +237,49 @@ def index():
                            categorias=CATEGORIAS, dias=DIAS,
                            usuario=current_user.username, papel=current_user.role)
 
+# ── Perfil ─────────────────────────────────────────────────
+@app.route('/perfil', methods=['GET', 'POST'])
+@login_required
+def perfil():
+    conn = get_db()
+    row = conn.execute('SELECT * FROM usuarios WHERE id=?', (current_user.id,)).fetchone()
+    conn.close()
+
+    if request.method == 'POST':
+        nome_completo = request.form.get('nome_completo', '').strip()
+        email = request.form.get('email', '').strip()
+
+        if not nome_completo:
+            flash('Nome completo é obrigatório.', 'error')
+            return redirect(url_for('perfil'))
+        if not email:
+            flash('E-mail é obrigatório.', 'error')
+            return redirect(url_for('perfil'))
+
+        conn = get_db()
+        conn.execute('UPDATE usuarios SET nome_completo=?, email=? WHERE id=?',
+                     (nome_completo, email, current_user.id))
+        conn.commit()
+        conn.close()
+        registrar_log('EDITAR_PERFIL', f'Usuário {current_user.username} atualizou o perfil')
+        flash('Perfil atualizado com sucesso!', 'success')
+        return redirect(url_for('perfil'))
+
+    return render_template('perfil.html',
+                           usuario=current_user.username,
+                           papel=current_user.role,
+                           papel_label=PAPEIS_LABEL.get(current_user.role, current_user.role),
+                           nome_completo=row['nome_completo'] or '',
+                           email=row['email'] or '')
+
 # ── Troca de senha ─────────────────────────────────────────────
 @app.route('/trocar-senha', methods=['GET', 'POST'])
 @login_required
 def trocar_senha():
     if request.method == 'POST':
-        senha_atual   = request.form.get('senha_atual', '')
-        nova_senha    = request.form.get('nova_senha', '').strip()
-        confirmar     = request.form.get('confirmar_senha', '').strip()
+        senha_atual = request.form.get('senha_atual', '')
+        nova_senha  = request.form.get('nova_senha', '').strip()
+        confirmar   = request.form.get('confirmar_senha', '').strip()
 
         conn = get_db()
         row = conn.execute('SELECT * FROM usuarios WHERE id=?', (current_user.id,)).fetchone()
@@ -243,22 +298,27 @@ def trocar_senha():
         conn = get_db()
         conn.execute('UPDATE usuarios SET password_hash=? WHERE id=?',
                      (generate_password_hash(nova_senha), current_user.id))
-        conn.commit(); conn.close()
+        conn.commit()
+        conn.close()
         registrar_log('TROCAR_SENHA', f'Usuário {current_user.username} alterou a própria senha')
         flash('Senha alterada com sucesso!', 'success')
-        return redirect(url_for('trocar_senha'))
+        return redirect(url_for('perfil'))
 
-    return render_template('trocar_senha.html', usuario=current_user.username)
+    return render_template('trocar_senha.html',
+                           usuario=current_user.username,
+                           papel=current_user.role)
 
-# ── Impressão lista porteiros ─────────────────────────────────────
+# ── Impressão ─────────────────────────────────────────────────
 @app.route('/imprimir')
 @login_required
+@requer_papel_page('coordenador', 'recepcao')
 def imprimir_selecao():
     return render_template('imprimir_selecao.html', dias=DIAS, dias_pt=DIAS_PT,
                            usuario=current_user.username, papel=current_user.role)
 
 @app.route('/imprimir/<dia>')
 @login_required
+@requer_papel_page('coordenador', 'recepcao')
 def imprimir(dia):
     dia = dia.upper()
     if dia not in DIAS:
@@ -315,13 +375,14 @@ def api_criar_usuario():
     role     = d.get('role', 'aluno')
     if not username or not password:
         return jsonify({'erro': 'Usuário e senha são obrigatórios'}), 400
-    if role not in ('coordenador', 'recepcao', 'aluno'):
+    if role not in PAPEIS_VALIDOS:
         return jsonify({'erro': 'Papel inválido'}), 400
     try:
         conn = get_db()
         conn.execute('INSERT INTO usuarios(username, password_hash, role) VALUES(?,?,?)',
                      (username, generate_password_hash(password), role))
-        conn.commit(); conn.close()
+        conn.commit()
+        conn.close()
         registrar_log('CRIAR_USUARIO', f'Usuário "{username}" ({role}) criado')
         return jsonify({'message': 'Usuário criado'}), 201
     except sqlite3.IntegrityError:
@@ -334,10 +395,13 @@ def api_editar_usuario(uid):
     d = request.json
     conn = get_db()
     row = conn.execute('SELECT * FROM usuarios WHERE id=?', (uid,)).fetchone()
-    if not row: conn.close(); return jsonify({'erro': 'Usuário não encontrado'}), 404
+    if not row:
+        conn.close()
+        return jsonify({'erro': 'Usuário não encontrado'}), 404
     new_role = d.get('role', row['role'])
-    if new_role not in ('coordenador', 'recepcao', 'aluno'):
-        conn.close(); return jsonify({'erro': 'Papel inválido'}), 400
+    if new_role not in PAPEIS_VALIDOS:
+        conn.close()
+        return jsonify({'erro': 'Papel inválido'}), 400
     new_pass = (d.get('password') or '').strip()
     if new_pass:
         conn.execute('UPDATE usuarios SET role=?, password_hash=? WHERE id=?',
@@ -345,7 +409,8 @@ def api_editar_usuario(uid):
     else:
         conn.execute('UPDATE usuarios SET role=? WHERE id=?', (new_role, uid))
     registrar_log('EDITAR_USUARIO', f'Usuário "{row["username"]}" atualizado')
-    conn.commit(); conn.close()
+    conn.commit()
+    conn.close()
     return jsonify({'message': 'Usuário atualizado'})
 
 @app.route('/api/usuarios/<int:uid>', methods=['DELETE'])
@@ -354,11 +419,15 @@ def api_editar_usuario(uid):
 def api_excluir_usuario(uid):
     conn = get_db()
     row = conn.execute('SELECT * FROM usuarios WHERE id=?', (uid,)).fetchone()
-    if not row: conn.close(); return jsonify({'erro': 'Usuário não encontrado'}), 404
+    if not row:
+        conn.close()
+        return jsonify({'erro': 'Usuário não encontrado'}), 404
     if row['id'] == current_user.id:
-        conn.close(); return jsonify({'erro': 'Você não pode excluir sua própria conta'}), 400
+        conn.close()
+        return jsonify({'erro': 'Você não pode excluir sua própria conta'}), 400
     conn.execute('DELETE FROM usuarios WHERE id=?', (uid,))
-    conn.commit(); conn.close()
+    conn.commit()
+    conn.close()
     registrar_log('EXCLUIR_USUARIO', f'Usuário "{row["username"]}" excluído')
     return jsonify({'message': 'Usuário excluído'})
 
@@ -392,13 +461,17 @@ def list_ag():
     if cat:     q += ' AND categoria=?'; p.append(cat)
     if busca:   q += ' AND (estagiario LIKE ? OR paciente LIKE ? OR observacao LIKE ?)'; p += [f'%{busca}%']*3
     q += ' ORDER BY horario, sala'
-    conn = get_db(); rows = conn.execute(q, p).fetchall(); conn.close()
+    conn = get_db()
+    rows = conn.execute(q, p).fetchall()
+    conn.close()
     return jsonify([dict(r) for r in rows])
 
 @app.route('/api/agendamentos/<int:aid>', methods=['GET'])
 @login_required
 def get_ag(aid):
-    conn = get_db(); r = conn.execute('SELECT * FROM agendamentos WHERE id=?',(aid,)).fetchone(); conn.close()
+    conn = get_db()
+    r = conn.execute('SELECT * FROM agendamentos WHERE id=?',(aid,)).fetchone()
+    conn.close()
     return (jsonify(dict(r)) if r else (jsonify({'erro':'Não encontrado'}), 404))
 
 @app.route('/api/agendamentos', methods=['POST'])
@@ -473,7 +546,7 @@ def stats():
 
 @app.route('/api/export')
 @login_required
-@requer_papel('coordenador')
+@requer_papel('coordenador', 'recepcao')
 def export_csv():
     conn = get_db()
     rows = conn.execute('SELECT * FROM agendamentos ORDER BY dia_semana, horario, sala').fetchall()

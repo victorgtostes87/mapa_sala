@@ -100,13 +100,8 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .btn-logout i[data-lucide]{width:12px;height:12px}
 </style>
 <script src="https://unpkg.com/lucide@latest">
-// Legenda minimizar
-document.getElementById('legBtn').addEventListener('click', function(){
-  var body = document.getElementById('legBody');
-  var open = body.style.display !== 'none';
-  body.style.display = open ? 'none' : 'flex';
-  this.textContent  = open ? '+' : '−';
-});
+
+
 
 // Legenda minimizar
 document.getElementById('legBtn').addEventListener('click', function(){
@@ -178,6 +173,8 @@ document.getElementById('legBtn').addEventListener('click', function(){
   <table class="mapa-table"><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table>
 </div></div>
 
+</div>
+
 <div class="legbar" id="legBar">
   <div class="legbar-header">
     <span class="legbar-title">Legenda</span>
@@ -200,7 +197,6 @@ document.getElementById('legBtn').addEventListener('click', function(){
     <div class="leg-item"><div class="leg-dot" style="background:#92400e"></div>Prontuário</div>
   </div>
 </div>
-
 <!-- Modal -->
 <div class="modal-overlay" id="modalOverlay" onclick="closeModalIfBg(event)">
   <div class="modal">
@@ -466,25 +462,4 @@ document.addEventListener('click', function(){
 </script>
 <script>lucide.createIcons();</script>
 </body>
-</html><div class="legbar" id="legBar">
-  <div class="legbar-header">
-    <span class="legbar-title">Legenda</span>
-    <button class="legbar-btn" id="legBtn" title="Minimizar">−</button>
-  </div>
-  <div class="legbar-body" id="legBody">
-    <div class="leg-item"><div class="leg-dot" style="background:#1d4ed8"></div>Estag. 10°</div>
-    <div class="leg-item"><div class="leg-dot" style="background:#1e40af"></div>10° Triagem</div>
-    <div class="leg-item"><div class="leg-dot" style="background:#15803d"></div>Estag. 9°</div>
-    <div class="leg-item"><div class="leg-dot" style="background:#166534"></div>9° Triagem</div>
-    <div class="leg-item"><div class="leg-dot" style="background:#6d28d9"></div>Supervisão</div>
-    <div class="leg-item"><div class="leg-dot" style="background:#c2410c"></div>NACE</div>
-    <div class="leg-item"><div class="leg-dot" style="background:#0e7490"></div>SOU</div>
-    <div class="leg-item"><div class="leg-dot" style="background:#4d7c0f"></div>Marcar</div>
-    <div class="leg-item"><div class="leg-dot" style="background:#991b1b"></div>Não Marcar</div>
-    <div class="leg-item"><div class="leg-dot" style="background:#374151"></div>Psicodiag.</div>
-    <div class="leg-item"><div class="leg-dot" style="background:#1e3a5f"></div>Psiquiatria</div>
-    <div class="leg-item"><div class="leg-dot" style="background:#78350f"></div>Amb. Neurop.</div>
-    <div class="leg-item"><div class="leg-dot" style="background:#9d174d"></div>Plantão</div>
-    <div class="leg-item"><div class="leg-dot" style="background:#92400e"></div>Prontuário</div>
-  </div>
-</div>
+</html></div>

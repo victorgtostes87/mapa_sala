@@ -69,8 +69,8 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .conflict-box.show{display:block}
 .conflict-box strong{color:#f87171;display:block;margin-bottom:4px;font-size:14px}
 
-.leg-item{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text2)}
-.leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+
+
 .toast{position:fixed;top:20px;right:20px;padding:10px 18px;border-radius:var(--radius);font-size:13px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none}
 .toast.show{opacity:1}.toast.success{background:#16a34a;color:#fff}.toast.error{background:#dc2626;color:#fff}.toast.warn{background:#d97706;color:#fff}
 ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
@@ -101,6 +101,24 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .legbar-items::-webkit-scrollbar-thumb{background:var(--border)}
 .leg-i{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text2);white-space:nowrap;flex-shrink:0}
 .leg-d{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+
+@media(max-width:600px){
+  .navbar{padding:6px 10px;gap:4px}
+  .navbar h1{font-size:13px}
+  .btn{padding:5px 8px;font-size:11px}
+  .tabs{padding:0 8px}
+  .tab{padding:8px 12px;font-size:11px}
+  .stats-bar{padding:6px 10px;gap:6px}
+  .stat-card{padding:6px 10px;min-width:60px}
+  .stat-card .val{font-size:18px}
+  .stat-card .lbl{font-size:9px}
+  .filters{padding:0 10px 8px;gap:6px}
+  .filters input,.filters select{font-size:11px;padding:5px 8px;max-width:100%}
+  .page-body{top:220px}
+  .legbar{padding:4px 10px;gap:8px}
+  .legbar-title{font-size:8px}
+  .leg-i{font-size:9px}
+}
 </style>
 <script src="https://unpkg.com/lucide@latest"></script>
 </head>

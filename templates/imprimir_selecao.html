@@ -3,64 +3,55 @@
 <head>
 <meta charset="UTF-8">
 <title>Imprimir Lista de Pacientes</title>
+<script src="https://unpkg.com/lucide@latest"></script>
 <style>
-  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-  .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 32px 40px; text-align: center; width: 380px; }
-  h1 { font-size: 18px; margin-bottom: 8px; }
-  p  { color: #94a3b8; font-size: 13px; margin-bottom: 24px; }
-  .dias { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  a.dia-btn { display: block; padding: 12px; background: #1d4ed8; color: #fff; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; transition: background .15s; }
-  a.dia-btn:hover { background: #2563eb; }
-  a.back { display: inline-block; margin-top: 20px; font-size: 12px; color: #64748b; text-decoration: none; }
-  a.back:hover { color: #e2e8f0; }
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text2:#94a3b8;--accent:#3b82f6;--radius:8px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;font-size:13px;min-height:100vh;display:flex;flex-direction:column}
+.navbar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:12px}
+.navbar h1{font-size:15px;font-weight:700;color:#f8fafc}
+.navbar-spacer{flex:1}
+.role-badge{padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase}
+.role-coordenador{background:#7c3aed;color:#fff}
+.role-recepcao{background:#0e7490;color:#fff}
+.role-aluno{background:#374151;color:#d1d5db}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:var(--radius);border:none;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;text-decoration:none}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}.btn-ghost:hover{background:#263348;color:var(--text)}
+.btn-sm{padding:4px 10px;font-size:11px}
+.wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 20px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px 40px;text-align:center;width:380px}
+h2{font-size:18px;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:8px}
+p{color:var(--text2);font-size:13px;margin-bottom:24px}
+.dias{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+a.dia-btn{display:block;padding:12px;background:#1d4ed8;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;transition:background .15s}
+a.dia-btn:hover{background:#2563eb}
+a.back{display:inline-block;margin-top:20px;font-size:12px;color:#64748b;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px}
+a.back:hover{color:var(--text)}
 </style>
-  <script src="https://unpkg.com/lucide@latest"></script>\n</head>
+</head>
 <body>
-<div class="card">
-  <h1><i data-lucide="printer"></i> Lista de Pacientes</h1>
-  <p>Selecione o dia para abrir a lista para impressão / PDF</p>
-  <div class="dias">
-    {% for d in dias %}
-    <a class="dia-btn" href="/imprimir/{{ d }}" target="_blank">{{ dias_pt[d] }}</a>
-    {% endfor %}
-  </div>
-  <a class="back" href="/"><i data-lucide="arrow-left"></i> Voltar ao mapa</a>
-</div>
-<script>lucide.createIcons();</script>\n</body>
-</html><nav class="navbar">
+<nav class="navbar">
   <h1><i data-lucide="printer"></i> Lista de Pacientes</h1>
   <div class="navbar-spacer"></div>
   <span style="font-size:12px;color:var(--text2)"><i data-lucide="user-round"></i> {{ usuario }}</span>
   <span class="role-badge role-{{ papel }}">{{ papel }}</span>
   <a href="/perfil" class="btn btn-ghost btn-sm"><i data-lucide="user-round"></i> Perfil</a>
-  <a href="/" class="btn btn-ghost btn-sm"><i data-lucide="arrow-left"></i> Voltar ao mapa</a>
-</nav>TYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<title>Imprimir Lista de Pacientes</title>
-<style>
-  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-  .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 32px 40px; text-align: center; width: 380px; }
-  h1 { font-size: 18px; margin-bottom: 8px; }
-  p  { color: #94a3b8; font-size: 13px; margin-bottom: 24px; }
-  .dias { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  a.dia-btn { display: block; padding: 12px; background: #1d4ed8; color: #fff; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; transition: background .15s; }
-  a.dia-btn:hover { background: #2563eb; }
-  a.back { display: inline-block; margin-top: 20px; font-size: 12px; color: #64748b; text-decoration: none; }
-  a.back:hover { color: #e2e8f0; }
-</style>
-  <script src="https://unpkg.com/lucide@latest"></script>\n</head>
-<body>
-<div class="card">
-  <h1><i data-lucide="printer"></i> Lista de Pacientes</h1>
-  <p>Selecione o dia para abrir a lista para impressão / PDF</p>
-  <div class="dias">
-    {% for d in dias %}
-    <a class="dia-btn" href="/imprimir/{{ d }}" target="_blank">{{ dias_pt[d] }}</a>
-    {% endfor %}
+  <a href="/" class="btn btn-ghost btn-sm"><i data-lucide="arrow-left"></i> Mapa</a>
+</nav>
+
+<div class="wrap">
+  <div class="card">
+    <h2><i data-lucide="printer"></i> Lista de Pacientes</h2>
+    <p>Selecione o dia para abrir a lista para impressão / PDF</p>
+    <div class="dias">
+      {% for d in dias %}
+      <a class="dia-btn" href="/imprimir/{{ d }}" target="_blank">{{ dias_pt[d] }}</a>
+      {% endfor %}
+    </div>
+    <a class="back" href="/"><i data-lucide="arrow-left"></i> Voltar ao mapa</a>
   </div>
-  <a class="back" href="/"><i data-lucide="arrow-left"></i> Voltar ao mapa</a>
 </div>
-<script>lucide.createIcons();</script>\n</body>
+
+<script>lucide.createIcons();</script>
+</body>
 </html>

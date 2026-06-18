@@ -545,6 +545,7 @@ fetch('/api/estagiarios').then(function(r){return r.json();}).then(function(user
 });
 
 document.addEventListener('DOMContentLoaded', function() {
+  if(window.lucide) lucide.createIcons();
   var fEst = document.getElementById('fEstagiario');
   var acBox = document.getElementById('estSuggestions');
   if (!fEst || !acBox) return;
@@ -587,6 +588,7 @@ fetch('/api/estagiarios').then(function(r){return r.json();}).then(function(user
 });
 
 document.addEventListener('DOMContentLoaded', function() {
+  if(window.lucide) lucide.createIcons();
   var fEst = document.getElementById('fEstagiario');
   var acBox = document.getElementById('estSuggestions');
   if (!fEst || !acBox) return;

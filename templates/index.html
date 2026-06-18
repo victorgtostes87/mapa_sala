@@ -105,16 +105,25 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 <script src="https://unpkg.com/lucide@latest">
 
 
-document.getElementById('legBtn').addEventListener('click', function(){
-  var el = document.getElementById('legItems');
-  if(el.style.display === 'none'){
-    el.style.display = 'flex';
-    this.textContent = '−';
-  } else {
-    el.style.display = 'none';
-    this.textContent = '+';
-  }
-});
+
+
+(function(){
+  var btn   = document.getElementById('legBtn');
+  var items = document.getElementById('legItems');
+  var bar   = document.getElementById('legBar');
+  btn.addEventListener('click', function(){
+    var open = bar.getAttribute('data-open') !== 'false';
+    if(open){
+      items.style.display = 'none';
+      btn.textContent = '+';
+      bar.setAttribute('data-open','false');
+    } else {
+      items.style.display = 'flex';
+      btn.textContent = '−';
+      bar.setAttribute('data-open','true');
+    }
+  });
+})();
 </script>
 </head>
 <body>

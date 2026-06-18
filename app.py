@@ -356,6 +356,15 @@ def usuarios_page():
     return render_template('usuarios.html', usuarios=[dict(r) for r in rows],
                            usuario=current_user.username, papel=current_user.role)
 
+
+@app.route('/api/estagiarios', methods=['GET'])
+@login_required
+def api_list_estagiarios():
+    conn = get_db()
+    rows = conn.execute("SELECT id, username FROM usuarios WHERE role='aluno' ORDER BY username").fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
 @app.route('/api/usuarios', methods=['GET'])
 @login_required
 @requer_papel('coordenador')

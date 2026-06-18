@@ -524,9 +524,9 @@ document.addEventListener('click', function(){
   let _estList = [];
   async function carregarEstagiarios() {
     try {
-      const res = await fetch('/api/usuarios');
+      const res = await fetch('/api/estagiarios');
       const users = await res.json();
-      _estList = users.filter(u => u.role === 'aluno').map(u => u.username);
+      _estList = users.map(u => u.username);
     } catch(e) {}
   }
   carregarEstagiarios();

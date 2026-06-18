@@ -465,6 +465,8 @@ def list_ag():
     if sala:    q += ' AND sala=?';    p.append(sala)
     if cat:     q += ' AND categoria=?'; p.append(cat)
     if busca:   q += ' AND (estagiario LIKE ? OR paciente LIKE ? OR observacao LIKE ?)'; p += [f'%{busca}%']*3
+    if current_user.role == 'aluno':
+        q += ' AND estagiario LIKE ?'; p.append(f'%{current_user.username}%')
     q += ' ORDER BY horario, sala'
     conn = get_db()
     rows = conn.execute(q, p).fetchall()

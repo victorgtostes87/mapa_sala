@@ -34,7 +34,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .filters input,.filters select{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:6px 10px;font-size:12px;outline:none}
 .filters input:focus,.filters select:focus{border-color:var(--accent)}
 .filters input{min-width:200px}
-.page-body{position:fixed;top:160px;left:0;right:0;bottom:0;overflow:hidden}
+.page-body{position:fixed;top:160px;left:0;right:0;bottom:38px;overflow:hidden}
 .grid-wrap{position:absolute;inset:0;overflow:scroll;padding-bottom:8px}
 .mapa-table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%}
 .mapa-table th{background:var(--surface);color:var(--text2);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:7px 8px;border:1px solid var(--border);position:sticky;top:0;z-index:10;white-space:nowrap;text-align:center}
@@ -90,14 +90,20 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .btn i[data-lucide]{width:12px;height:12px}
 .btn-logout i[data-lucide]{width:12px;height:12px}
 
-/* ── Legenda FAB ── */
-.leg-fab{position:fixed;bottom:20px;right:20px;z-index:200}
-.leg-fab-btn{width:42px;height:42px;border-radius:50%;background:var(--accent);border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.45);transition:transform .2s,background .2s}
-.leg-fab-btn:hover{background:var(--accent2);transform:scale(1.08)}
-.leg-panel{position:absolute;bottom:52px;right:0;width:230px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 12px;box-shadow:0 8px 32px rgba(0,0,0,.5);display:grid;grid-template-columns:1fr 1fr;gap:5px 10px;opacity:0;transform:scale(.9) translateY(8px);transform-origin:bottom right;pointer-events:none;transition:opacity .2s,transform .2s}
-.leg-panel.open{opacity:1;transform:scale(1) translateY(0);pointer-events:all}
-.leg-title{grid-column:1/-1;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text2);margin-bottom:2px}
-.leg-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text2);white-space:nowrap}
+
+
+/* ── Legenda fixa rodapé ── */
+.legbar{position:fixed;bottom:0;left:0;right:0;z-index:100;background:var(--surface);border-top:1px solid var(--border);transition:height .22s ease;height:38px}
+.legbar.closed{height:22px}
+.legbar-header{display:flex;align-items:center;justify-content:space-between;padding:0 12px;height:22px}
+.legbar-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text2)}
+.legbar-toggle{background:none;border:none;color:var(--text2);cursor:pointer;font-size:15px;line-height:1;padding:0 4px;border-radius:3px;transition:color .15s;font-weight:700}
+.legbar-toggle:hover{color:var(--text)}
+.legbar-items{display:flex;flex-wrap:nowrap;gap:14px;padding:0 12px 5px;overflow-x:auto;overflow-y:hidden;align-items:center;height:16px}
+.legbar-items::-webkit-scrollbar{height:3px}
+.legbar-items::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.legbar.closed .legbar-items{display:none}
+.leg-item{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text2);white-space:nowrap;flex-shrink:0}
 .leg-dot{width:9px;height:9px;border-radius:2px;flex-shrink:0}
 </style>
 <script src="https://unpkg.com/lucide@latest"></script>
@@ -152,14 +158,17 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
   <input type="text" id="searchInput" placeholder="🔍  Buscar paciente, estagiário..." oninput="debounceRender()">
   <select id="filterHorario" onchange="renderGrid()
 
-function toggleLegFab(){
-  document.getElementById('legPanel').classList.toggle('open');
+function toggleLegBar(){
+  const bar = document.getElementById('legBar');
+  const btn = document.getElementById('legToggleBtn');
+  const closed = bar.classList.toggle('closed');
+  btn.textContent = closed ? '+' : '−';
 }
-document.addEventListener('click', function(e){
-  const fab = document.getElementById('legFab');
-  if(fab && !fab.contains(e.target))
-    document.getElementById('legPanel').classList.remove('open');
-});
+
+
+
+
+
 "><option value="">Todos horários</option>
     {% for h in horarios %}<option>{{h}}</option>{% endfor %}</select>
   <select id="filterSala" onchange="renderGrid()"><option value="">Todas salas</option>
@@ -173,9 +182,12 @@ document.addEventListener('click', function(e){
   <table class="mapa-table"><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table>
 </div></div>
 
-<div class="leg-fab" id="legFab">
-  <div class="leg-panel" id="legPanel">
-    <div class="leg-title">Legenda</div>
+<div class="legbar" id="legBar">
+  <div class="legbar-header">
+    <span class="legbar-title">Legenda</span>
+    <button class="legbar-toggle" onclick="toggleLegBar()" id="legToggleBtn" title="Minimizar">−</button>
+  </div>
+  <div class="legbar-items">
     <div class="leg-item"><div class="leg-dot" style="background:#1d4ed8"></div>Estag. 10°</div>
     <div class="leg-item"><div class="leg-dot" style="background:#1e40af"></div>10° Triagem</div>
     <div class="leg-item"><div class="leg-dot" style="background:#15803d"></div>Estag. 9°</div>
@@ -191,9 +203,6 @@ document.addEventListener('click', function(e){
     <div class="leg-item"><div class="leg-dot" style="background:#9d174d"></div>Plantão</div>
     <div class="leg-item"><div class="leg-dot" style="background:#92400e"></div>Prontuário</div>
   </div>
-  <button class="leg-fab-btn" onclick="toggleLegFab()" title="Legenda">
-    <i data-lucide="swatchbook" style="width:18px;height:18px"></i>
-  </button>
 </div>
 
 <!-- Modal -->
@@ -456,10 +465,7 @@ function toggleMenu(e){
   e.stopPropagation();
   document.getElementById('dropdownMenu').classList.toggle('open');
 }
-document.addEventListener('click', function(){
-  const m = document.getElementById('dropdownMenu');
-  if(m) m.classList.remove('open');
-});
+
 </script>
 <script>lucide.createIcons();</script>
 </body>

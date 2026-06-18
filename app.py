@@ -409,8 +409,12 @@ def api_editar_usuario(uid):
     else:
         conn.execute('UPDATE usuarios SET username=?, role=? WHERE id=?',
                      (d.get('username', row['username']), new_role, uid))
+    try:
+        conn.commit()
+    except Exception as e:
+        conn.close()
+        return jsonify({'erro': 'Nome de usuário já existe'}), 400
     registrar_log('EDITAR_USUARIO', f'Usuário "{row["username"]}" atualizado')
-    conn.commit()
     conn.close()
     return jsonify({'message': 'Usuário atualizado'})
 

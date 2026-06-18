@@ -93,12 +93,15 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
   <button class="btn btn-ghost btn-sm" onclick="exportCSV()"><i data-lucide="download"></i> Exportar</button>
   <a href="/imprimir" class="btn btn-ghost btn-sm" target="_blank"><i data-lucide="printer"></i> Imprimir</a>
   <a href="/perfil" class="btn btn-ghost btn-sm"><i data-lucide="user-round"></i> Perfil</a>
+  <a href="/trocar-senha" class="btn btn-ghost btn-sm"><i data-lucide="key-round"></i> Senha</a>
   {% elif papel == 'recepcao' %}
   <button class="btn btn-ghost btn-sm" onclick="exportCSV()"><i data-lucide="download"></i> Exportar</button>
   <a href="/imprimir" class="btn btn-ghost btn-sm" target="_blank"><i data-lucide="printer"></i> Imprimir</a>
   <a href="/perfil" class="btn btn-ghost btn-sm"><i data-lucide="user-round"></i> Perfil</a>
+  <a href="/trocar-senha" class="btn btn-ghost btn-sm"><i data-lucide="key-round"></i> Senha</a>
   {% else %}
   <a href="/perfil" class="btn btn-ghost btn-sm"><i data-lucide="user-round"></i> Perfil</a>
+  <a href="/trocar-senha" class="btn btn-ghost btn-sm"><i data-lucide="key-round"></i> Senha</a>
   {% endif %}
 
   {% if papel in ['coordenador', 'recepcao'] %}
@@ -405,6 +408,5 @@ function showToast(msg,type='success'){
 }
 renderGrid();
 </script>
-<script>lucide.createIcons();</script>
-</body>
+<script>lucide.createIcons();</script>\n</body>
 </html>

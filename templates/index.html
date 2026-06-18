@@ -272,7 +272,8 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
       <div class="form-row"><label>Sala *</label>
         <select id="fSala" onchange="verificarConflito()">{% for s in salas %}<option>{{s}}</option>{% endfor %}</select></div>
       <div class="form-row"><label>Estagiário / Conteúdo</label>
-        <input type="text" id="fEstagiario" placeholder="Ex: Ana Carolina 9° (Rodrigo)"></div>
+        <input type="text" id="fEstagiario" placeholder="Digite o nome do estagiário..." autocomplete="off" list="listaEstagiarios">
+        <datalist id="listaEstagiarios"></datalist></div>
       <div class="form-row"><label>Paciente</label>
         <input type="text" id="fPaciente" placeholder="Nome do paciente"></div>
       <div class="form-grid">
@@ -511,6 +512,23 @@ document.addEventListener('click', function(){
   if(m) m.classList.remove('open');
 });
 </script>
-<script>lucide.createIcons();</script>
+<script>lucide.createIcons();
+
+  // Popula datalist de estagiários
+  async function carregarEstagiarios() {
+    try {
+      const res = await fetch('/api/usuarios');
+      const users = await res.json();
+      const dl = document.getElementById('listaEstagiarios');
+      dl.innerHTML = '';
+      users.filter(u => u.role === 'aluno').forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.username;
+        dl.appendChild(opt);
+      });
+    } catch(e) {}
+  }
+  carregarEstagiarios();
+</script>
 </body>
 </html>

@@ -404,10 +404,11 @@ def api_editar_usuario(uid):
         return jsonify({'erro': 'Papel inválido'}), 400
     new_pass = (d.get('password') or '').strip()
     if new_pass:
-        conn.execute('UPDATE usuarios SET role=?, password_hash=? WHERE id=?',
-                     (new_role, generate_password_hash(new_pass), uid))
+        conn.execute('UPDATE usuarios SET username=?, role=?, password_hash=? WHERE id=?',
+                     (d.get('username', row['username']), new_role, generate_password_hash(new_pass), uid))
     else:
-        conn.execute('UPDATE usuarios SET role=? WHERE id=?', (new_role, uid))
+        conn.execute('UPDATE usuarios SET username=?, role=? WHERE id=?',
+                     (d.get('username', row['username']), new_role, uid))
     registrar_log('EDITAR_USUARIO', f'Usuário "{row["username"]}" atualizado')
     conn.commit()
     conn.close()

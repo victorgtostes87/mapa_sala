@@ -34,7 +34,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .filters input,.filters select{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:6px 10px;font-size:12px;outline:none}
 .filters input:focus,.filters select:focus{border-color:var(--accent)}
 .filters input{min-width:200px}
-.page-body{position:fixed;top:160px;left:0;right:0;bottom:38px;overflow:hidden}
+
 .grid-wrap{position:absolute;inset:0;overflow:scroll;padding-bottom:8px}
 .mapa-table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%}
 .mapa-table th{background:var(--surface);color:var(--text2);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:7px 8px;border:1px solid var(--border);position:sticky;top:0;z-index:10;white-space:nowrap;text-align:center}
@@ -92,21 +92,48 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 
 
 
-/* ── Legenda fixa rodapé ── */
-.legbar{position:fixed;bottom:0;left:0;right:0;z-index:100;background:var(--surface);border-top:1px solid var(--border);transition:height .22s ease;height:38px}
-.legbar.closed{height:22px}
-.legbar-header{display:flex;align-items:center;justify-content:space-between;padding:0 12px;height:22px}
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ── Legenda rodapé ── */
+.legbar{position:fixed;bottom:0;left:0;right:0;z-index:100;background:var(--surface);border-top:1px solid var(--border)}
+.legbar-header{display:flex;align-items:center;justify-content:space-between;padding:3px 12px}
 .legbar-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text2)}
-.legbar-toggle{background:none;border:none;color:var(--text2);cursor:pointer;font-size:15px;line-height:1;padding:0 4px;border-radius:3px;transition:color .15s;font-weight:700}
+.legbar-toggle{background:none;border:none;color:var(--text2);cursor:pointer;font-size:16px;font-weight:700;line-height:1;padding:0 4px;border-radius:3px;transition:color .15s;user-select:none}
 .legbar-toggle:hover{color:var(--text)}
-.legbar-items{display:flex;flex-wrap:nowrap;gap:14px;padding:0 12px 5px;overflow-x:auto;overflow-y:hidden;align-items:center;height:16px}
-.legbar-items::-webkit-scrollbar{height:3px}
-.legbar-items::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-.legbar.closed .legbar-items{display:none}
+.legbar-body{display:flex;flex-wrap:nowrap;gap:14px;padding:2px 12px 6px;overflow-x:auto;overflow-y:hidden;align-items:center}
+.legbar-body::-webkit-scrollbar{height:3px}
+.legbar-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 .leg-item{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text2);white-space:nowrap;flex-shrink:0}
 .leg-dot{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+
 </style>
-<script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://unpkg.com/lucide@latest">
+// Legenda toggle
+(function(){
+  var btn  = document.getElementById('legBtn');
+  var body = document.getElementById('legBody');
+  var bar  = document.getElementById('legBar');
+  if(!btn) return;
+  btn.addEventListener('click', function(){
+    var hidden = body.style.display === 'none';
+    body.style.display = hidden ? 'flex' : 'none';
+    btn.textContent    = hidden ? '−' : '+';
+    bar.style.paddingBottom = hidden ? '' : '0';
+  });
+})();
+
+</script>
 </head>
 <body>
 
@@ -158,12 +185,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
   <input type="text" id="searchInput" placeholder="🔍  Buscar paciente, estagiário..." oninput="debounceRender()">
   <select id="filterHorario" onchange="renderGrid()
 
-function toggleLegBar(){
-  const bar = document.getElementById('legBar');
-  const btn = document.getElementById('legToggleBtn');
-  const closed = bar.classList.toggle('closed');
-  btn.textContent = closed ? '+' : '−';
-}
+
 
 
 
@@ -185,9 +207,9 @@ function toggleLegBar(){
 <div class="legbar" id="legBar">
   <div class="legbar-header">
     <span class="legbar-title">Legenda</span>
-    <button class="legbar-toggle" onclick="toggleLegBar()" id="legToggleBtn" title="Minimizar">−</button>
+    <button class="legbar-toggle" id="legBtn" title="Minimizar/Expandir">−</button>
   </div>
-  <div class="legbar-items">
+  <div class="legbar-body" id="legBody">
     <div class="leg-item"><div class="leg-dot" style="background:#1d4ed8"></div>Estag. 10°</div>
     <div class="leg-item"><div class="leg-dot" style="background:#1e40af"></div>10° Triagem</div>
     <div class="leg-item"><div class="leg-dot" style="background:#15803d"></div>Estag. 9°</div>

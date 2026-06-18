@@ -127,39 +127,26 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 
 
 
+
+
+
+/* Oculta filtros de horario/sala/categoria em todos os tamanhos */
+#filterHorario,
+#filterSala,
+#filterCat { display: none !important; }
+
 @media (max-width: 600px) {
   .navbar { padding: 6px 10px; gap: 4px; flex-wrap: nowrap; overflow-x: auto; }
   .navbar h1 { font-size: 12px; white-space: nowrap; }
-  .btn { padding: 4px 7px; font-size: 10px; white-space: nowrap; }
   .navbar-spacer { display: none; }
   .tabs { padding: 0 6px; gap: 4px; }
   .tab { padding: 6px 8px; font-size: 10px; white-space: nowrap; }
-  .stats-bar {
-    display: flex; flex-wrap: nowrap; overflow-x: auto;
-    padding: 6px 10px; gap: 6px; -webkit-overflow-scrolling: touch;
-  }
+  .stats-bar { display: flex; flex-wrap: nowrap; overflow-x: auto; padding: 6px 10px; gap: 6px; }
   .stat-card { flex: 0 0 auto; min-width: 72px; padding: 6px 8px; }
-  .stat-card .val, .stat-card .value { font-size: 18px; }
-  .stat-card .lbl, .stat-card .label { font-size: 9px; }
-
-  /* Esconde os 3 selects de filtro no mobile */
-  #filterHorario,
-  #filterSala,
-  #filterCat { display: none !important; }
-
-  .filters {
-    display: flex; flex-wrap: nowrap;
-    gap: 5px; padding: 6px 10px;
-  }
-  .filters input {
-    flex: 1 1 auto; font-size: 12px; padding: 6px 8px;
-  }
-  .filters .btn {
-    flex: 0 0 auto; font-size: 11px; padding: 6px 10px;
-  }
-  .page-body { top: 220px; }
-  .legbar { padding: 4px 8px; gap: 5px; }
-  .leg-i { font-size: 9px; }
+  .filters { display: flex; flex-wrap: nowrap; gap: 5px; padding: 6px 10px; }
+  .filters input { flex: 1 1 auto; font-size: 12px; padding: 6px 8px; }
+  .filters .btn { flex: 0 0 auto; font-size: 11px; padding: 6px 10px; }
+  .page-body { top: 200px; }
 }
 
 </style>

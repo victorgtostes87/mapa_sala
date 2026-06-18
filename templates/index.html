@@ -8,20 +8,20 @@
 :root{--bg:#0f172a;--surface:#1e293b;--surface2:#263348;--border:#334155;--text:#e2e8f0;--text2:#94a3b8;--accent:#3b82f6;--accent2:#2563eb;--radius:8px;--warn:#f59e0b;--warn2:#92400e}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;min-height:100vh}
-.navbar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
-.navbar h1{font-size:16px;font-weight:700;color:#f8fafc;white-space:nowrap}.navbar h1 span{color:var(--accent)}
+.navbar{background:var(--surface);border-bottom:1px solid var(--border);padding:6px 16px;display:flex;align-items:center;gap:6px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
+.navbar h1{font-size:13px;font-weight:700;color:#f8fafc;white-space:nowrap}.navbar h1 span{color:var(--accent)}
 .navbar-spacer{flex:1}
-.user-info{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2)}
-.role-badge{padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.user-info{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2)}
+.role-badge{padding:1px 6px;border-radius:20px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
 .role-coordenador{background:#7c3aed;color:#fff}
 .role-recepcao{background:#0e7490;color:#fff}
 .role-aluno{background:#374151;color:#d1d5db}
 .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);border:none;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s}
 .btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
 .btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}.btn-ghost:hover{background:var(--surface2);color:var(--text)}
-.btn-sm{padding:4px 10px;font-size:11px}
+.btn-sm{padding:3px 8px;font-size:10px}
 .btn-danger{background:#dc2626;color:#fff}.btn-danger:hover{background:#b91c1c}
-.btn-logout{background:transparent;color:#f87171;border:1px solid #7f1d1d;font-size:11px;padding:4px 10px;border-radius:var(--radius);cursor:pointer;font-weight:600;transition:all .15s}
+.btn-logout{background:transparent;color:#f87171;border:1px solid #7f1d1d;font-size:10px;padding:2px 8px;border-radius:var(--radius);cursor:pointer;font-weight:600;transition:all .15s}
 .btn-logout:hover{background:#7f1d1d;color:#fff}
 .tabs{display:flex;gap:0;padding:0 20px;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto}
 .tab{padding:10px 20px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
@@ -82,11 +82,15 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .dropdown-menu a,.dropdown-menu button{display:flex;align-items:center;gap:8px;padding:10px 16px;color:#e2e8f0;text-decoration:none;font-size:12px;font-weight:600;background:transparent;border:none;width:100%;cursor:pointer;transition:background .15s}
 .dropdown-menu a:hover,.dropdown-menu button:hover{background:#263348}
 .dropdown-menu a+a,.dropdown-menu a+button,.dropdown-menu button+a{border-top:1px solid #334155}
-.btn-xs{padding:3px 10px;font-size:11px}
+.btn-xs{padding:2px 8px;font-size:10px}
 .stats-bar{display:flex;gap:8px;padding:8px 20px;flex-wrap:wrap}
 .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:6px 14px;min-width:100px}
 .stat-card .label{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
 .stat-card .value{font-size:20px;font-weight:700;color:#f8fafc;margin-top:1px}
+
+.navbar i[data-lucide]{width:14px;height:14px}
+.btn i[data-lucide]{width:12px;height:12px}
+.btn-logout i[data-lucide]{width:12px;height:12px}
 </style>
 <script src="https://unpkg.com/lucide@latest"></script>
 </head>

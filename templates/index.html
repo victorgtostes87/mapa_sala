@@ -30,8 +30,8 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 16px;min-width:120px}
 .stat-card .label{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
 .stat-card .value{font-size:22px;font-weight:700;color:#f8fafc;margin-top:1px}
-.filters{display:flex;gap:8px;padding:0 20px 10px;flex-wrap:wrap;align-items:center}
-.filters input,.filters select{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:6px 10px;font-size:12px;outline:none}
+.filters{display:flex;gap:8px;padding:0 20px 10px;flex-wrap:wrap;align-items:center;position:relative;z-index:150}
+.filters input,.filters select{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:6px 10px;font-size:12px;outline:none;position:relative;z-index:150}
 .filters input:focus,.filters select:focus{border-color:var(--accent)}
 .filters input{min-width:200px}
 .page-body{position:fixed;top:160px;left:0;right:0;bottom:48px;overflow:hidden}

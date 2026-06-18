@@ -34,7 +34,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .filters input,.filters select{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:6px 10px;font-size:12px;outline:none}
 .filters input:focus,.filters select:focus{border-color:var(--accent)}
 .filters input{min-width:200px}
-.page-body{position:fixed;top:160px;left:0;right:0;bottom:32px;overflow:hidden}
+.page-body{position:fixed;top:160px;left:0;right:0;bottom:28px;overflow:hidden}
 .grid-wrap{position:absolute;inset:0;overflow:scroll;padding-bottom:8px}
 .mapa-table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%}
 .mapa-table th{background:var(--surface);color:var(--text2);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:7px 8px;border:1px solid var(--border);position:sticky;top:0;z-index:10;white-space:nowrap;text-align:center}
@@ -69,12 +69,14 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .conflict-box.show{display:block}
 .conflict-box strong{color:#f87171;display:block;margin-bottom:4px;font-size:14px}
 .legend-bar{position:fixed;bottom:0;left:0;right:0;z-index:50;background:var(--surface);border-top:1px solid var(--border)}
-.legend-toggle{width:100%;display:flex;align-items:center;gap:6px;padding:5px 20px;background:transparent;border:none;color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;transition:background .15s}
-.legend-toggle:hover{background:var(--surface2);color:var(--text)}
-.legend{display:flex;flex-wrap:wrap;gap:8px;padding:8px 20px 10px;max-height:0;overflow:hidden;transition:max-height .25s ease,padding .25s ease;padding-top:0;padding-bottom:0}
-.legend.open{max-height:120px;padding:8px 20px 10px}
+.legend-header{display:flex;align-items:center;justify-content:space-between;padding:4px 12px 0}
+.legend-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text2)}
+.legend-min-btn{background:none;border:none;color:var(--text2);cursor:pointer;padding:2px 4px;border-radius:4px;display:flex;align-items:center;transition:color .15s}
+.legend-min-btn:hover{color:var(--text)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;padding:4px 12px 6px;overflow:hidden;transition:max-height .25s ease,opacity .25s ease,padding .2s ease;max-height:80px;opacity:1}
+.legend.collapsed{max-height:0;opacity:0;padding-top:0;padding-bottom:0}
 .leg-item{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text2)}
-.leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.leg-dot{width:9px;height:9px;border-radius:2px;flex-shrink:0}
 .toast{position:fixed;top:20px;right:20px;padding:10px 18px;border-radius:var(--radius);font-size:13px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none}
 .toast.show{opacity:1}.toast.success{background:#16a34a;color:#fff}.toast.error{background:#dc2626;color:#fff}.toast.warn{background:#d97706;color:#fff}
 ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
@@ -160,10 +162,13 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 </div></div>
 
 <div class="legend-bar">
-  <button class="legend-toggle" onclick="toggleLegenda()" id="legendBtn">
-    <i data-lucide="swatchbook"></i> Legenda <i data-lucide="chevron-up" id="legendChevron"></i>
-  </button>
-  <div class="legend" id="legendPanel">
+  <div class="legend-header">
+    <span class="legend-label">Legenda</span>
+    <button class="legend-min-btn" onclick="toggleLegenda()" title="Minimizar legenda" id="legendBtn">
+      <i data-lucide="chevron-down" id="legendChevron"></i>
+    </button>
+  </div>
+  <div class="legend open" id="legendPanel">
     <div class="leg-item"><div class="leg-dot" style="background:#1d4ed8"></div>Estag. 10°</div>
     <div class="leg-item"><div class="leg-dot" style="background:#1e40af"></div>10° Triagem</div>
     <div class="leg-item"><div class="leg-dot" style="background:#15803d"></div>Estag. 9°</div>
@@ -439,8 +444,8 @@ renderGrid();
 function toggleLegenda(){
   const panel   = document.getElementById('legendPanel');
   const chevron = document.getElementById('legendChevron');
-  const open    = panel.classList.toggle('open');
-  chevron.setAttribute('data-lucide', open ? 'chevron-down' : 'chevron-up');
+  const collapsed = panel.classList.toggle('collapsed');
+  chevron.setAttribute('data-lucide', collapsed ? 'chevron-up' : 'chevron-down');
   lucide.createIcons();
 }
 function toggleMenu(e){

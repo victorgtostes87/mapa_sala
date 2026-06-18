@@ -520,47 +520,7 @@ document.addEventListener('click', function(){
 </script>
 <script>lucide.createIcons();
 
-  // Autocomplete estagiários
-  let _estList = [];
-  async function carregarEstagiarios() {
-    try {
-      const res = await fetch('/api/estagiarios');
-      const users = await res.json();
-      _estList = users.map(u => u.username);
-    } catch(e) {}
-  }
-  carregarEstagiarios();
-
-  const fEst = document.getElementById('fEstagiario');
-  const acBox = document.getElementById('estSuggestions');
-  let acIdx = -1;
-
-  fEst.addEventListener('input', function() {
-    const val = this.value.trim().toLowerCase();
-    acBox.innerHTML = '';
-    acIdx = -1;
-    if (!val) { acBox.style.display='none'; return; }
-    const matches = _estList.filter(n => n.toLowerCase().includes(val));
-    if (!matches.length) { acBox.style.display='none'; return; }
-    matches.forEach((name, i) => {
-      const d = document.createElement('div');
-      d.className = 'ac-item';
-      d.textContent = name;
-      d.addEventListener('mousedown', () => { fEst.value = name; acBox.style.display='none'; });
-      acBox.appendChild(d);
-    });
-    acBox.style.display = 'block';
-  });
-
-  fEst.addEventListener('keydown', function(e) {
-    const items = acBox.querySelectorAll('.ac-item');
-    if (e.key === 'ArrowDown') { acIdx=Math.min(acIdx+1,items.length-1); items.forEach((el,i)=>el.classList.toggle('active',i===acIdx)); e.preventDefault(); }
-    else if (e.key === 'ArrowUp') { acIdx=Math.max(acIdx-1,0); items.forEach((el,i)=>el.classList.toggle('active',i===acIdx)); e.preventDefault(); }
-    else if (e.key === 'Enter' && acIdx>=0) { fEst.value=items[acIdx].textContent; acBox.style.display='none'; e.preventDefault(); }
-    else if (e.key === 'Escape') { acBox.style.display='none'; }
-  });
-
-  document.addEventListener('click', (e) => { if (!fEst.contains(e.target)) acBox.style.display='none'; });
+  
 
 
 // já existe {
@@ -576,7 +536,90 @@ document.addEventListener('click', function(){
       });
     } catch(e) {}
   }
-  carregarEstagiarios();
 </script>
+
+<script>
+var _estList = [];
+fetch('/api/estagiarios').then(function(r){return r.json();}).then(function(users){
+  _estList = users.map(function(u){return u.username;});
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+  var fEst = document.getElementById('fEstagiario');
+  var acBox = document.getElementById('estSuggestions');
+  if (!fEst || !acBox) return;
+  var acIdx = -1;
+
+  fEst.addEventListener('input', function() {
+    var val = this.value.trim().toLowerCase();
+    acBox.innerHTML = '';
+    acIdx = -1;
+    if (!val || !_estList.length) { acBox.style.display='none'; return; }
+    var matches = _estList.filter(function(n){ return n.toLowerCase().includes(val); });
+    if (!matches.length) { acBox.style.display='none'; return; }
+    matches.forEach(function(name) {
+      var d = document.createElement('div');
+      d.className = 'ac-item';
+      d.textContent = name;
+      d.addEventListener('mousedown', function() { fEst.value = name; acBox.style.display='none'; });
+      acBox.appendChild(d);
+    });
+    acBox.style.display = 'block';
+  });
+
+  fEst.addEventListener('keydown', function(e) {
+    var items = acBox.querySelectorAll('.ac-item');
+    if (e.key==='ArrowDown'){acIdx=Math.min(acIdx+1,items.length-1);items.forEach(function(el,i){el.classList.toggle('active',i===acIdx);});e.preventDefault();}
+    else if(e.key==='ArrowUp'){acIdx=Math.max(acIdx-1,0);items.forEach(function(el,i){el.classList.toggle('active',i===acIdx);});e.preventDefault();}
+    else if(e.key==='Enter'&&acIdx>=0){fEst.value=items[acIdx].textContent;acBox.style.display='none';e.preventDefault();}
+    else if(e.key==='Escape'){acBox.style.display='none';}
+  });
+
+  document.addEventListener('click', function(e){ if(fEst && !fEst.contains(e.target)) acBox.style.display='none'; });
+});
+</script>
+
+
+<script>
+var _estList = [];
+fetch('/api/estagiarios').then(function(r){return r.json();}).then(function(users){
+  _estList = users.map(function(u){return u.username;});
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+  var fEst = document.getElementById('fEstagiario');
+  var acBox = document.getElementById('estSuggestions');
+  if (!fEst || !acBox) return;
+  var acIdx = -1;
+
+  fEst.addEventListener('input', function() {
+    var val = this.value.trim().toLowerCase();
+    acBox.innerHTML = '';
+    acIdx = -1;
+    if (!val || !_estList.length) { acBox.style.display='none'; return; }
+    var matches = _estList.filter(function(n){ return n.toLowerCase().includes(val); });
+    if (!matches.length) { acBox.style.display='none'; return; }
+    matches.forEach(function(name) {
+      var d = document.createElement('div');
+      d.className = 'ac-item';
+      d.textContent = name;
+      d.addEventListener('mousedown', function() { fEst.value = name; acBox.style.display='none'; });
+      acBox.appendChild(d);
+    });
+    acBox.style.display = 'block';
+  });
+
+  fEst.addEventListener('keydown', function(e) {
+    var items = acBox.querySelectorAll('.ac-item');
+    if (e.key==='ArrowDown'){acIdx=Math.min(acIdx+1,items.length-1);items.forEach(function(el,i){el.classList.toggle('active',i===acIdx);});e.preventDefault();}
+    else if(e.key==='ArrowUp'){acIdx=Math.max(acIdx-1,0);items.forEach(function(el,i){el.classList.toggle('active',i===acIdx);});e.preventDefault();}
+    else if(e.key==='Enter'&&acIdx>=0){fEst.value=items[acIdx].textContent;acBox.style.display='none';e.preventDefault();}
+    else if(e.key==='Escape'){acBox.style.display='none';}
+  });
+
+  document.addEventListener('click', function(e){ if(fEst && !fEst.contains(e.target)) acBox.style.display='none'; });
+});
+</script>
+
 </body>
 </html>

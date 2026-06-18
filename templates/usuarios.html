@@ -149,7 +149,7 @@ function abrirNovo() {
 function abrirEditar(id, username, role) {
   document.getElementById('fId').value = id;
   document.getElementById('fUsername').value = username;
-  document.getElementById('fUsername').disabled = true;
+  document.getElementById('fUsername').disabled = false;
   document.getElementById('fRole').value = role;
   document.getElementById('fPassword').value = '';
   document.getElementById('modalTitulo').textContent = 'Editar Usuário: ' + username;
@@ -178,7 +178,7 @@ async function salvar() {
   }
 
   const body = { role };
-  if (!id) body.username = username;
+  body.username = username;
   if (password) body.password = password;
 
   const url    = id ? `/api/usuarios/${id}` : '/api/usuarios';

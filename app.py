@@ -4,6 +4,8 @@ from functools import wraps
 from flask import Flask, render_template, jsonify, request, send_file, redirect, url_for, flash
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 app = Flask(__name__)
 try:
@@ -15,12 +17,19 @@ except ImportError:
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-local-apenas')
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 
-VERSAO = '2026-06-19-v10'
+VERSAO = '2026-06-19-v11'
 
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Faça login para acessar o sistema.'
+
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=[],
+    storage_uri='memory://'
+)
 
 PAPEIS_VALIDOS = ('coordenador', 'recepcao', 'professor', 'aluno')
 
@@ -211,6 +220,7 @@ def api_versao():
     return jsonify({'versao': VERSAO, 'ok': True})
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit('5 per minute', methods=['POST'])
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('index'))

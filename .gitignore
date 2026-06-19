@@ -5,3 +5,4 @@ mapa_salas.db
 *.xlsx
 *.pyc
 __pycache__/
+.env

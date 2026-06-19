@@ -6,6 +6,12 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
+try:
+    from dotenv import load_dotenv as _ld
+    import os as _os
+    _ld(dotenv_path=_os.path.join(_os.path.dirname(__file__), '.env'))
+except ImportError:
+    pass
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-local-apenas')
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 

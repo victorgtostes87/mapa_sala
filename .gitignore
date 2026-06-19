@@ -6,3 +6,4 @@ mapa_salas.db
 *.pyc
 __pycache__/
 .env
+*.bak

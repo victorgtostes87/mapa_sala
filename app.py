@@ -17,7 +17,7 @@ except ImportError:
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-local-apenas')
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 
-VERSAO = '2026-06-19-v11'
+VERSAO = '2026-06-19-v12'
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -214,7 +214,7 @@ def detect_sem(t):
     if re.search(r'9[°º]', t): return 9
     return 0
 
-# ── Rotas ────────────────────────────────────────────────────
+# ── Rotas ───────────────────────────────────────────────────────────
 @app.route('/api/versao')
 def api_versao():
     return jsonify({'versao': VERSAO, 'ok': True})
@@ -253,7 +253,7 @@ def index():
                            categorias=CATEGORIAS, dias=DIAS,
                            usuario=current_user.username, papel=current_user.role)
 
-# ── Perfil ─────────────────────────────────────────────────
+# ── Perfil ───────────────────────────────────────────────────────────
 @app.route('/perfil', methods=['GET', 'POST'])
 @login_required
 def perfil():
@@ -288,7 +288,7 @@ def perfil():
                            nome_completo=row['nome_completo'] or '',
                            email=row['email'] or '')
 
-# ── Troca de senha ─────────────────────────────────────────────
+# ── Troca de senha ───────────────────────────────────────────────────
 @app.route('/trocar-senha', methods=['GET', 'POST'])
 @login_required
 def trocar_senha():
@@ -324,7 +324,7 @@ def trocar_senha():
                            usuario=current_user.username,
                            papel=current_user.role)
 
-# ── Impressão ─────────────────────────────────────────────────
+# ── Impressão ────────────────────────────────────────────────────────
 @app.route('/imprimir')
 @login_required
 @requer_papel_page('coordenador', 'recepcao')
@@ -354,14 +354,14 @@ def imprimir(dia):
         pacientes=pacientes
     )
 
-# ── Logs ────────────────────────────────────────────────────
+# ── Logs ─────────────────────────────────────────────────────────────
 @app.route('/logs')
 @login_required
 @requer_papel_page('coordenador')
 def logs_page():
     return render_template('logs.html', usuario=current_user.username, papel=current_user.role)
 
-# ── Usuários ────────────────────────────────────────────────────
+# ── Usuários ──────────────────────────────────────────────────────────
 @app.route('/usuarios')
 @login_required
 @requer_papel_page('coordenador')
@@ -612,6 +612,10 @@ def backup_db():
         as_attachment=True,
         download_name=f'backup_mapa_{datetime.now().strftime("%Y%m%d_%H%M")}.db'
     )
+
+# Garante que o banco é inicializado também quando rodando via WSGI
+with app.app_context():
+    init_db()
 
 if __name__ == '__main__':
     init_db()

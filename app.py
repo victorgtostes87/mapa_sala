@@ -15,7 +15,7 @@ except ImportError:
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-local-apenas')
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 
-VERSAO = '2026-06-17-v9'
+VERSAO = '2026-06-19-v10'
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -481,7 +481,7 @@ def list_ag():
     if cat:     q += ' AND categoria=?'; p.append(cat)
     if busca:   q += ' AND (estagiario LIKE ? OR paciente LIKE ? OR observacao LIKE ?)'; p += [f'%{busca}%']*3
     if current_user.role == 'aluno':
-        q += ' AND estagiario LIKE ?'; p.append(f'%{current_user.username}%')
+        q += ' AND estagiario = ?'; p.append(current_user.username)
     q += ' ORDER BY horario, sala'
     conn = get_db()
     rows = conn.execute(q, p).fetchall()

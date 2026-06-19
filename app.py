@@ -9,7 +9,7 @@ app = Flask(__name__)
 try:
     from dotenv import load_dotenv as _ld
     import os as _os
-    _ld(dotenv_path=_os.path.join(_os.path.dirname(__file__), '.env'))
+    _ld(dotenv_path='/home/victroid/mapa_sala/.env')
 except ImportError:
     pass
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-local-apenas')

@@ -26,10 +26,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .tabs{display:flex;gap:0;padding:0 20px;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto}
 .tab{padding:10px 20px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
 .tab:hover{color:var(--text)}.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
-.stats-bar{display:flex;gap:10px;padding:10px 20px;flex-wrap:wrap}
-.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 16px;min-width:120px}
-.stat-card .label{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
-.stat-card .value{font-size:22px;font-weight:700;color:#f8fafc;margin-top:1px}
+
 .filters{display:flex;gap:8px;padding:0 20px 10px;flex-wrap:wrap;align-items:center}
 .filters input,.filters select{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:6px 10px;font-size:12px;outline:none}
 .filters input:focus,.filters select:focus{border-color:var(--accent)}
@@ -71,7 +68,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 
 
 
-.toast{position:fixed;top:20px;right:20px;padding:10px 18px;border-radius:var(--radius);font-size:13px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast{position:fixed;top:20px;right:20px;padding:10px 18px;border-radius:var(--radius);font-size:13px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;display:flex;align-items:center;gap:6px}
 .toast.show{opacity:1}.toast.success{background:#16a34a;color:#fff}.toast.error{background:#dc2626;color:#fff}.toast.warn{background:#d97706;color:#fff}
 ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 .tabs{padding:0 8px}.stats-bar{padding:8px 12px}.filters{padding:0 12px 8px}.filters input{min-width:140px}}
@@ -103,21 +100,6 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .leg-d{width:12px;height:12px;border-radius:3px;flex-shrink:0}
 
 
-  .navbar h1{font-size:13px}
-  .btn{padding:5px 8px;font-size:11px}
-  .tabs{padding:0 8px}
-  .tab{padding:8px 12px;font-size:11px}
-  .stats-bar{padding:6px 10px;gap:6px}
-  .stat-card{padding:6px 10px;min-width:60px}
-  .stat-card .val{font-size:18px}
-  .stat-card .lbl{font-size:9px}
-  .filters{padding:0 10px 8px;gap:6px}
-  .filters input,.filters select{font-size:11px;padding:5px 8px;max-width:100%}
-  .page-body{top:220px}
-  .legbar{padding:5px 10px;gap:10px}
-  .legbar-title{font-size:8px}
-  .leg-i{font-size:11px}
-}
 
 
 
@@ -187,7 +169,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
   </div>
 
   {% if papel in ['coordenador', 'recepcao'] %}
-  <button class="btn btn-primary btn-xs" onclick="openModal(null)"><i data-lucide="circle-plus"></i> Novo</button>
+  <button class="btn btn-primary btn-sm" onclick="openModal(null)"><i data-lucide="circle-plus"></i> Novo</button>
   {% endif %}
   <a href="/logout" class="btn-logout"><i data-lucide="log-out"></i> Sair</a>
 </nav>
@@ -251,7 +233,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
     </div>
     <div id="editView">
       <div class="conflict-box" id="conflictBox">
-        <strong>🚫 Sala já está ocupada!</strong>
+        <strong><i data-lucide="alert-circle" style="width:13px;height:13px;vertical-align:middle;margin-right:4px"></i>Sala já está ocupada!</strong>
         <span id="conflictMsg"></span>
         <div style="margin-top:8px;font-size:11px;color:#fca5a5">Escolha outro horário ou outra sala antes de salvar.</div>
       </div>
@@ -449,13 +431,17 @@ function openModal(id){
     ['fEstagiario','fPaciente','fData','fObs'].forEach(id=>document.getElementById(id).value='');
   }
   document.getElementById('modalOverlay').classList.add('open');
+  setTimeout(()=>{
+    const first = document.querySelector('#editView input:not([type=hidden]), #editView select');
+    if(first && document.getElementById('editView').style.display!=='none') first.focus();
+  },50);
 }
 function openModalNew(h,s){ if(!PODE_EDITAR)return; openModal(null); setTimeout(()=>{setF('fHorario',h);setF('fSala',s);verificarConflito();},50); }
 function setF(id,val){ const el=document.getElementById(id); if(el) el.value=val; }
 function closeModal(){ document.getElementById('modalOverlay').classList.remove('open'); }
 function closeModalIfBg(e){ if(e.target.id==='modalOverlay') closeModal(); }
 async function saveAg(){
-  if(temConflito){ showToast('🚫 Resolva o conflito antes de salvar!','error'); return; }
+  if(temConflito){ showToast('Resolva o conflito antes de salvar!','error'); return; }
   const id=document.getElementById('fId').value;
   const body={
     dia_semana:document.getElementById('fDia').value,
@@ -471,26 +457,29 @@ async function saveAg(){
   const res=await fetch(id?'/api/agendamentos/'+id:'/api/agendamentos',
     {method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const data=await res.json();
-  if(res.ok){ showToast('✅ Salvo!','success'); closeModal(); renderGrid(); }
+  if(res.ok){ showToast('Salvo!','success'); closeModal(); renderGrid(); }
   else if(res.status===409){
     document.getElementById('conflictMsg').textContent=data.erro||'Conflito de sala.';
     document.getElementById('conflictBox').classList.add('show');
     const btn=document.getElementById('saveBtn');
     btn.disabled=true; btn.style.opacity='0.4'; btn.style.cursor='not-allowed';
-    showToast('🚫 Conflito de sala!','error');
-  } else { showToast('❌ '+(data.erro||'Erro ao salvar'),'error'); }
+    showToast('Conflito de sala!','error');
+  } else { showToast(data.erro||'Erro ao salvar','error'); }
 }
 async function deleteAg(){
   const id=document.getElementById('fId').value;
   if(!id||!confirm('Remover este agendamento?')) return;
   const res=await fetch('/api/agendamentos/'+id,{method:'DELETE'});
-  if(res.ok){ showToast('🗑 Removido','success'); closeModal(); renderGrid(); }
-  else{ const e=await res.json(); showToast('❌ '+(e.erro||'Erro ao remover'),'error'); }
+  if(res.ok){ showToast('Removido','success'); closeModal(); renderGrid(); }
+  else{ const e=await res.json(); showToast(e.erro||'Erro ao remover','error'); }
 }
 function exportCSV(){ window.location='/api/export'; }
 function showToast(msg,type='success'){
+  const icons={success:'check-circle',error:'x-circle',warn:'alert-triangle'};
   const t=document.getElementById('toast');
-  t.textContent=msg; t.className='toast show '+type;
+  t.innerHTML=`<i data-lucide="${icons[type]||'info'}" style="width:14px;height:14px;vertical-align:middle;margin-right:6px"></i>${msg}`;
+  t.className='toast show '+type;
+  if(window.lucide) lucide.createIcons({nodes:[t]});
   setTimeout(()=>t.className='toast',3000);
 }
 renderGrid();
@@ -531,7 +520,6 @@ fetch('/api/estagiarios').then(function(r){return r.json();}).then(function(user
 });
 
 document.addEventListener('DOMContentLoaded', function() {
-  if(window.lucide) lucide.createIcons();
   var fEst = document.getElementById('fEstagiario');
   var acBox = document.getElementById('estSuggestions');
   if (!fEst || !acBox) return;
@@ -567,47 +555,6 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 
-<script>
-var _estList = [];
-fetch('/api/estagiarios').then(function(r){return r.json();}).then(function(users){
-  _estList = users.map(function(u){return u.username;});
-});
-
-document.addEventListener('DOMContentLoaded', function() {
-  if(window.lucide) lucide.createIcons();
-  var fEst = document.getElementById('fEstagiario');
-  var acBox = document.getElementById('estSuggestions');
-  if (!fEst || !acBox) return;
-  var acIdx = -1;
-
-  fEst.addEventListener('input', function() {
-    var val = this.value.trim().toLowerCase();
-    acBox.innerHTML = '';
-    acIdx = -1;
-    if (!val || !_estList.length) { acBox.style.display='none'; return; }
-    var matches = _estList.filter(function(n){ return n.toLowerCase().includes(val); });
-    if (!matches.length) { acBox.style.display='none'; return; }
-    matches.forEach(function(name) {
-      var d = document.createElement('div');
-      d.className = 'ac-item';
-      d.textContent = name;
-      d.addEventListener('mousedown', function() { fEst.value = name; acBox.style.display='none'; });
-      acBox.appendChild(d);
-    });
-    acBox.style.display = 'block';
-  });
-
-  fEst.addEventListener('keydown', function(e) {
-    var items = acBox.querySelectorAll('.ac-item');
-    if (e.key==='ArrowDown'){acIdx=Math.min(acIdx+1,items.length-1);items.forEach(function(el,i){el.classList.toggle('active',i===acIdx);});e.preventDefault();}
-    else if(e.key==='ArrowUp'){acIdx=Math.max(acIdx-1,0);items.forEach(function(el,i){el.classList.toggle('active',i===acIdx);});e.preventDefault();}
-    else if(e.key==='Enter'&&acIdx>=0){fEst.value=items[acIdx].textContent;acBox.style.display='none';e.preventDefault();}
-    else if(e.key==='Escape'){acBox.style.display='none';}
-  });
-
-  document.addEventListener('click', function(e){ if(fEst && !fEst.contains(e.target)) acBox.style.display='none'; });
-});
-</script>
 
 </body>
 </html>

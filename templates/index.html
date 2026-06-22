@@ -1,1 +1,410 @@
-__INDEX__
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mapa de Salas – Policlínica</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+<nav class="navbar">
+  <h1>🏥 Mapa de Salas</h1>
+  <div class="nav-links">
+    {% if current_user.role in ['coordenador','recepcao','professor'] %}
+    <a href="/imprimir" id="nav-imprimir"><i data-lucide="printer" style="width:13px;height:13px"></i> Imprimir</a>
+    {% endif %}
+    {% if current_user.role == 'coordenador' %}
+    <a href="/usuarios" id="nav-usuarios"><i data-lucide="users" style="width:13px;height:13px"></i> Usuários</a>
+    <a href="/logs" id="nav-logs"><i data-lucide="scroll-text" style="width:13px;height:13px"></i> Logs</a>
+    <a href="/api/backup" id="nav-backup" title="Baixar backup do banco"><i data-lucide="database-backup" style="width:13px;height:13px"></i> Backup</a>
+    {% endif %}
+  </div>
+  <div class="nav-user">
+    <span class="badge-papel {{ current_user.role }}">{{ current_user.role }}</span>
+    <a href="/perfil"><i data-lucide="user" style="width:12px;height:12px"></i> {{ current_user.username }}</a>
+    <a href="/logout"><i data-lucide="log-out" style="width:12px;height:12px"></i> Sair</a>
+  </div>
+</nav>
+
+<div class="controls">
+  <select id="sel-dia">
+    {% for d in dias %}
+    <option value="{{d}}">{{d}}</option>
+    {% endfor %}
+  </select>
+  <select id="sel-hora">
+    <option value="">Todos horários</option>
+    {% for h in horarios %}
+    <option value="{{h}}">{{h}}</option>
+    {% endfor %}
+  </select>
+  <select id="sel-sala">
+    <option value="">Todas as salas</option>
+    {% for s in salas %}
+    <option value="{{s}}">{{s}}</option>
+    {% endfor %}
+  </select>
+  <select id="sel-cat">
+    <option value="">Todas categorias</option>
+    {% for c in categorias %}
+    <option value="{{c}}">{{c}}</option>
+    {% endfor %}
+  </select>
+  <input type="text" id="inp-busca" placeholder="🔍 Buscar..." style="min-width:160px">
+  {% if current_user.role in ['coordenador','recepcao'] %}
+  <button class="btn" onclick="abrirModalNovo()"><i data-lucide="plus" style="width:13px;height:13px"></i> Novo</button>
+  <button class="btn btn-secondary" onclick="exportarCSV()"><i data-lucide="download" style="width:13px;height:13px"></i> CSV</button>
+  {% endif %}
+  <span id="lbl-count" style="font-size:11px;color:var(--text2);margin-left:auto"></span>
+</div>
+
+<div class="grid-wrap">
+  <table id="tbl-ag">
+    <thead>
+      <tr>
+        <th>Horário</th>
+        <th>Sala</th>
+        <th>Categoria</th>
+        <th>Estagiário</th>
+        <th>Paciente</th>
+        <th>Obs.</th>
+        {% if current_user.role in ['coordenador','recepcao'] %}
+        <th>Ações</th>
+        {% endif %}
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<!-- Modal Novo/Editar -->
+<div class="modal-overlay" id="modal-ag">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">Novo Agendamento</h3>
+      <button class="modal-close" onclick="fecharModal()"><i data-lucide="x" style="width:16px;height:16px"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="conflict-banner" id="conflict-banner">
+        <i data-lucide="alert-triangle" style="width:14px;height:14px"></i>
+        <span id="conflict-msg"></span>
+      </div>
+      <div class="form-row cols2">
+        <div class="form-group">
+          <label>Dia da Semana</label>
+          <select id="f-dia"></select>
+        </div>
+        <div class="form-group">
+          <label>Horário</label>
+          <select id="f-hora"></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Sala</label>
+          <select id="f-sala"></select>
+        </div>
+      </div>
+      <div class="form-row cols2">
+        <div class="form-group">
+          <label>Categoria</label>
+          <select id="f-cat"></select>
+        </div>
+        <div class="form-group">
+          <label>Semestre</label>
+          <select id="f-sem">
+            <option value="0">--</option>
+            <option value="9">9°</option>
+            <option value="10">10°</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group ac-wrap">
+          <label>Estagiário</label>
+          <input type="text" id="f-est" autocomplete="off" placeholder="Nome do estagiário">
+          <div class="ac-list" id="ac-est" style="display:none"></div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Paciente</label>
+          <input type="text" id="f-pac" placeholder="Nome do paciente">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Observação</label>
+          <textarea id="f-obs" rows="2" placeholder="Observações..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="fecharModal()">Cancelar</button>
+      <button class="btn btn-danger btn-sm" id="btn-excluir" style="display:none" onclick="excluirAg()"><i data-lucide="trash-2" style="width:12px;height:12px"></i> Excluir</button>
+      <button class="btn" onclick="salvarAg()"><i data-lucide="save" style="width:13px;height:13px"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toasts"></div>
+
+<script>
+const SALAS = {{ salas | tojson }};
+const HORARIOS = {{ horarios | tojson }};
+const CATEGORIAS = {{ categorias | tojson }};
+const DIAS = {{ dias | tojson }};
+const PAPEL = {{ papel | tojson }};
+const USUARIO = {{ usuario | tojson }};
+
+let editId = null;
+let estagiarios = [];
+
+async function carregarEstagiarios() {
+  try {
+    const r = await fetch('/api/estagiarios');
+    if (r.ok) estagiarios = await r.json();
+  } catch(e) {}
+}
+
+function toast(msg, tipo='info') {
+  const c = document.getElementById('toasts');
+  const t = document.createElement('div');
+  t.className = `toast ${tipo}`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+function badgeCategoria(cat) {
+  const map = {
+    'ESTAGIÁRIO 10°':'badge-est10','ESTAGIÁRIO 10° TRIAGEM':'badge-est10t',
+    'ESTAGIÁRIO 9°':'badge-est9','ESTAGIÁRIO 9° TRIAGEM':'badge-est9t',
+    'SUPERVISÃO':'badge-sup','NACE':'badge-nace','SOU':'badge-sou',
+    'MARCAR':'badge-marcar','NÃO MARCAR':'badge-nmarcar',
+    'NUTRIÇÃO':'badge-nutri','PSICODIAGNÓSTICO':'badge-psicodiag',
+    'PSIQUIATRIA':'badge-psiq','AMBULATÓRIO NEUROPSICOLOGIA':'badge-ambneuro',
+    'PLANTÃO PSICOLÓGICO':'badge-plantao','PRONTUÁRIO/ESTUDAR':'badge-pront',
+    'LIVRE':'badge-livre','OUTRO':'badge-outro'
+  };
+  const cls = map[cat] || 'badge-outro';
+  return `<span class="badge ${cls}">${cat}</span>`;
+}
+
+async function carregar() {
+  const dia  = document.getElementById('sel-dia').value;
+  const hora = document.getElementById('sel-hora').value;
+  const sala = document.getElementById('sel-sala').value;
+  const cat  = document.getElementById('sel-cat').value;
+  const busca= document.getElementById('inp-busca').value;
+  const params = new URLSearchParams({dia_semana: dia});
+  if (hora)  params.append('horario', hora);
+  if (sala)  params.append('sala', sala);
+  if (cat)   params.append('categoria', cat);
+  if (busca) params.append('busca', busca);
+  const tb = document.getElementById('tbody');
+  tb.innerHTML = '<tr><td colspan="7" class="loading">⏳ Carregando...</td></tr>';
+  try {
+    const r = await fetch('/api/agendamentos?' + params);
+    const data = await r.json();
+    document.getElementById('lbl-count').textContent = `${data.length} registro(s)`;
+    if (!data.length) {
+      tb.innerHTML = `<tr><td colspan="7" class="empty-state">📂 Nenhum agendamento encontrado</td></tr>`;
+      return;
+    }
+    tb.innerHTML = data.map(a => {
+      const podEditar = PAPEL === 'coordenador' || PAPEL === 'recepcao';
+      const acoes = podEditar
+        ? `<td><button class="cell-btn" onclick="abrirEditar(${a.id})"><i data-lucide="pencil" style="width:12px;height:12px"></i></button></td>`
+        : '';
+      return `<tr>
+        <td>${a.horario}</td>
+        <td>${a.sala}</td>
+        <td>${badgeCategoria(a.categoria)}</td>
+        <td>${a.estagiario || ''}</td>
+        <td>${a.paciente || ''}</td>
+        <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${a.observacao||''}">${a.observacao||''}</td>
+        ${acoes}
+      </tr>`;
+    }).join('');
+    if (window.lucide) lucide.createIcons();
+  } catch(e) {
+    tb.innerHTML = '<tr><td colspan="7" class="empty-state">❌ Erro ao carregar dados</td></tr>';
+  }
+}
+
+function popularSelects() {
+  const fDia  = document.getElementById('f-dia');
+  const fHora = document.getElementById('f-hora');
+  const fSala = document.getElementById('f-sala');
+  const fCat  = document.getElementById('f-cat');
+  fDia.innerHTML  = DIAS.map(d=>`<option value="${d}">${d}</option>`).join('');
+  fHora.innerHTML = HORARIOS.map(h=>`<option value="${h}">${h}</option>`).join('');
+  fSala.innerHTML = SALAS.map(s=>`<option value="${s}">${s}</option>`).join('');
+  fCat.innerHTML  = CATEGORIAS.map(c=>`<option value="${c}">${c}</option>`).join('');
+}
+
+async function checarConflito(dia, hora, sala, excluirId=null) {
+  const p = new URLSearchParams({dia_semana:dia, horario:hora, sala});
+  if (excluirId) p.append('excluir_id', excluirId);
+  try {
+    const r = await fetch('/api/conflito?' + p);
+    return await r.json();
+  } catch(e) { return {conflito: false}; }
+}
+
+async function abrirModalNovo() {
+  editId = null;
+  popularSelects();
+  document.getElementById('modal-title').textContent = 'Novo Agendamento';
+  document.getElementById('f-dia').value = document.getElementById('sel-dia').value;
+  document.getElementById('f-hora').value = document.getElementById('sel-hora').value || HORARIOS[0];
+  document.getElementById('f-sala').value = SALAS[0];
+  document.getElementById('f-cat').value = CATEGORIAS[0];
+  document.getElementById('f-sem').value = '0';
+  document.getElementById('f-est').value = '';
+  document.getElementById('f-pac').value = '';
+  document.getElementById('f-obs').value = '';
+  document.getElementById('btn-excluir').style.display = 'none';
+  document.getElementById('conflict-banner').classList.remove('show');
+  document.getElementById('modal-ag').classList.add('open');
+  if (window.lucide) lucide.createIcons();
+}
+
+async function abrirEditar(id) {
+  const r = await fetch(`/api/agendamentos/${id}`);
+  const a = await r.json();
+  editId = id;
+  popularSelects();
+  document.getElementById('modal-title').textContent = 'Editar Agendamento';
+  document.getElementById('f-dia').value  = a.dia_semana;
+  document.getElementById('f-hora').value = a.horario;
+  document.getElementById('f-sala').value = a.sala;
+  document.getElementById('f-cat').value  = a.categoria;
+  document.getElementById('f-sem').value  = a.semestre || '0';
+  document.getElementById('f-est').value  = a.estagiario || '';
+  document.getElementById('f-pac').value  = a.paciente || '';
+  document.getElementById('f-obs').value  = a.observacao || '';
+  document.getElementById('btn-excluir').style.display = 'inline-flex';
+  document.getElementById('conflict-banner').classList.remove('show');
+  document.getElementById('modal-ag').classList.add('open');
+  if (window.lucide) lucide.createIcons();
+}
+
+function fecharModal() {
+  document.getElementById('modal-ag').classList.remove('open');
+}
+
+async function salvarAg() {
+  const dia  = document.getElementById('f-dia').value;
+  const hora = document.getElementById('f-hora').value;
+  const sala = document.getElementById('f-sala').value;
+  const conflito = await checarConflito(dia, hora, sala, editId);
+  if (conflito.conflito) {
+    const banner = document.getElementById('conflict-banner');
+    document.getElementById('conflict-msg').textContent =
+      `Conflito: ${sala} já ocupada às ${hora} (${dia}) — ${conflito.estagiario || conflito.categoria || 'outro'}`;
+    banner.classList.add('show');
+    return;
+  }
+  const body = {
+    dia_semana: dia, horario: hora, sala,
+    categoria: document.getElementById('f-cat').value,
+    semestre:  parseInt(document.getElementById('f-sem').value),
+    estagiario:document.getElementById('f-est').value,
+    paciente:  document.getElementById('f-pac').value,
+    observacao:document.getElementById('f-obs').value,
+  };
+  try {
+    const url = editId ? `/api/agendamentos/${editId}` : '/api/agendamentos';
+    const method = editId ? 'PUT' : 'POST';
+    const r = await fetch(url, {method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    const data = await r.json();
+    if (!r.ok) { toast(data.erro || 'Erro ao salvar', 'error'); return; }
+    fecharModal();
+    toast(editId ? 'Agendamento atualizado!' : 'Agendamento criado!', 'success');
+    carregar();
+  } catch(e) { toast('Erro de conexão', 'error'); }
+}
+
+async function excluirAg() {
+  if (!editId || !confirm('Excluir este agendamento?')) return;
+  try {
+    const r = await fetch(`/api/agendamentos/${editId}`, {method:'DELETE'});
+    if (r.ok) {
+      fecharModal();
+      toast('Agendamento excluído!', 'success');
+      carregar();
+    } else { toast('Erro ao excluir', 'error'); }
+  } catch(e) { toast('Erro de conexão', 'error'); }
+}
+
+function exportarCSV() {
+  const dia = document.getElementById('sel-dia').value;
+  window.open(`/api/export?dia=${dia}`, '_blank');
+}
+
+// Autocomplete estagiários
+function initAC() {
+  const inp = document.getElementById('f-est');
+  const list = document.getElementById('ac-est');
+  let selIdx = -1;
+
+  inp.addEventListener('input', function() {
+    const v = this.value.trim().toLowerCase();
+    list.innerHTML = '';
+    selIdx = -1;
+    if (!v) { list.style.display='none'; return; }
+    const matches = estagiarios.filter(e => e.username.toLowerCase().includes(v)).slice(0,8);
+    if (!matches.length) { list.style.display='none'; return; }
+    matches.forEach((e,i) => {
+      const item = document.createElement('div');
+      item.className = 'ac-item';
+      item.textContent = e.username;
+      item.addEventListener('mousedown', () => {
+        inp.value = e.username;
+        list.style.display='none';
+      });
+      list.appendChild(item);
+    });
+    list.style.display='block';
+  });
+
+  inp.addEventListener('keydown', function(e) {
+    const items = list.querySelectorAll('.ac-item');
+    if (e.key === 'ArrowDown') { selIdx = Math.min(selIdx+1, items.length-1); }
+    else if (e.key === 'ArrowUp') { selIdx = Math.max(selIdx-1, 0); }
+    else if (e.key === 'Enter' && selIdx >= 0) { inp.value = items[selIdx].textContent; list.style.display='none'; e.preventDefault(); return; }
+    else if (e.key === 'Escape') { list.style.display='none'; return; }
+    items.forEach((it,i) => it.classList.toggle('selected', i===selIdx));
+  });
+
+  inp.addEventListener('blur', () => setTimeout(() => list.style.display='none', 150));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  lucide.createIcons();
+  popularSelects();
+  initAC();
+  carregarEstagiarios();
+
+  ['sel-dia','sel-hora','sel-sala','sel-cat'].forEach(id =>
+    document.getElementById(id).addEventListener('change', carregar)
+  );
+  let busca_timer;
+  document.getElementById('inp-busca').addEventListener('input', () => {
+    clearTimeout(busca_timer);
+    busca_timer = setTimeout(carregar, 350);
+  });
+
+  document.getElementById('modal-ag').addEventListener('click', e => {
+    if (e.target === e.currentTarget) fecharModal();
+  });
+
+  carregar();
+});
+</script>
+</body>
+</html>

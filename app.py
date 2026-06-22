@@ -194,7 +194,6 @@ def registrar_log(acao, dados=''):
 
 
 def checar_conflito(dia, horario, sala, excluir_id=None):
-    r = None
     conn = get_db()
     try:
         try:
@@ -663,7 +662,6 @@ def update_ag(aid):
 @limiter.limit('30 per minute')
 def delete_ag(aid):
     conn = get_db()
-    r = None
     try:
         r = conn.execute('SELECT * FROM agendamentos WHERE id=?', (aid,)).fetchone()
         conn.execute('DELETE FROM agendamentos WHERE id=?', (aid,))

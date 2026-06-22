@@ -1,32 +1,101 @@
-{% extends "base.html" %}
-{% block title %}Perfil — Mapa de Salas{% endblock %}
-{% block content %}
-<div class="page-header">
-  <h1 class="page-title">Meu Perfil</h1>
-  <a href="{{ url_for('trocar_senha') }}" class="btn btn-secondary btn-sm">🔒 Trocar senha</a>
-</div>
-<div class="card" style="max-width:480px">
-  <form method="post">
-    <div class="form-group">
-      <label>Usuário</label>
-      <input class="form-control" value="{{ usuario }}" disabled>
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Perfil</title>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    :root{
+      --bg:#0b1220;--panel:#111a2e;--panel2:#18233a;--text:#e5eefc;--muted:#93a4c3;
+      --line:#25324d;--blue:#3b82f6;--blue2:#2563eb;--red:#ef4444;--green:#10b981;--gold:#f59e0b;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,Helvetica,sans-serif;background:linear-gradient(180deg,#0b1220,#0f172a);color:var(--text)}
+    .topbar{display:flex;justify-content:space-between;align-items:center;padding:18px 24px;border-bottom:1px solid var(--line);background:rgba(17,26,46,.92);backdrop-filter:blur(10px);position:sticky;top:0;z-index:10}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:700}
+    .brand .dot{width:12px;height:12px;border-radius:50%;background:var(--blue)}
+    .nav{display:flex;gap:10px;flex-wrap:wrap}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;text-decoration:none;border:1px solid var(--line);color:var(--text);background:var(--panel2)}
+    .btn:hover{filter:brightness(1.08)}
+    .btn.primary{background:var(--blue2);border-color:transparent}
+    .btn.ghost{background:transparent}
+    .container{max-width:980px;margin:0 auto;padding:24px}
+    .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:20px}
+    .card{background:rgba(17,26,46,.96);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+    .title{display:flex;align-items:center;gap:10px;margin:0 0 6px}
+    .muted{color:var(--muted)}
+    .field{display:grid;gap:7px;margin:14px 0}
+    label{font-weight:700;font-size:.95rem}
+    input{width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:#0c1426;color:var(--text);outline:none}
+    input:focus{border-color:var(--blue)}
+    .info{display:grid;grid-template-columns:150px 1fr;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}
+    .info:last-child{border-bottom:none}
+    .badge{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:999px;background:rgba(59,130,246,.12);color:#bfdbfe;border:1px solid rgba(59,130,246,.25)}
+    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+    .flash{padding:12px 14px;border-radius:12px;margin:0 0 16px}
+    .success{background:rgba(16,185,129,.14);border:1px solid rgba(16,185,129,.25)}
+    .error{background:rgba(239,68,68,.14);border:1px solid rgba(239,68,68,.25)}
+    @media (max-width:900px){.grid{grid-template-columns:1fr}.info{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span> Mapa de Salas</div>
+    <div class="nav">
+      <a class="btn ghost" href="/"><i data-lucide="arrow-left"></i> Voltar</a>
+      <a class="btn ghost" href="/trocar-senha"><i data-lucide="key-round"></i> Senha</a>
+      <a class="btn ghost" href="/logout"><i data-lucide="log-out"></i> Sair</a>
     </div>
-    <div class="form-group">
-      <label>Papel</label>
-      <input class="form-control" value="{{ papel_label }}" disabled>
+  </div>
+
+  <div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for cat, msg in messages %}
+          <div class="flash {{ 'success' if cat == 'success' else 'error' }}">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="grid">
+      <div class="card">
+        <h2 class="title"><i data-lucide="user-circle-2"></i> Perfil</h2>
+        <p class="muted">Suas informações pessoais cadastradas no sistema.</p>
+
+        <div class="info"><strong>Usuário</strong><span>{{ usuario }}</span></div>
+        <div class="info"><strong>Cargo / Papel</strong><span class="badge">{{ papel_label }}</span></div>
+        <div class="info"><strong>Nome completo</strong><span>{{ nome_completo or '—' }}</span></div>
+        <div class="info"><strong>E-mail</strong><span>{{ email or '—' }}</span></div>
+
+        <div class="actions">
+          <a class="btn primary" href="/trocar-senha"><i data-lucide="lock-keyhole"></i> Alterar senha</a>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="title"><i data-lucide="pencil-line"></i> Atualizar dados</h2>
+        <p class="muted">Preencha seus dados pessoais. Campos obrigatórios.</p>
+
+        <form method="post">
+          <div class="field">
+            <label>Nome completo</label>
+            <input name="nome_completo" value="{{ nome_completo }}" required>
+          </div>
+
+          <div class="field">
+            <label>E-mail</label>
+            <input name="email" type="email" value="{{ email }}" required>
+          </div>
+
+          <div class="actions">
+            <button class="btn primary" type="submit"><i data-lucide="save"></i> Salvar alterações</button>
+          </div>
+        </form>
+      </div>
     </div>
-    <div class="form-group">
-      <label>Nome completo</label>
-      <input class="form-control" name="nome_completo" value="{{ nome_completo }}" required placeholder="Seu nome completo">
-    </div>
-    <div class="form-group">
-      <label>E-mail</label>
-      <input class="form-control" type="email" name="email" value="{{ email }}" required placeholder="seu@email.com">
-    </div>
-    <div style="display:flex;gap:8px">
-      <button class="btn" type="submit">Salvar</button>
-      <a href="{{ url_for('index') }}" class="btn btn-secondary">Cancelar</a>
-    </div>
-  </form>
-</div>
-{% endblock %}
+  </div>
+
+  <script>lucide.createIcons();</script>
+</body>
+</html>

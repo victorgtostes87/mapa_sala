@@ -4,434 +4,624 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mapa de Salas – Policlínica</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <script src="https://unpkg.com/lucide@latest"></script>
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--surface2:#263348;--border:#334155;--text:#e2e8f0;--text2:#94a3b8;--accent:#3b82f6;--accent2:#2563eb;--radius:8px;--warn:#f59e0b;--warn2:#92400e}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;min-height:100vh}
+.navbar{background:var(--surface);border-bottom:1px solid var(--border);padding:6px 16px;display:flex;align-items:center;gap:6px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
+.navbar h1{font-size:13px;font-weight:700;color:#f8fafc;white-space:nowrap;display:flex;align-items:center;gap:6px}.navbar h1 span{color:var(--accent)}
+.navbar-spacer{flex:1}
+.user-info{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2)}
+.role-badge{padding:1px 6px;border-radius:20px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.role-coordenador{background:#7c3aed;color:#fff}
+.role-recepcao{background:#0e7490;color:#fff}
+.role-aluno{background:#374151;color:#d1d5db}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);border:none;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}.btn-ghost:hover{background:var(--surface2);color:var(--text)}
+.btn-sm{padding:3px 8px;font-size:10px}
+.btn-danger{background:#dc2626;color:#fff}.btn-danger:hover{background:#b91c1c}
+.btn-logout{background:transparent;color:#f87171;border:1px solid #7f1d1d;font-size:10px;padding:2px 8px;border-radius:var(--radius);cursor:pointer;font-weight:600;transition:all .15s}
+.btn-logout:hover{background:#7f1d1d;color:#fff}
+.tabs{display:flex;gap:0;padding:0 20px;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto}
+.tab{padding:10px 20px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
+.tab:hover{color:var(--text)}.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.stats-bar{display:flex;gap:10px;padding:10px 20px;flex-wrap:wrap}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 16px;min-width:120px}
+.stat-card .label{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.stat-card .value{font-size:22px;font-weight:700;color:#f8fafc;margin-top:1px}
+.filters{display:flex;gap:8px;padding:0 20px 10px;flex-wrap:wrap;align-items:center}
+.filters input,.filters select{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:6px 10px;font-size:12px;outline:none}
+.filters input:focus,.filters select:focus{border-color:var(--accent)}
+.filters input{min-width:200px}
+.page-body{position:fixed;top:195px;left:0;right:0;bottom:48px;overflow:hidden}
+.grid-wrap{position:absolute;inset:0;overflow:scroll;padding-bottom:8px}
+.mapa-table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%}
+.mapa-table th{background:var(--surface);color:var(--text2);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:7px 8px;border:1px solid var(--border);position:sticky;top:0;z-index:10;white-space:nowrap;text-align:center}
+.mapa-table th:first-child{left:0;z-index:20;min-width:64px}
+.mapa-table td{border:1px solid var(--border);vertical-align:top;padding:0;min-width:148px;max-width:165px;position:relative}
+.mapa-table td:first-child{background:var(--surface);color:var(--text2);font-size:12px;font-weight:700;text-align:center;padding:6px;position:sticky;left:0;z-index:5;min-width:64px;white-space:nowrap}
+.cell{padding:5px 7px;min-height:52px;cursor:pointer;transition:opacity .15s;display:flex;flex-direction:column;gap:2px}
+.cell:hover{opacity:.8}.cell:hover .edit-btn{display:inline-flex}
+.intern{font-size:11px;font-weight:600;line-height:1.3;word-break:break-word}
+.patient{font-size:11px;color:rgba(255,255,255,.75);line-height:1.3;word-break:break-word;border-top:1px solid rgba(255,255,255,.15);padding-top:2px;margin-top:2px}
+.edit-btn{display:none;position:absolute;top:3px;right:3px;background:rgba(0,0,0,.4);border:none;color:#fff;border-radius:4px;padding:2px 5px;font-size:10px;cursor:pointer}
+.badge{display:inline-block;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(0,0,0,.25);color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.3px;margin-top:2px}
+.cat-est10{background:#1d4ed8}.cat-est10t{background:#1e40af}.cat-est9{background:#15803d}.cat-est9t{background:#166534}
+.cat-sup{background:#6d28d9}.cat-nace{background:#c2410c}.cat-sou{background:#0e7490}
+.cat-marcar{background:#4d7c0f}.cat-nmarcar{background:#991b1b}.cat-nutri{background:#65a30d}
+.cat-psico{background:#374151}.cat-psiq{background:#1e3a5f}.cat-ambul{background:#78350f}
+.cat-plantao{background:#9d174d}.cat-pront{background:#92400e}.cat-livre{background:#1e293b}.cat-outro{background:#334155}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:200;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;width:500px;max-width:95vw;max-height:90vh;overflow-y:auto;padding:24px}
+.modal h2{font-size:16px;font-weight:700;margin-bottom:18px;color:#f8fafc}
+.form-row{margin-bottom:12px}
+.form-row label{display:block;font-size:11px;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px}
+.form-row input,.form-row select,.form-row textarea{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:8px 12px;font-size:13px;outline:none}
+.form-row input:focus,.form-row select:focus,.form-row textarea:focus{border-color:var(--accent)}
+.form-row textarea{resize:vertical;min-height:60px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid var(--border)}
+.read-only-info{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;font-size:13px;line-height:1.8;color:var(--text2)}
+.read-only-info strong{color:var(--text)}
+.conflict-box{display:none;background:#431407;border:2px solid #ef4444;border-radius:var(--radius);padding:12px 16px;margin-bottom:14px;font-size:13px;color:#fca5a5}
+.conflict-box.show{display:block}
+.conflict-box strong{color:#f87171;display:block;margin-bottom:4px;font-size:14px}
+
+
+
+.toast{position:fixed;top:20px;right:20px;padding:10px 18px;border-radius:var(--radius);font-size:13px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}.toast.success{background:#16a34a;color:#fff}.toast.error{background:#dc2626;color:#fff}.toast.warn{background:#d97706;color:#fff}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.tabs{padding:0 8px}.stats-bar{padding:8px 12px}.filters{padding:0 12px 8px}.filters input{min-width:140px}}
+
+.dropdown{position:relative}
+.dropdown-menu{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#1e293b;border:1px solid #334155;border-radius:10px;min-width:180px;z-index:300;box-shadow:0 8px 24px rgba(0,0,0,.4);overflow:hidden}
+.dropdown-menu.open{display:block}
+.dropdown-menu a,.dropdown-menu button{display:flex;align-items:center;gap:8px;padding:10px 16px;color:#e2e8f0;text-decoration:none;font-size:12px;font-weight:600;background:transparent;border:none;width:100%;cursor:pointer;transition:background .15s}
+.dropdown-menu a:hover,.dropdown-menu button:hover{background:#263348}
+.dropdown-menu a+a,.dropdown-menu a+button,.dropdown-menu button+a{border-top:1px solid #334155}
+.btn-xs{padding:2px 8px;font-size:10px}
+.stats-bar{display:flex;gap:8px;padding:8px 20px;flex-wrap:wrap}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:6px 14px;min-width:100px}
+.stat-card .label{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.stat-card .value{font-size:20px;font-weight:700;color:#f8fafc;margin-top:1px}
+
+.navbar i[data-lucide]{width:14px;height:14px}
+.btn i[data-lucide]{width:12px;height:12px}
+.btn-logout i[data-lucide]{width:12px;height:12px}
+
+.legbar{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);z-index:50;display:flex;align-items:center;gap:12px;padding:5px 14px}
+.legbar-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text2);white-space:nowrap}
+.legbar-btn{background:none;border:none;color:var(--text2);cursor:pointer;font-size:12px;font-weight:600;padding:0 4px;line-height:1;margin-left:auto;flex-shrink:0}
+.legbar-btn:hover{color:var(--text)}
+.legbar-items{display:flex;gap:12px;align-items:center;overflow-x:auto;flex:1}
+.legbar-items::-webkit-scrollbar{height:2px}
+.legbar-items::-webkit-scrollbar-thumb{background:var(--border)}
+.leg-i{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text2);white-space:nowrap;flex-shrink:0}
+.leg-d{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+
+
+  .navbar h1{font-size:13px}
+  .btn{padding:5px 8px;font-size:11px}
+  .tabs{padding:0 8px}
+  .tab{padding:8px 12px;font-size:11px}
+  .stats-bar{padding:6px 10px;gap:6px}
+  .stat-card{padding:6px 10px;min-width:60px}
+  .stat-card .val{font-size:18px}
+  .stat-card .lbl{font-size:9px}
+  .filters{padding:0 10px 8px;gap:6px}
+  .filters input,.filters select{font-size:11px;padding:5px 8px;max-width:100%}
+  .page-body{top:220px}
+  .legbar{padding:4px 10px;gap:8px}
+  .legbar-title{font-size:8px}
+  .leg-i{font-size:9px}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+/* Oculta filtros de horario/sala/categoria em todos os tamanhos */
+#filterHorario,
+#filterSala,
+#filterCat { display: none !important; }
+
+@media (max-width: 600px) {
+  .navbar { padding: 6px 10px; gap: 4px; flex-wrap: nowrap; overflow-x: auto; }
+  .navbar h1 { font-size: 12px; white-space: nowrap; }
+  .navbar-spacer { display: none; }
+  .tabs { padding: 0 6px; gap: 4px; }
+  .tab { padding: 6px 8px; font-size: 10px; white-space: nowrap; }
+  .stats-bar { display: flex; flex-wrap: nowrap; overflow-x: auto; padding: 6px 10px; gap: 6px; }
+  .stat-card { flex: 0 0 auto; min-width: 72px; padding: 6px 8px; }
+  .filters { display: flex; flex-wrap: nowrap; gap: 5px; padding: 6px 10px; }
+  .filters input { flex: 1 1 auto; font-size: 12px; padding: 6px 8px; }
+  .filters .btn { flex: 0 0 auto; font-size: 11px; padding: 6px 10px; }
+  .page-body { top: 200px; }
+}
+
+
+  .ac-box{position:absolute;z-index:9999;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);max-height:180px;overflow-y:auto;width:100%;display:none;box-shadow:0 4px 16px #0006}
+  .ac-item{padding:8px 12px;cursor:pointer;font-size:13px;color:var(--text);transition:background .15s}
+  .ac-item:hover,.ac-item.active{background:var(--accent);color:#fff;border-radius:4px}
+  .ac-wrap{position:relative}
+
+</style>
+<script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
 
 <nav class="navbar">
-  <a href="/" class="navbar-brand">🏥 Mapa de Salas</a>
-  <div class="nav-links">
-    {% if current_user.role in ['coordenador','recepcao','professor'] %}
-    <a href="/imprimir" class="nav-link" id="nav-imprimir"><i data-lucide="printer" style="width:13px;height:13px"></i> Imprimir</a>
-    {% endif %}
-    {% if current_user.role == 'coordenador' %}
-    <a href="/usuarios" class="nav-link" id="nav-usuarios"><i data-lucide="users" style="width:13px;height:13px"></i> Usuários</a>
-    <a href="/logs" class="nav-link" id="nav-logs"><i data-lucide="scroll-text" style="width:13px;height:13px"></i> Logs</a>
-    <a href="/api/backup" class="nav-link" id="nav-backup" title="Baixar backup do banco"><i data-lucide="database-backup" style="width:13px;height:13px"></i> Backup</a>
-    {% endif %}
+  <h1><i data-lucide="layout-grid"></i> Mapa de <span>Salas</span></h1>
+  <div class="navbar-spacer"></div>
+  <div class="user-info">
+    <span><i data-lucide="user-round"></i> {{ usuario }}</span>
+    <span class="role-badge role-{{ papel }}">{{ papel }}</span>
   </div>
-  <div class="nav-user">
-    <span class="badge-papel {{ current_user.role }}">{{ current_user.role }}</span>
-    <a href="/perfil" class="nav-link"><i data-lucide="user" style="width:12px;height:12px"></i> {{ current_user.username }}</a>
-    <a href="/logout" class="nav-link"><i data-lucide="log-out" style="width:12px;height:12px"></i> Sair</a>
+
+  <div class="dropdown" id="menuDropdown">
+    <button class="btn btn-ghost btn-sm" onclick="toggleMenu(event)">
+      <i data-lucide="menu"></i> Menu
+    </button>
+    <div class="dropdown-menu" id="dropdownMenu">
+      {% if papel == 'coordenador' %}
+      <a href="/usuarios"><i data-lucide="users"></i> Usuários</a>
+      <a href="/logs"><i data-lucide="clipboard-list"></i> Logs</a>
+      <button onclick="exportCSV()"><i data-lucide="download"></i> Exportar</button>
+      <a href="/imprimir" target="_blank"><i data-lucide="printer"></i> Imprimir</a>
+      {% elif papel == 'recepcao' %}
+      <button onclick="exportCSV()"><i data-lucide="download"></i> Exportar</button>
+      <a href="/imprimir" target="_blank"><i data-lucide="printer"></i> Imprimir</a>
+      {% endif %}
+      <a href="/perfil"><i data-lucide="user-round"></i> Perfil</a>
+    </div>
   </div>
+
+  {% if papel in ['coordenador', 'recepcao'] %}
+  <button class="btn btn-primary btn-xs" onclick="openModal(null)"><i data-lucide="circle-plus"></i> Novo</button>
+  {% endif %}
+  <a href="/logout" class="btn-logout"><i data-lucide="log-out"></i> Sair</a>
 </nav>
 
-<div class="controls">
-  <select id="sel-dia">
-    {% for d in dias %}
-    <option value="{{d}}">{{d}}</option>
-    {% endfor %}
-  </select>
-  <select id="sel-hora">
-    <option value="">Todos horários</option>
-    {% for h in horarios %}
-    <option value="{{h}}">{{h}}</option>
-    {% endfor %}
-  </select>
-  <select id="sel-sala">
-    <option value="">Todas as salas</option>
-    {% for s in salas %}
-    <option value="{{s}}">{{s}}</option>
-    {% endfor %}
-  </select>
-  <select id="sel-cat">
-    <option value="">Todas categorias</option>
-    {% for c in categorias %}
-    <option value="{{c}}">{{c}}</option>
-    {% endfor %}
-  </select>
-  <input type="text" id="inp-busca" placeholder="🔍 Buscar..." style="min-width:160px">
-  {% if current_user.role in ['coordenador','recepcao'] %}
-  <button class="btn" onclick="abrirModalNovo()"><i data-lucide="plus" style="width:13px;height:13px"></i> Novo</button>
-  <button class="btn btn-secondary" onclick="exportarCSV()"><i data-lucide="download" style="width:13px;height:13px"></i> CSV</button>
-  {% endif %}
-  <span id="lbl-count" style="font-size:11px;color:var(--muted);margin-left:auto"></span>
+<div class="tabs" id="dayTabs">
+  {% for d in dias %}
+  <div class="tab {% if loop.first %}active{% endif %}" onclick="selectDay('{{d}}',this)">{{d}}</div>
+  {% endfor %}
 </div>
 
-<div class="grid-wrap">
-  <table id="tbl-ag">
-    <thead>
-      <tr>
-        <th>Horário</th>
-        <th>Sala</th>
-        <th>Categoria</th>
-        <th>Estagiário</th>
-        <th>Paciente</th>
-        <th>Obs.</th>
-        {% if current_user.role in ['coordenador','recepcao'] %}
-        <th>Ações</th>
-        {% endif %}
-      </tr>
-    </thead>
-    <tbody id="tbody"></tbody>
-  </table>
+<div class="stats-bar">
+  <div class="stat-card"><div class="label">Total</div><div class="value" id="stTotal">—</div></div>
+  <div class="stat-card"><div class="label">Livres</div><div class="value" id="stLivre">—</div></div>
+  <div class="stat-card"><div class="label">Estagiários</div><div class="value" id="stEst">—</div></div>
 </div>
 
-<!-- Modal Novo/Editar -->
-<div class="modal-overlay" id="modal-overlay">
-  <div class="modal" id="modal">
-    <div class="modal-header">
-      <span class="modal-title" id="modal-titulo">Novo agendamento</span>
-      <button class="modal-close" onclick="fecharModal()">×</button>
+<div class="filters">
+  <input type="text" id="searchInput" placeholder="🔍  Buscar paciente, estagiário..." oninput="debounceRender()">
+  <select id="filterHorario" onchange="renderGrid()"><option value="">Todos horários</option>
+    {% for h in horarios %}<option>{{h}}</option>{% endfor %}</select>
+  <select id="filterSala" onchange="renderGrid()"><option value="">Todas salas</option>
+    {% for s in salas %}<option>{{s}}</option>{% endfor %}</select>
+  <select id="filterCat" onchange="renderGrid()"><option value="">Todas categorias</option>
+    {% for c in categorias %}<option>{{c}}</option>{% endfor %}</select>
+  <button class="btn btn-ghost btn-sm" onclick="clearFilters()">&#x2715; Limpar</button>
+</div>
+
+<div class="page-body"><div class="grid-wrap" id="gridWrap">
+  <table class="mapa-table"><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table>
+</div></div>
+
+<div class="legbar" id="legBar">
+  <span class="legbar-title" id="legTitle">Legenda</span>
+  <div class="legbar-items" id="legItems">
+    <div class="leg-i"><div class="leg-d" style="background:#1d4ed8"></div>Estag. 10°</div>
+    <div class="leg-i"><div class="leg-d" style="background:#1e40af"></div>10° Triagem</div>
+    <div class="leg-i"><div class="leg-d" style="background:#15803d"></div>Estag. 9°</div>
+    <div class="leg-i"><div class="leg-d" style="background:#166534"></div>9° Triagem</div>
+    <div class="leg-i"><div class="leg-d" style="background:#6d28d9"></div>Supervisão</div>
+    <div class="leg-i"><div class="leg-d" style="background:#c2410c"></div>NACE</div>
+    <div class="leg-i"><div class="leg-d" style="background:#0e7490"></div>SOU</div>
+    <div class="leg-i"><div class="leg-d" style="background:#4d7c0f"></div>Marcar</div>
+    <div class="leg-i"><div class="leg-d" style="background:#991b1b"></div>Não Marcar</div>
+    <div class="leg-i"><div class="leg-d" style="background:#374151"></div>Psicodiag.</div>
+    <div class="leg-i"><div class="leg-d" style="background:#1e3a5f"></div>Psiquiatria</div>
+    <div class="leg-i"><div class="leg-d" style="background:#78350f"></div>Amb. Neurop.</div>
+    <div class="leg-i"><div class="leg-d" style="background:#9d174d"></div>Plantão</div>
+    <div class="leg-i"><div class="leg-d" style="background:#92400e"></div>Prontuário</div>
+  </div>
+  <button class="legbar-btn" id="legBtn" onclick="(function(){var i=document.getElementById('legItems');var t=document.getElementById('legTitle');var b=document.getElementById('legBtn');if(i.style.display==='none'){i.style.display='flex';t.style.display='';b.textContent='−';}else{i.style.display='none';t.style.display='none';b.textContent='▲ Legenda';}})()" title="Minimizar">−</button>
+</div>Estag. 10°</div>
+  10° Triagem</div>
+  Estag. 9°</div>
+  9° Triagem</div>
+  Supervisão</div>
+  NACE</div>
+  SOU</div>
+  Marcar</div>
+  Não Marcar</div>
+  Psicodiagnóstico</div>
+  Psiquiatria</div>
+  Amb. Neurop.</div>
+  Plantão</div>
+  Prontuário</div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalIfBg(event)">
+  <div class="modal">
+    <h2 id="modalTitle">Agendamento</h2>
+    <input type="hidden" id="fId">
+    <div id="readOnlyView" style="display:none">
+      <div class="read-only-info" id="readOnlyContent"></div>
+      <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button></div>
     </div>
-    <div class="modal-body">
-      <div id="conflict-banner" class="conflict-banner">⚠️ <span id="conflict-msg"></span></div>
-      <input type="hidden" id="edit-id">
-      <div class="form-row cols2">
-        <div class="form-group">
-          <label>Dia</label>
-          <select class="form-control" id="f-dia">
-            {% for d in dias %}<option>{{d}}</option>{% endfor %}
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Horário</label>
-          <select class="form-control" id="f-hora">
-            {% for h in horarios %}<option>{{h}}</option>{% endfor %}
-          </select>
-        </div>
+    <div id="editView">
+      <div class="conflict-box" id="conflictBox">
+        <strong>🚫 Sala já está ocupada!</strong>
+        <span id="conflictMsg"></span>
+        <div style="margin-top:8px;font-size:11px;color:#fca5a5">Escolha outro horário ou outra sala antes de salvar.</div>
       </div>
-      <div class="form-row cols2">
-        <div class="form-group">
-          <label>Sala</label>
-          <select class="form-control" id="f-sala">
-            {% for s in salas %}<option>{{s}}</option>{% endfor %}
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Categoria</label>
-          <select class="form-control" id="f-cat" onchange="atualizarCor()">
-            {% for c in categorias %}<option>{{c}}</option>{% endfor %}
-          </select>
-        </div>
+      <div class="form-grid">
+        <div class="form-row"><label>Dia *</label>
+          <select id="fDia" onchange="verificarConflito()">{% for d in dias %}<option>{{d}}</option>{% endfor %}</select></div>
+        <div class="form-row"><label>Horário *</label>
+          <select id="fHorario" onchange="verificarConflito()">{% for h in horarios %}<option>{{h}}</option>{% endfor %}</select></div>
       </div>
-      <div class="form-group">
-        <label>Estagiário</label>
-        <div class="ac-wrap">
-          <input class="form-control" id="f-est" autocomplete="off" placeholder="Digite para buscar..." oninput="acBuscar('est')" onfocus="acBuscar('est')">
-          <div class="ac-list" id="ac-est" style="display:none"></div>
-        </div>
+      <div class="form-row"><label>Sala *</label>
+        <select id="fSala" onchange="verificarConflito()">{% for s in salas %}<option>{{s}}</option>{% endfor %}</select></div>
+      <div class="form-row"><label>Estagiário / Conteúdo</label>
+        <div class="ac-wrap"><input type="text" id="fEstagiario" placeholder="Digite o nome do estagiário..." autocomplete="off">
+        <div id="estSuggestions" class="ac-box"></div></div></div>
+      <div class="form-row"><label>Paciente</label>
+        <input type="text" id="fPaciente" placeholder="Nome do paciente"></div>
+      <div class="form-grid">
+        <div class="form-row"><label>Categoria</label>
+          <select id="fCategoria"><option value="">Auto-detectar</option>
+            {% for c in categorias %}<option>{{c}}</option>{% endfor %}</select></div>
+        <div class="form-row"><label>Triagem?</label>
+          <select id="fTriagem"><option value="0">Não</option><option value="1">Sim</option></select></div>
       </div>
-      <div class="form-group">
-        <label>Paciente <span id="lbl-triagem" class="tag-triagem" style="display:none">TRIAGEM</span></label>
-        <div class="ac-wrap">
-          <input class="form-control" id="f-pac" autocomplete="off" placeholder="Nome do paciente" oninput="acBuscar('pac')" onfocus="acBuscar('pac')">
-          <div class="ac-list" id="ac-pac" style="display:none"></div>
-        </div>
+      <div class="form-row"><label>Data específica</label>
+        <input type="text" id="fData" placeholder="Ex: 12/03, 19/03"></div>
+      <div class="form-row"><label>Observação</label>
+        <textarea id="fObs" placeholder="Notas adicionais..."></textarea></div>
+      <div class="modal-footer">
+        <button class="btn btn-danger btn-sm" id="deleteBtn" onclick="deleteAg()" style="display:none;margin-right:auto"><i data-lucide="trash-2"></i> Remover</button>
+        <button class="btn btn-ghost" onclick="closeModal()"><i data-lucide="x"></i> Cancelar</button>
+        <button class="btn btn-primary" id="saveBtn" onclick="saveAg()"><i data-lucide="save"></i> Salvar</button>
       </div>
-      <div class="form-group">
-        <label>Observação</label>
-        <textarea class="form-control" id="f-obs" rows="2" placeholder="opcional"></textarea>
-      </div>
-      <div class="form-group">
-        <label>Supervisor</label>
-        <div class="ac-wrap">
-          <input class="form-control" id="f-sup" autocomplete="off" placeholder="Nome do supervisor" oninput="acBuscar('sup')" onfocus="acBuscar('sup')">
-          <div class="ac-list" id="ac-sup" style="display:none"></div>
-        </div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="fecharModal()">Cancelar</button>
-      <button class="btn" onclick="salvarAgendamento()">Salvar</button>
     </div>
   </div>
 </div>
-
-<!-- Toast container -->
-<div class="toast-container" id="toast-container"></div>
+<div class="toast" id="toast"></div>
 
 <script>
-// ── Config ────────────────────────────────────────────────────────
+const SALAS    = {{ salas | tojson }};
+const HORARIOS = {{ horarios | tojson }};
+const DIAS     = {{ dias | tojson }};
+const PAPEL    = {{ papel | tojson }};
+const PODE_EDITAR = ['coordenador','recepcao'].includes(PAPEL);
+let currentDay = DIAS[0];
+let debTimer = null;
+let conflictTimer = null;
+let temConflito = false;
+
 const CAT_CLASS = {
-  'ESTAGIÁRIO 10°':      'badge-est10',
-  'ESTAGIÁRIO 10° TRI':  'badge-est10t',
-  'ESTAGIÁRIO 9°':       'badge-est9',
-  'ESTAGIÁRIO 9° TRI':   'badge-est9t',
-  'SUPERVISÃO':          'badge-sup',
-  'NACE':                'badge-nace',
-  'SOU':                 'badge-sou',
-  'MARCAR':              'badge-marcar',
-  'NÃO MARCAR':          'badge-nmarcar',
-  'NUTRIÇÃO':            'badge-nutri',
-  'PSICODIAGNÓSTICO':    'badge-psicodiag',
-  'PSIQUIATRIA':         'badge-psiq',
-  'AMB NEURO':           'badge-ambneuro',
-  'PLANTÃO':             'badge-plantao',
-  'PRONTUÁRIO':          'badge-pront',
-  'LIVRE':               'badge-livre',
-  'OUTRO':               'badge-outro'
+  'ESTAGIÁRIO 10°':'cat-est10','ESTAGIÁRIO 10° TRIAGEM':'cat-est10t',
+  'ESTAGIÁRIO 9°':'cat-est9','ESTAGIÁRIO 9° TRIAGEM':'cat-est9t',
+  'SUPERVISÃO':'cat-sup','NACE':'cat-nace','SOU':'cat-sou',
+  'MARCAR':'cat-marcar','NÃO MARCAR':'cat-nmarcar',
+  'NUTRIÇÃO':'cat-nutri','PSICODIAGNÓSTICO':'cat-psico',
+  'PSIQUIATRIA':'cat-psiq','AMBULATÓRIO NEUROPSICOLOGIA':'cat-ambul',
+  'PLANTÃO PSICOLÓGICO':'cat-plantao','PRONTUÁRIO/ESTUDAR':'cat-pront',
+  'LIVRE':'cat-livre','OUTRO':'cat-outro'
 };
 
-const TRIAGEM_CATS = ['ESTAGIÁRIO 10° TRI', 'ESTAGIÁRIO 9° TRI'];
-const PODE_EDITAR = {{ 'true' if current_user.role in ['coordenador','recepcao'] else 'false' }};
-const PODE_VER_PAC = {{ 'true' if current_user.role in ['coordenador','recepcao','professor'] else 'false' }};
-
-// ── Estado ───────────────────────────────────────────────────────
-let dados = [], nomes = [];
-
-// ── Inicialização ─────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', () => {
-  lucide.createIcons();
-  carregarDados();
-  carregarNomes();
-  ['sel-dia','sel-hora','sel-sala','sel-cat','inp-busca'].forEach(id => {
-    document.getElementById(id).addEventListener('input', renderTabela);
-    document.getElementById(id).addEventListener('change', renderTabela);
-  });
-  document.addEventListener('click', e => {
-    if (!e.target.closest('.ac-wrap')) fecharAcs();
-  });
-});
-
-// ── API helpers ─────────────────────────────────────────────────
-async function carregarDados() {
-  const r = await fetch('/api/agendamentos');
-  dados = await r.json();
-  renderTabela();
+function selectDay(dia, el) {
+  currentDay = dia;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderGrid();
 }
-
-async function carregarNomes() {
-  const r = await fetch('/api/nomes');
-  nomes = await r.json();
+async function loadData() {
+  const horario = document.getElementById('filterHorario').value;
+  const sala    = document.getElementById('filterSala').value;
+  const cat     = document.getElementById('filterCat').value;
+  const busca   = document.getElementById('searchInput').value.trim();
+  const p = new URLSearchParams({dia_semana: currentDay});
+  if (horario) p.set('horario', horario);
+  if (sala)    p.set('sala', sala);
+  if (cat)     p.set('categoria', cat);
+  if (busca)   p.set('busca', busca);
+  const res = await fetch('/api/agendamentos?' + p);
+  return await res.json();
 }
-
-// ── Tabela ────────────────────────────────────────────────────────
-function renderTabela() {
-  const dia   = document.getElementById('sel-dia').value;
-  const hora  = document.getElementById('sel-hora').value;
-  const sala  = document.getElementById('sel-sala').value;
-  const cat   = document.getElementById('sel-cat').value;
-  const busca = document.getElementById('inp-busca').value.toLowerCase();
-
-  let filtrado = dados.filter(r =>
-    r.dia === dia &&
-    (!hora  || r.horario === hora) &&
-    (!sala  || r.sala    === sala) &&
-    (!cat   || r.categoria === cat) &&
-    (!busca || (r.estagiario||'').toLowerCase().includes(busca)
-            || (r.paciente  ||'').toLowerCase().includes(busca)
-            || (r.observacao||'').toLowerCase().includes(busca)
-            || (r.supervisor||'').toLowerCase().includes(busca))
-  );
-
-  filtrado.sort((a,b) => {
-    if (a.horario < b.horario) return -1;
-    if (a.horario > b.horario) return 1;
-    return (a.sala||'').localeCompare(b.sala||'');
-  });
-
-  document.getElementById('lbl-count').textContent =
-    filtrado.length + ' registro' + (filtrado.length !== 1 ? 's' : '');
-
-  const tbody = document.getElementById('tbody');
-  if (!filtrado.length) {
-    tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><p>Nenhum agendamento encontrado para este filtro.</p></div></td></tr>';
-    return;
+async function loadStats() {
+  const res = await fetch('/api/stats?dia_semana='+currentDay);
+  const d = await res.json();
+  document.getElementById('stTotal').textContent = d.total;
+  document.getElementById('stLivre').textContent = d.livre;
+  const est = (d.por_categoria||[]).filter(c=>c.categoria&&c.categoria.startsWith('ESTAGIÁRIO')).reduce((a,c)=>a+c.n,0);
+  document.getElementById('stEst').textContent = est;
+}
+async function renderGrid() {
+  const data = await loadData();
+  const filterSala = document.getElementById('filterSala').value;
+  const filterHor  = document.getElementById('filterHorario').value;
+  const salas = filterSala ? [filterSala] : SALAS;
+  const hors  = filterHor  ? [filterHor]  : HORARIOS;
+  const lk = {};
+  for (const ag of data) lk[ag.horario+'|'+ag.sala] = ag;
+  document.getElementById('tableHead').innerHTML =
+    '<tr><th>Hora</th>' + salas.map(s=>'<th>'+s+'</th>').join('') + '</tr>';
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '';
+  for (const h of hors) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>'+h+'</td>';
+    for (const s of salas) {
+      const ag = lk[h+'|'+s];
+      const td = document.createElement('td');
+      if (ag) {
+        const cls = CAT_CLASS[ag.categoria] || 'cat-outro';
+        const badgeHtml = ag.triagem ? '<span class="badge">triagem</span>' : '';
+        const dataHtml  = ag.data_especifica ? '<span class="badge">'+ag.data_especifica+'</span>' : '';
+        const editBtn   = PODE_EDITAR ? `<button class="edit-btn" onclick="event.stopPropagation();openModal(${ag.id})">✏️</button>` : '';
+        td.innerHTML = `<div class="cell ${cls}" onclick="openModal(${ag.id})">
+          ${editBtn}
+          <div class="intern">${esc(ag.estagiario)}</div>
+          ${ag.paciente ? '<div class="patient">'+esc(ag.paciente)+'</div>' : ''}
+          <div style="display:flex;gap:3px;flex-wrap:wrap">${badgeHtml}${dataHtml}</div>
+        </div>`;
+      } else {
+        if (PODE_EDITAR) {
+          td.innerHTML = `<div class="cell cat-livre" onclick="openModalNew('${h}','${s}')">
+            <span style="color:#475569;font-size:10px">livre</span></div>`;
+        } else {
+          td.innerHTML = `<div class="cell cat-livre">
+            <span style="color:#475569;font-size:10px">livre</span></div>`;
+        }
+      }
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
   }
-
-  tbody.innerHTML = filtrado.map(r => {
-    const cls  = CAT_CLASS[r.categoria] || 'badge-outro';
-    const isTri = TRIAGEM_CATS.includes(r.categoria);
-    const pacCell = PODE_VER_PAC
-      ? `${r.paciente||'-'}${isTri ? ' <span class="tag-triagem">T</span>' : ''}`
-      : '•••';
-    const acoes = PODE_EDITAR
-      ? `<button class="cell-btn" onclick="abrirEditar(${r.id})" title="Editar"><i data-lucide="pencil" style="width:12px;height:12px"></i></button>
-         <button class="cell-btn danger" onclick="excluir(${r.id})" title="Excluir"><i data-lucide="trash-2" style="width:12px;height:12px"></i></button>`
-      : '';
-    return `<tr>
-      <td style="white-space:nowrap">${r.horario}</td>
-      <td>${r.sala||'-'}</td>
-      <td><span class="badge ${cls}">${r.categoria||'-'}</span></td>
-      <td>${r.estagiario||'-'}</td>
-      <td>${pacCell}</td>
-      <td style="font-size:11px;color:var(--muted);max-width:180px">${r.observacao||''}</td>
-      ${PODE_EDITAR ? `<td style="display:flex;gap:2px">${acoes}</td>` : ''}
-    </tr>`;
-  }).join('');
-
-  lucide.createIcons();
+  loadStats();
 }
-
-// ── Modal ────────────────────────────────────────────────────────
-function abrirModalNovo() {
-  document.getElementById('edit-id').value = '';
-  document.getElementById('modal-titulo').textContent = 'Novo agendamento';
-  ['f-dia','f-hora','f-sala','f-cat'].forEach(id => {
-    const el = document.getElementById(id);
-    const sel = document.getElementById(id.replace('f-','sel-'));
-    if (sel && sel.value) el.value = sel.value;
-  });
-  document.getElementById('f-est').value = '';
-  document.getElementById('f-pac').value = '';
-  document.getElementById('f-obs').value = '';
-  document.getElementById('f-sup').value = '';
-  document.getElementById('conflict-banner').classList.remove('show');
-  atualizarCor();
-  document.getElementById('modal-overlay').classList.add('open');
-  setTimeout(() => document.getElementById('f-est').focus(), 100);
+function esc(t){ if(!t)return''; return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function debounceRender(){ clearTimeout(debTimer); debTimer=setTimeout(renderGrid,300); }
+function clearFilters(){ document.getElementById('searchInput').value=''; document.getElementById('filterHorario').value=''; document.getElementById('filterSala').value=''; document.getElementById('filterCat').value=''; renderGrid(); }
+async function verificarConflito() {
+  clearTimeout(conflictTimer);
+  conflictTimer = setTimeout(async () => {
+    const id=document.getElementById('fId').value;
+    const dia=document.getElementById('fDia').value;
+    const horario=document.getElementById('fHorario').value;
+    const sala=document.getElementById('fSala').value;
+    const p=new URLSearchParams({dia_semana:dia,horario,sala});
+    if(id) p.set('excluir_id',id);
+    const res=await fetch('/api/conflito?'+p);
+    const data=await res.json();
+    const box=document.getElementById('conflictBox');
+    const msg=document.getElementById('conflictMsg');
+    const btn=document.getElementById('saveBtn');
+    if(data.conflito){
+      msg.textContent=`${sala} — ${horario} (${dia}): ocupada por ${data.estagiario||data.categoria||'outro'}`;
+      box.classList.add('show');
+      btn.disabled=true; btn.style.opacity='0.4'; btn.style.cursor='not-allowed'; temConflito=true;
+    } else {
+      box.classList.remove('show');
+      btn.disabled=false; btn.style.opacity='1'; btn.style.cursor='pointer'; temConflito=false;
+    }
+  },300);
 }
-
-function abrirEditar(id) {
-  const r = dados.find(x => x.id === id);
-  if (!r) return;
-  document.getElementById('edit-id').value   = id;
-  document.getElementById('modal-titulo').textContent = 'Editar agendamento';
-  document.getElementById('f-dia').value    = r.dia;
-  document.getElementById('f-hora').value   = r.horario;
-  document.getElementById('f-sala').value   = r.sala;
-  document.getElementById('f-cat').value    = r.categoria;
-  document.getElementById('f-est').value    = r.estagiario || '';
-  document.getElementById('f-pac').value    = r.paciente   || '';
-  document.getElementById('f-obs').value    = r.observacao || '';
-  document.getElementById('f-sup').value    = r.supervisor || '';
-  document.getElementById('conflict-banner').classList.remove('show');
-  atualizarCor();
-  document.getElementById('modal-overlay').classList.add('open');
+function resetSaveBtn(){
+  const btn=document.getElementById('saveBtn');
+  btn.disabled=false; btn.style.opacity='1'; btn.style.cursor='pointer';
+  btn.className='btn btn-primary'; btn.innerHTML='<i data-lucide="save"></i> Salvar';
+  temConflito=false; document.getElementById('conflictBox').classList.remove('show');
 }
-
-function fecharModal() {
-  document.getElementById('modal-overlay').classList.remove('open');
-  fecharAcs();
-}
-
-function atualizarCor() {
-  const cat = document.getElementById('f-cat').value;
-  const isTri = TRIAGEM_CATS.includes(cat);
-  document.getElementById('lbl-triagem').style.display = isTri ? 'inline-flex' : 'none';
-}
-
-// ── Salvar / Excluir ───────────────────────────────────────────────
-async function salvarAgendamento() {
-  const id = document.getElementById('edit-id').value;
-  const body = {
-    dia:       document.getElementById('f-dia').value,
-    horario:   document.getElementById('f-hora').value,
-    sala:      document.getElementById('f-sala').value,
-    categoria: document.getElementById('f-cat').value,
-    estagiario:document.getElementById('f-est').value.trim(),
-    paciente:  document.getElementById('f-pac').value.trim(),
-    observacao:document.getElementById('f-obs').value.trim(),
-    supervisor:document.getElementById('f-sup').value.trim()
-  };
-
-  const url    = id ? `/api/agendamentos/${id}` : '/api/agendamentos';
-  const method = id ? 'PUT' : 'POST';
-  const r = await fetch(url, {
-    method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
-  });
-  const d = await r.json();
-
-  if (r.status === 409) {
-    document.getElementById('conflict-msg').textContent = d.conflito || 'Conflito detectado.';
-    document.getElementById('conflict-banner').classList.add('show');
-    return;
+function openModal(id){
+  resetSaveBtn();
+  document.getElementById('fId').value=id||'';
+  document.getElementById('modalTitle').textContent=id?'Agendamento':'Novo Agendamento';
+  if(!PODE_EDITAR&&id){
+    document.getElementById('readOnlyView').style.display='block';
+    document.getElementById('editView').style.display='none';
+    fetch('/api/agendamentos/'+id).then(r=>r.json()).then(d=>{
+      document.getElementById('readOnlyContent').innerHTML=
+        `<strong>Sala:</strong> ${esc(d.sala)}<br><strong>Horário:</strong> ${esc(d.horario)}<br>
+         <strong>Estagiário:</strong> ${esc(d.estagiario)||'—'}<br>
+         <strong>Paciente:</strong> ${esc(d.paciente)||'—'}<br>
+         <strong>Categoria:</strong> ${esc(d.categoria)||'—'}<br>
+         ${d.observacao?'<strong>Obs:</strong> '+esc(d.observacao):''}`;
+    });
+    document.getElementById('modalOverlay').classList.add('open'); return;
   }
-  if (!r.ok) { toast(d.erro || 'Erro ao salvar.', 'error'); return; }
-
-  fecharModal();
-  toast(id ? 'Agendamento atualizado.' : 'Agendamento criado.', 'success');
-  await carregarDados();
-}
-
-async function excluir(id) {
-  if (!confirm('Excluir este agendamento?')) return;
-  const r = await fetch(`/api/agendamentos/${id}`, {method:'DELETE'});
-  const d = await r.json();
-  if (!r.ok) { toast(d.erro || 'Erro ao excluir.', 'error'); return; }
-  toast('Agendamento excluído.', 'success');
-  await carregarDados();
-}
-
-// ── Exportar CSV ────────────────────────────────────────────────
-async function exportarCSV() {
-  const r = await fetch('/api/export');
-  if (!r.ok) { toast('Erro ao exportar.', 'error'); return; }
-  const blob = await r.blob();
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'agendamentos.csv';
-  a.click();
-  toast('CSV exportado.', 'success');
-}
-
-// ── Autocomplete ────────────────────────────────────────────────
-const AC_TIPOS = {est:'estagiarios',pac:'pacientes',sup:'supervisores'};
-
-function acBuscar(tipo) {
-  const inp  = document.getElementById('f-' + tipo);
-  const list = document.getElementById('ac-' + tipo);
-  const q    = inp.value.toLowerCase();
-  const key  = AC_TIPOS[tipo];
-  const itens = (nomes[key] || []).filter(n => !q || n.toLowerCase().includes(q)).slice(0,12);
-  if (!itens.length) { list.style.display = 'none'; return; }
-  list.innerHTML = itens.map(n =>
-    `<div class="ac-item" onmousedown="acSelecionar('${tipo}','${n.replace(/'/g,"\\'")}')">` +
-    n + '</div>'
-  ).join('');
-  list.style.display = 'block';
-}
-
-function acSelecionar(tipo, valor) {
-  document.getElementById('f-' + tipo).value = valor;
-  document.getElementById('ac-' + tipo).style.display = 'none';
-  verificarConflito();
-}
-
-function fecharAcs() {
-  ['ac-est','ac-pac','ac-sup'].forEach(id => {
-    document.getElementById(id).style.display = 'none';
-  });
-}
-
-// ── Conflito ────────────────────────────────────────────────────────
-function verificarConflito() {
-  const dia    = document.getElementById('f-dia').value;
-  const hora   = document.getElementById('f-hora').value;
-  const sala   = document.getElementById('f-sala').value;
-  const editId = document.getElementById('edit-id').value;
-
-  const conflito = dados.find(r =>
-    r.dia === dia && r.horario === hora && r.sala === sala &&
-    String(r.id) !== String(editId)
-  );
-
-  const banner = document.getElementById('conflict-banner');
-  if (conflito) {
-    document.getElementById('conflict-msg').textContent =
-      `${sala} já ocupada às ${hora} (${conflito.estagiario || conflito.categoria})`;
-    banner.classList.add('show');
+  document.getElementById('readOnlyView').style.display='none';
+  document.getElementById('editView').style.display='block';
+  document.getElementById('deleteBtn').style.display=id?'inline-flex':'none';
+  if(id){
+    fetch('/api/agendamentos/'+id).then(r=>r.json()).then(d=>{
+      setF('fDia',d.dia_semana); setF('fHorario',d.horario); setF('fSala',d.sala);
+      document.getElementById('fEstagiario').value=d.estagiario||'';
+      document.getElementById('fPaciente').value=d.paciente||'';
+      setF('fCategoria',d.categoria); setF('fTriagem',d.triagem);
+      document.getElementById('fData').value=d.data_especifica||'';
+      document.getElementById('fObs').value=d.observacao||'';
+    });
   } else {
-    banner.classList.remove('show');
+    setF('fDia',currentDay); setF('fCategoria',''); setF('fTriagem',0);
+    ['fEstagiario','fPaciente','fData','fObs'].forEach(id=>document.getElementById(id).value='');
   }
+  document.getElementById('modalOverlay').classList.add('open');
 }
+function openModalNew(h,s){ if(!PODE_EDITAR)return; openModal(null); setTimeout(()=>{setF('fHorario',h);setF('fSala',s);verificarConflito();},50); }
+function setF(id,val){ const el=document.getElementById(id); if(el) el.value=val; }
+function closeModal(){ document.getElementById('modalOverlay').classList.remove('open'); }
+function closeModalIfBg(e){ if(e.target.id==='modalOverlay') closeModal(); }
+async function saveAg(){
+  if(temConflito){ showToast('🚫 Resolva o conflito antes de salvar!','error'); return; }
+  const id=document.getElementById('fId').value;
+  const body={
+    dia_semana:document.getElementById('fDia').value,
+    horario:document.getElementById('fHorario').value,
+    sala:document.getElementById('fSala').value,
+    estagiario:document.getElementById('fEstagiario').value.trim(),
+    paciente:document.getElementById('fPaciente').value.trim(),
+    categoria:document.getElementById('fCategoria').value,
+    triagem:parseInt(document.getElementById('fTriagem').value)||0,
+    data_especifica:document.getElementById('fData').value.trim(),
+    observacao:document.getElementById('fObs').value.trim()
+  };
+  const res=await fetch(id?'/api/agendamentos/'+id:'/api/agendamentos',
+    {method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const data=await res.json();
+  if(res.ok){ showToast('✅ Salvo!','success'); closeModal(); renderGrid(); }
+  else if(res.status===409){
+    document.getElementById('conflictMsg').textContent=data.erro||'Conflito de sala.';
+    document.getElementById('conflictBox').classList.add('show');
+    const btn=document.getElementById('saveBtn');
+    btn.disabled=true; btn.style.opacity='0.4'; btn.style.cursor='not-allowed';
+    showToast('🚫 Conflito de sala!','error');
+  } else { showToast('❌ '+(data.erro||'Erro ao salvar'),'error'); }
+}
+async function deleteAg(){
+  const id=document.getElementById('fId').value;
+  if(!id||!confirm('Remover este agendamento?')) return;
+  const res=await fetch('/api/agendamentos/'+id,{method:'DELETE'});
+  if(res.ok){ showToast('🗑 Removido','success'); closeModal(); renderGrid(); }
+  else{ const e=await res.json(); showToast('❌ '+(e.erro||'Erro ao remover'),'error'); }
+}
+function exportCSV(){ window.location='/api/export'; }
+function showToast(msg,type='success'){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast show '+type;
+  setTimeout(()=>t.className='toast',3000);
+}
+renderGrid();
 
-['f-dia','f-hora','f-sala'].forEach(id => {
-  document.getElementById(id)?.addEventListener('change', verificarConflito);
+function toggleMenu(e){
+  e.stopPropagation();
+  document.getElementById('dropdownMenu').classList.toggle('open');
+}
+document.addEventListener('click', function(){
+  const m = document.getElementById('dropdownMenu');
+  if(m) m.classList.remove('open');
+});
+</script>
+<script>lucide.createIcons();
+
+  
+
+
+// já existe {
+    try {
+      const res = await fetch('/api/usuarios');
+      const users = await res.json();
+      const dl = document.getElementById('listaEstagiarios');
+      dl.innerHTML = '';
+      users.filter(u => u.role === 'aluno').forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.username;
+        dl.appendChild(opt);
+      });
+    } catch(e) {}
+  }
+</script>
+
+<script>
+var _estList = [];
+fetch('/api/estagiarios').then(function(r){return r.json();}).then(function(users){
+  _estList = users.map(function(u){return u.username;});
 });
 
-// ── Toast ─────────────────────────────────────────────────────────
-function toast(msg, tipo='info') {
-  const c = document.getElementById('toast-container');
-  const t = document.createElement('div');
-  t.className = `toast ${tipo}`;
-  t.textContent = msg;
-  c.appendChild(t);
-  setTimeout(() => t.remove(), 3500);
-}
+document.addEventListener('DOMContentLoaded', function() {
+  if(window.lucide) lucide.createIcons();
+  var fEst = document.getElementById('fEstagiario');
+  var acBox = document.getElementById('estSuggestions');
+  if (!fEst || !acBox) return;
+  var acIdx = -1;
+
+  fEst.addEventListener('input', function() {
+    var val = this.value.trim().toLowerCase();
+    acBox.innerHTML = '';
+    acIdx = -1;
+    if (!val || !_estList.length) { acBox.style.display='none'; return; }
+    var matches = _estList.filter(function(n){ return n.toLowerCase().includes(val); });
+    if (!matches.length) { acBox.style.display='none'; return; }
+    matches.forEach(function(name) {
+      var d = document.createElement('div');
+      d.className = 'ac-item';
+      d.textContent = name;
+      d.addEventListener('mousedown', function() { fEst.value = name; acBox.style.display='none'; });
+      acBox.appendChild(d);
+    });
+    acBox.style.display = 'block';
+  });
+
+  fEst.addEventListener('keydown', function(e) {
+    var items = acBox.querySelectorAll('.ac-item');
+    if (e.key==='ArrowDown'){acIdx=Math.min(acIdx+1,items.length-1);items.forEach(function(el,i){el.classList.toggle('active',i===acIdx);});e.preventDefault();}
+    else if(e.key==='ArrowUp'){acIdx=Math.max(acIdx-1,0);items.forEach(function(el,i){el.classList.toggle('active',i===acIdx);});e.preventDefault();}
+    else if(e.key==='Enter'&&acIdx>=0){fEst.value=items[acIdx].textContent;acBox.style.display='none';e.preventDefault();}
+    else if(e.key==='Escape'){acBox.style.display='none';}
+  });
+
+  document.addEventListener('click', function(e){ if(fEst && !fEst.contains(e.target)) acBox.style.display='none'; });
+});
 </script>
+
+
+<script>
+var _estList = [];
+fetch('/api/estagiarios').then(function(r){return r.json();}).then(function(users){
+  _estList = users.map(function(u){return u.username;});
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+  if(window.lucide) lucide.createIcons();
+  var fEst = document.getElementById('fEstagiario');
+  var acBox = document.getElementById('estSuggestions');
+  if (!fEst || !acBox) return;
+  var acIdx = -1;
+
+  fEst.addEventListener('input', function() {
+    var val = this.value.trim().toLowerCase();
+    acBox.innerHTML = '';
+    acIdx = -1;
+    if (!val || !_estList.length) { acBox.style.display='none'; return; }
+    var matches = _estList.filter(function(n){ return n.toLowerCase().includes(val); });
+    if (!matches.length) { acBox.style.display='none'; return; }
+    matches.forEach(function(name) {
+      var d = document.createElement('div');
+      d.className = 'ac-item';
+      d.textContent = name;
+      d.addEventListener('mousedown', function() { fEst.value = name; acBox.style.display='none'; });
+      acBox.appendChild(d);
+    });
+    acBox.style.display = 'block';
+  });
+
+  fEst.addEventListener('keydown', function(e) {
+    var items = acBox.querySelectorAll('.ac-item');
+    if (e.key==='ArrowDown'){acIdx=Math.min(acIdx+1,items.length-1);items.forEach(function(el,i){el.classList.toggle('active',i===acIdx);});e.preventDefault();}
+    else if(e.key==='ArrowUp'){acIdx=Math.max(acIdx-1,0);items.forEach(function(el,i){el.classList.toggle('active',i===acIdx);});e.preventDefault();}
+    else if(e.key==='Enter'&&acIdx>=0){fEst.value=items[acIdx].textContent;acBox.style.display='none';e.preventDefault();}
+    else if(e.key==='Escape'){acBox.style.display='none';}
+  });
+
+  document.addEventListener('click', function(e){ if(fEst && !fEst.contains(e.target)) acBox.style.display='none'; });
+});
+</script>
+
 </body>
 </html>

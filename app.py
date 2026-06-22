@@ -663,6 +663,7 @@ def update_ag(aid):
 @limiter.limit('30 per minute')
 def delete_ag(aid):
     conn = get_db()
+    r = None
     try:
         r = conn.execute('SELECT * FROM agendamentos WHERE id=?', (aid,)).fetchone()
         conn.execute('DELETE FROM agendamentos WHERE id=?', (aid,))
@@ -887,4 +888,4 @@ with app.app_context():
 if __name__ == '__main__':
     init_db()
     print(f'\n Versão: {VERSAO} | http://localhost:5000\n')
-    app.run(debug=os.environ.get('FLASK_DEBUG', 'false').lower() == 'true', port=5000)
+    app.run(debug=True, port=5000)

@@ -884,6 +884,7 @@ with app.app_context():
     init_db()
 
 if __name__ == '__main__':
-    init_db()
+    if not app.debug or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+        init_db()
     print(f'\n Versão: {VERSAO} | http://localhost:5000\n')
     app.run(debug=True, port=5000)

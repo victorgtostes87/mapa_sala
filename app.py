@@ -10,14 +10,13 @@ from flask_limiter.util import get_remote_address
 app = Flask(__name__)
 try:
     from dotenv import load_dotenv as _ld
-
     _ld(dotenv_path='/home/victroid/mapa_sala/.env')
 except ImportError:
     pass
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-local-apenas')
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 
-VERSAO = '2026-06-22-v13'
+VERSAO = '2026-06-22-v14'
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -93,12 +92,11 @@ DIAS_PT = {
 }
 
 CATEGORIAS = [
-    'ESTAGIÁRIO 10°', 'ESTAGIÁRIO 10° TRIAGEM',
-    'ESTAGIÁRIO 9°', 'ESTAGIÁRIO 9° TRIAGEM',
-    'SUPERVISÃO', 'NACE', 'SOU', 'MARCAR', 'NÃO MARCAR',
-    'NUTRIÇÃO', 'PSICODIAGNÓSTICO', 'PSIQUIATRIA',
-    'AMBULATÓRIO NEUROPSICOLOGIA', 'PLANTÃO PSICOLÓGICO',
-    'PRONTUÁRIO/ESTUDAR', 'LIVRE', 'OUTRO'
+    'Estágio 10° período', 'Estágio 10° período Tri',
+    'Estágio 9° período', 'Estágio 9° período Tri',
+    'Supervisão', 'NACE', 'Sou O', 'Marcar', 'Não marcar',
+    'Nutrição', 'Psicodiagnóstico', 'Psiquiatria',
+    'Amb Neuro', 'Plantão', 'Prontuário', 'Livre', 'Outro'
 ]
 
 PAPEIS_LABEL = {
@@ -114,7 +112,6 @@ LOG_RETENCAO_DIAS = 15
 # ── Banco de dados ────────────────────────────────────────────────────
 
 def get_db():
-    """Abre conexão com WAL mode e timeout para evitar database is locked."""
     conn = sqlite3.connect(DB_PATH, timeout=20)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
@@ -136,6 +133,7 @@ def init_db():
         "semestre INTEGER DEFAULT 0,"
         "triagem INTEGER DEFAULT 0,"
         "observacao TEXT DEFAULT '',"
+        "supervisor TEXT DEFAULT '',"
         "data_especifica TEXT DEFAULT '',"
         "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
         "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
@@ -157,6 +155,12 @@ def init_db():
         "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
         ");"
     )
+    # Migração segura: adiciona coluna supervisor se não existir
+    try:
+        conn.execute("ALTER TABLE agendamentos ADD COLUMN supervisor TEXT DEFAULT ''")
+        conn.commit()
+    except Exception:
+        pass
     existe = conn.execute("SELECT id FROM usuarios WHERE username='coordenador'").fetchone()
     if not existe:
         conn.execute("INSERT INTO usuarios(username, password_hash, role) VALUES(?,?,?)",
@@ -170,11 +174,6 @@ def init_db():
 
 
 def registrar_log(acao, dados='', conn=None):
-    """
-    Registra uma entrada no historico.
-    Se conn for passado, usa a conexão existente (não faz commit nem close).
-    Se conn for None, abre uma nova conexão, faz commit e fecha.
-    """
     usuario = current_user.username if current_user.is_authenticated else 'sistema'
     fechar = False
     if conn is None:
@@ -222,33 +221,16 @@ def normalize(t):
     return t.strip()
 
 
-def detect_cat(est, pac):
-    c = normalize(est + ' ' + pac).upper()
-    if 'NÃO MARCAR' in c or 'NAO MARCAR' in c: return 'NÃO MARCAR'
-    if 'PSICODIAG' in c: return 'PSICODIAGNÓSTICO'
-    if 'SUPERVISÃO' in c or 'SUPERVISAO' in c or 'PROF.' in c or re.search(r'PROF\s+\w', c): return 'SUPERVISÃO'
-    if 'NACE' in c: return 'NACE'
-    if re.search(r'\bSOU\b', c): return 'SOU'
-    if 'MARCAR' in c: return 'MARCAR'
-    if 'NUTRIÇÃO' in c or 'NUTRICAO' in c: return 'NUTRIÇÃO'
-    if 'PSIQUIATRIA' in c: return 'PSIQUIATRIA'
-    if 'AMBULAT' in c: return 'AMBULATÓRIO NEUROPSICOLOGIA'
-    if 'PLANTÃO' in c or 'PLANTAO' in c: return 'PLANTÃO PSICOLÓGICO'
-    if 'PRONTUÁRIO' in c or 'PRONTUARIO' in c or 'ESTUDAR' in c: return 'PRONTUÁRIO/ESTUDAR'
-    if re.search(r'10[°º]', c): return 'ESTAGIÁRIO 10° TRIAGEM' if 'TRIAGEM' in c else 'ESTAGIÁRIO 10°'
-    if re.search(r'9[°º]', c): return 'ESTAGIÁRIO 9° TRIAGEM' if 'TRIAGEM' in c else 'ESTAGIÁRIO 9°'
-    en = normalize(est).strip()
-    if en and not any(x in en.upper() for x in ['PSICODIAG', 'NÃO', 'MARCAR', 'SUPERVISÃO']):
-        return 'ESTAGIÁRIO 9° TRIAGEM' if 'TRIAGEM' in en.upper() else 'ESTAGIÁRIO 9°'
-    if not normalize(est).strip() and not normalize(pac).strip(): return 'LIVRE'
-    return 'OUTRO'
+def _dia_from_body(d):
+    """Aceita 'dia' ou 'dia_semana' no body JSON."""
+    return (d.get('dia') or d.get('dia_semana') or 'SEGUNDA').upper()
 
 
-def detect_sem(t):
-    t = normalize(t)
-    if re.search(r'10[°º]', t): return 10
-    if re.search(r'9[°º]', t): return 9
-    return 0
+def _ag_to_dict(row):
+    """Serializa agendamento com campo 'dia' (além de 'dia_semana') para o JS."""
+    r = dict(row)
+    r['dia'] = r.get('dia_semana', 'SEGUNDA')
+    return r
 
 
 # ── Rotas ────────────────────────────────────────────────────────────
@@ -374,7 +356,7 @@ def trocar_senha():
 
 @app.route('/imprimir')
 @login_required
-@requer_papel_page('coordenador', 'recepcao')
+@requer_papel_page('coordenador', 'recepcao', 'professor')
 def imprimir_selecao():
     return render_template('imprimir_selecao.html', dias=DIAS, dias_pt=DIAS_PT,
                            usuario=current_user.username, papel=current_user.role)
@@ -382,7 +364,7 @@ def imprimir_selecao():
 
 @app.route('/imprimir/<dia>')
 @login_required
-@requer_papel_page('coordenador', 'recepcao')
+@requer_papel_page('coordenador', 'recepcao', 'professor')
 def imprimir(dia):
     dia = dia.upper()
     if dia not in DIAS:
@@ -519,16 +501,40 @@ def api_excluir_usuario(uid):
 
 # ── Agendamentos ──────────────────────────────────────────────────────
 
+@app.route('/api/nomes')
+@login_required
+def api_nomes():
+    """Retorna listas de nomes únicos para o autocomplete do modal."""
+    conn = get_db()
+    ests = [r[0] for r in conn.execute(
+        "SELECT DISTINCT estagiario FROM agendamentos WHERE TRIM(estagiario)!='' ORDER BY estagiario COLLATE NOCASE"
+    ).fetchall()]
+    pacs = [r[0] for r in conn.execute(
+        "SELECT DISTINCT paciente FROM agendamentos WHERE TRIM(paciente)!='' ORDER BY paciente COLLATE NOCASE"
+    ).fetchall()]
+    sups = [r[0] for r in conn.execute(
+        "SELECT DISTINCT supervisor FROM agendamentos WHERE TRIM(supervisor)!='' ORDER BY supervisor COLLATE NOCASE"
+    ).fetchall()]
+    # Adiciona nomes de usuários cadastrados como estagiários
+    usuarios_ests = [r[0] for r in conn.execute(
+        "SELECT username FROM usuarios WHERE role='aluno' ORDER BY username COLLATE NOCASE"
+    ).fetchall()]
+    conn.close()
+    # Mescla e deduplica mantendo ordem
+    todos_ests = list(dict.fromkeys(usuarios_ests + ests))
+    return jsonify({'estagiarios': todos_ests, 'pacientes': pacs, 'supervisores': sups})
+
+
 @app.route('/api/conflito', methods=['GET'])
 @login_required
 def api_conflito():
-    dia = request.args.get('dia_semana', '')
+    dia = request.args.get('dia_semana', '') or request.args.get('dia', '')
     horario = request.args.get('horario', '')
     sala = request.args.get('sala', '')
     excluir = request.args.get('excluir_id', None)
     if not dia or not horario or not sala:
         return jsonify({'conflito': False})
-    conflito = checar_conflito(dia, horario, sala, excluir_id=excluir)
+    conflito = checar_conflito(dia.upper(), horario, sala, excluir_id=excluir)
     if conflito:
         return jsonify({'conflito': True, 'estagiario': conflito.get('estagiario', ''),
                         'paciente': conflito.get('paciente', ''), 'categoria': conflito.get('categoria', ''),
@@ -539,24 +545,17 @@ def api_conflito():
 @app.route('/api/agendamentos', methods=['GET'])
 @login_required
 def list_ag():
-    dia = request.args.get('dia_semana', 'SEGUNDA')
-    horario = request.args.get('horario', '')
-    sala = request.args.get('sala', '')
-    cat = request.args.get('categoria', '')
-    busca = request.args.get('busca', '').strip()
-    q = 'SELECT * FROM agendamentos WHERE dia_semana=?'
-    p = [dia]
-    if horario: q += ' AND horario=?'; p.append(horario)
-    if sala: q += ' AND sala=?'; p.append(sala)
-    if cat: q += ' AND categoria=?'; p.append(cat)
-    if busca: q += ' AND (estagiario LIKE ? OR paciente LIKE ? OR observacao LIKE ?)'; p += [f'%{busca}%'] * 3
+    """Retorna TODOS os agendamentos. Filtragem é feita no cliente (JS)."""
+    q = 'SELECT * FROM agendamentos WHERE 1=1'
+    p = []
     if current_user.role == 'aluno':
-        q += ' AND estagiario = ?'; p.append(current_user.username)
-    q += ' ORDER BY horario, sala'
+        q += ' AND estagiario = ?'
+        p.append(current_user.username)
+    q += ' ORDER BY dia_semana, horario, sala'
     conn = get_db()
     rows = conn.execute(q, p).fetchall()
     conn.close()
-    return jsonify([dict(r) for r in rows])
+    return jsonify([_ag_to_dict(r) for r in rows])
 
 
 @app.route('/api/agendamentos/<int:aid>', methods=['GET'])
@@ -565,7 +564,7 @@ def get_ag(aid):
     conn = get_db()
     r = conn.execute('SELECT * FROM agendamentos WHERE id=?', (aid,)).fetchone()
     conn.close()
-    return (jsonify(dict(r)) if r else (jsonify({'erro': 'Não encontrado'}), 404))
+    return (jsonify(_ag_to_dict(r)) if r else (jsonify({'erro': 'Não encontrado'}), 404))
 
 
 @app.route('/api/agendamentos', methods=['POST'])
@@ -573,7 +572,7 @@ def get_ag(aid):
 @requer_papel('coordenador', 'recepcao')
 def create_ag():
     d = request.json
-    dia = d.get('dia_semana', 'SEGUNDA')
+    dia = _dia_from_body(d)
     horario = d.get('horario')
     sala = d.get('sala')
     conflito = checar_conflito(dia, horario, sala)
@@ -583,13 +582,15 @@ def create_ag():
                         'conflito': True, 'conflito_id': conflito.get('id')}), 409
     est = d.get('estagiario', '')
     pac = d.get('paciente', '')
-    cat = d.get('categoria', '') or detect_cat(est, pac)
-    sem = d.get('semestre', 0) or detect_sem(est)
+    cat = d.get('categoria', '')
+    sup = d.get('supervisor', '')
+    sem = d.get('semestre', 0)
     conn = get_db()
     cur = conn.execute(
-        'INSERT INTO agendamentos(dia_semana,horario,sala,estagiario,paciente,categoria,semestre,triagem,observacao,data_especifica)'
-        ' VALUES(?,?,?,?,?,?,?,?,?,?)',
-        (dia, horario, sala, est, pac, cat, sem, d.get('triagem', 0), d.get('observacao', ''), d.get('data_especifica', ''))
+        'INSERT INTO agendamentos(dia_semana,horario,sala,estagiario,paciente,categoria,semestre,triagem,observacao,supervisor,data_especifica)'
+        ' VALUES(?,?,?,?,?,?,?,?,?,?,?)',
+        (dia, horario, sala, est, pac, cat, sem, d.get('triagem', 0),
+         d.get('observacao', ''), sup, d.get('data_especifica', ''))
     )
     nid = cur.lastrowid
     registrar_log('CRIAR', f'Agendamento #{nid} criado — sala: {sala} {horario}', conn=conn)
@@ -603,7 +604,7 @@ def create_ag():
 @requer_papel('coordenador', 'recepcao')
 def update_ag(aid):
     d = request.json
-    dia = d.get('dia_semana', 'SEGUNDA')
+    dia = _dia_from_body(d)
     horario = d.get('horario')
     sala = d.get('sala')
     conflito = checar_conflito(dia, horario, sala, excluir_id=aid)
@@ -613,13 +614,15 @@ def update_ag(aid):
                         'conflito': True, 'conflito_id': conflito.get('id')}), 409
     est = d.get('estagiario', '')
     pac = d.get('paciente', '')
-    cat = d.get('categoria', '') or detect_cat(est, pac)
-    sem = d.get('semestre', 0) or detect_sem(est)
+    cat = d.get('categoria', '')
+    sup = d.get('supervisor', '')
+    sem = d.get('semestre', 0)
     conn = get_db()
     conn.execute(
         'UPDATE agendamentos SET dia_semana=?,horario=?,sala=?,estagiario=?,paciente=?,categoria=?,semestre=?,'
-        'triagem=?,observacao=?,data_especifica=?,updated_at=CURRENT_TIMESTAMP WHERE id=?',
-        (dia, horario, sala, est, pac, cat, sem, d.get('triagem', 0), d.get('observacao', ''), d.get('data_especifica', ''), aid)
+        'triagem=?,observacao=?,supervisor=?,data_especifica=?,updated_at=CURRENT_TIMESTAMP WHERE id=?',
+        (dia, horario, sala, est, pac, cat, sem,
+         d.get('triagem', 0), d.get('observacao', ''), sup, d.get('data_especifica', ''), aid)
     )
     registrar_log('EDITAR', f'Agendamento #{aid} editado — sala: {sala} {horario}', conn=conn)
     conn.commit()
@@ -644,10 +647,10 @@ def delete_ag(aid):
 @app.route('/api/stats')
 @login_required
 def stats():
-    dia = request.args.get('dia_semana', 'SEGUNDA')
+    dia = request.args.get('dia_semana', '') or request.args.get('dia', 'SEGUNDA')
     conn = get_db()
     total = conn.execute('SELECT COUNT(*) FROM agendamentos WHERE dia_semana=?', (dia,)).fetchone()[0]
-    livre = conn.execute("SELECT COUNT(*) FROM agendamentos WHERE dia_semana=? AND categoria='LIVRE'", (dia,)).fetchone()[0]
+    livre = conn.execute("SELECT COUNT(*) FROM agendamentos WHERE dia_semana=? AND categoria='Livre'", (dia,)).fetchone()[0]
     por_cat = conn.execute(
         'SELECT categoria, COUNT(*) as n FROM agendamentos WHERE dia_semana=? GROUP BY categoria ORDER BY n DESC',
         (dia,)).fetchall()
@@ -664,10 +667,14 @@ def export_csv():
     conn.close()
     out = io.StringIO()
     w = csv.writer(out)
-    w.writerow(['ID', 'Dia', 'Horário', 'Sala', 'Estagiário', 'Paciente', 'Categoria', 'Semestre', 'Triagem', 'Data Esp.', 'Obs.'])
+    w.writerow(['ID', 'Dia', 'Horário', 'Sala', 'Estagiário', 'Paciente', 'Categoria',
+                'Semestre', 'Triagem', 'Supervisor', 'Data Esp.', 'Obs.'])
     for r in rows:
-        w.writerow([r['id'], r['dia_semana'], r['horario'], r['sala'], r['estagiario'], r['paciente'],
-                    r['categoria'], r['semestre'], 'Sim' if r['triagem'] else 'Não', r['data_especifica'], r['observacao']])
+        w.writerow([r['id'], r['dia_semana'], r['horario'], r['sala'],
+                    r['estagiario'], r['paciente'], r['categoria'],
+                    r['semestre'], 'Sim' if r['triagem'] else 'Não',
+                    r['supervisor'] if 'supervisor' in r.keys() else '',
+                    r['data_especifica'], r['observacao']])
     out.seek(0)
     registrar_log('EXPORTAR', 'CSV exportado')
     return send_file(io.BytesIO(out.read().encode('utf-8-sig')), mimetype='text/csv', as_attachment=True,

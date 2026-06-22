@@ -1,1 +1,32 @@
-__PERFIL__
+{% extends "base.html" %}
+{% block title %}Perfil — Mapa de Salas{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Meu Perfil</h1>
+  <a href="{{ url_for('trocar_senha') }}" class="btn btn-secondary btn-sm">🔒 Trocar senha</a>
+</div>
+<div class="card" style="max-width:480px">
+  <form method="post">
+    <div class="form-group">
+      <label>Usuário</label>
+      <input class="form-control" value="{{ usuario }}" disabled>
+    </div>
+    <div class="form-group">
+      <label>Papel</label>
+      <input class="form-control" value="{{ papel_label }}" disabled>
+    </div>
+    <div class="form-group">
+      <label>Nome completo</label>
+      <input class="form-control" name="nome_completo" value="{{ nome_completo }}" required placeholder="Seu nome completo">
+    </div>
+    <div class="form-group">
+      <label>E-mail</label>
+      <input class="form-control" type="email" name="email" value="{{ email }}" required placeholder="seu@email.com">
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" type="submit">Salvar</button>
+      <a href="{{ url_for('index') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

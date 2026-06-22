@@ -1,1 +1,87 @@
-__LOGS__
+{% extends "base.html" %}
+{% block title %}Logs — Mapa de Salas{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">📋 Histórico de Ações</h1>
+  <button class="btn btn-secondary btn-sm" onclick="carregarLogs()">↻ Atualizar</button>
+</div>
+<div class="card" style="padding:0">
+  <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap">
+    <input id="filtroLog" class="form-control" style="max-width:260px" placeholder="Filtrar usuário ou detalhe…" oninput="filtrarLogs()">
+    <select id="filtroAcao" class="form-control" style="max-width:200px" onchange="filtrarLogs()">
+      <option value="">Todas as ações</option>
+      <option>LOGIN</option><option>LOGOUT</option>
+      <option>CRIAR</option><option>EDITAR</option><option>EXCLUIR</option>
+      <option>EXPORTAR</option><option>BACKUP</option>
+      <option>CRIAR_USUARIO</option><option>EDITAR_USUARIO</option><option>EXCLUIR_USUARIO</option>
+      <option>TROCAR_SENHA</option><option>EDITAR_PERFIL</option>
+    </select>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Data/Hora</th><th>Usuário</th><th>Ação</th><th>Detalhes</th></tr></thead>
+      <tbody id="logsBody">
+        <tr><td colspan="4"><div class="empty-state"><div class="spinner"></div><p>Carregando…</p></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div id="logsPag" style="padding:8px 16px;font-size:12px;color:var(--muted)"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const PG = 50;
+let todosLogs = [], pagAtual = 1;
+
+async function carregarLogs() {
+  const r = await fetch('/api/logs');
+  todosLogs = await r.json();
+  pagAtual = 1;
+  filtrarLogs();
+}
+
+function filtrarLogs() {
+  const txt  = document.getElementById('filtroLog').value.toLowerCase();
+  const acao = document.getElementById('filtroAcao').value;
+  const f = todosLogs.filter(l =>
+    (!txt  || (l.usuario||'').toLowerCase().includes(txt) || (l.dados||'').toLowerCase().includes(txt)) &&
+    (!acao || l.acao === acao)
+  );
+  renderLogs(f);
+}
+
+const CORES = {LOGIN:'#dcfce7',LOGOUT:'#f1f5f9',CRIAR:'#dbeafe',EDITAR:'#fef9c3',
+  EXCLUIR:'#fee2e2',EXPORTAR:'#ede9fe',BACKUP:'#ede9fe',
+  CRIAR_USUARIO:'#dbeafe',EDITAR_USUARIO:'#fef9c3',EXCLUIR_USUARIO:'#fee2e2'};
+
+function renderLogs(lista) {
+  const tbody = document.getElementById('logsBody');
+  const total = lista.length;
+  const ini   = (pagAtual - 1) * PG;
+  const pag   = lista.slice(ini, ini + PG);
+  if (!pag.length) {
+    tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><p>Nenhum registro encontrado.</p></div></td></tr>';
+    document.getElementById('logsPag').textContent = '';
+    return;
+  }
+  tbody.innerHTML = pag.map(l => {
+    const ts  = (l.ts||'-').replace('T',' ').substring(0,16);
+    const cor = CORES[l.acao] || '#e2e8f0';
+    return `<tr>
+      <td style="white-space:nowrap;font-size:11px;color:var(--muted)">${ts}</td>
+      <td><strong>${l.usuario||'-'}</strong></td>
+      <td><span class="chip" style="background:${cor};color:#1e293b">${l.acao||'-'}</span></td>
+      <td style="font-size:11px;color:var(--muted)">${l.dados||''}</td>
+    </tr>`;
+  }).join('');
+  const totalPags = Math.ceil(total / PG);
+  document.getElementById('logsPag').innerHTML =
+    `Exibindo ${ini+1}–${Math.min(ini+PG,total)} de ${total} &nbsp;` +
+    (pagAtual > 1 ? `<button class="btn-link" onclick="pg(-1)">← Anterior</button>` : '') +
+    (pagAtual < totalPags ? `<button class="btn-link" onclick="pg(1)">Próxima →</button>` : '');
+}
+
+function pg(d) { pagAtual += d; filtrarLogs(); }
+carregarLogs();
+</script>
+{% endblock %}

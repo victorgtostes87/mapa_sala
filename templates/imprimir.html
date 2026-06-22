@@ -1,1 +1,40 @@
-__IMPRIMIR__
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lista — {{ dia_nome }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    body { background: #fff; color: #111; font-family: 'Segoe UI', sans-serif; }
+    .wrap { max-width: 680px; margin: 30px auto; padding: 0 20px; }
+    .pheader h1 { font-size: 19px; font-weight: 700; color: #111; }
+    .pheader p  { font-size: 11px; color: #666; margin-top: 3px; }
+    .actions    { margin-bottom: 20px; display: flex; gap: 8px; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="actions no-print">
+    <button class="btn" onclick="window.print()">🖨 Imprimir / PDF</button>
+    <a href="{{ url_for('imprimir_selecao') }}" class="btn btn-secondary">← Voltar</a>
+  </div>
+  <div class="pheader" style="margin-bottom:20px">
+    <h1>Lista de Pacientes — {{ dia_nome }}</h1>
+    <p>Gerado em {{ gerado_em }} &nbsp;·&nbsp; Uso interno — não compartilhar</p>
+  </div>
+  {% if pacientes %}
+  <table class="print-table">
+    <thead><tr><th style="width:90px">Horário</th><th>Paciente</th></tr></thead>
+    <tbody>
+    {% for p in pacientes %}
+    <tr><td>{{ p.horario }}</td><td>{{ p.paciente }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color:#666;font-style:italic">Nenhum paciente agendado para {{ dia_nome }}.</p>
+  {% endif %}
+</div>
+</body>
+</html>

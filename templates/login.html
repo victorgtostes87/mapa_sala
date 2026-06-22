@@ -2,41 +2,37 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Login — Mapa de Salas</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    body { display:flex; align-items:center; justify-content:center; padding:20px; }
+    .login-wrap { width:100%; max-width:380px; }
+    .login-wrap h1 { font-size:20px; font-weight:700; color:#f8fafc; text-align:center; margin-bottom:8px; }
+    .login-wrap .subtitle { text-align:center; color:var(--muted); font-size:12px; margin-bottom:24px; }
+    .btn-login { width:100%; justify-content:center; padding:9px; font-size:13px; margin-top:4px; }
+  </style>
 </head>
-<body class="auth-page">
+<body>
+<div class="login-wrap">
   <div class="card">
-    <div class="logo">
-      <span class="logo-icon">🏥</span>
-      <h1>Mapa de Salas</h1>
-      <p>Policlínica de Psicologia</p>
-    </div>
-
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        {% for msg in messages %}
-          <div class="alert">{{ msg }}</div>
-        {% endfor %}
-      {% endif %}
+    <h1>🏥 Mapa de Salas</h1>
+    <p class="subtitle">Policlínica — Psicologia</p>
+    {% with msgs = get_flashed_messages() %}
+      {% if msgs %}{% for m in msgs %}<div class="alert alert-error" style="margin-bottom:14px">{{ m }}</div>{% endfor %}{% endif %}
     {% endwith %}
-
-    <form method="POST" action="/login">
+    <form method="post" autocomplete="off">
       <div class="form-group">
-        <label for="username">Usuário</label>
-        <input type="text" id="username" name="username" placeholder="Digite seu usuário" autocomplete="username" required autofocus>
+        <label>Usuário</label>
+        <input class="form-control" name="username" autofocus required placeholder="nome de login">
       </div>
       <div class="form-group">
-        <label for="password">Senha</label>
-        <input type="password" id="password" name="password" placeholder="Digite sua senha" autocomplete="current-password" required>
+        <label>Senha</label>
+        <input class="form-control" type="password" name="password" required placeholder="••••••">
       </div>
-      <button type="submit" class="btn">🔒 Entrar</button>
+      <button class="btn btn-login" type="submit">Entrar</button>
     </form>
-
-    <p class="footer-text">Acesso restrito &mdash; apenas usuários autorizados</p>
   </div>
-<script>lucide.createIcons();</script>
+</div>
 </body>
 </html>

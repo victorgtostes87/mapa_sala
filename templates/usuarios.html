@@ -1,1 +1,122 @@
-__USUARIOS__
+{% extends "base.html" %}
+{% block title %}Usuários — Mapa de Salas{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">👥 Usuários</h1>
+  <button class="btn" onclick="abrirModal()">+ Novo usuário</button>
+</div>
+<div class="card" style="padding:0">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Usuário</th><th>Papel</th><th>Criado em</th><th style="width:110px">Ações</th></tr></thead>
+      <tbody>
+      {% set COLORS = {'coordenador':'#1e3a5f','recepcao':'#1a3a2a','professor':'#3b2a1a','aluno':'#2a1a3b'} %}
+      {% set LABELS = {'coordenador':'Coordenador','recepcao':'Recepção','professor':'Prof. Supervisor','aluno':'Estagiário'} %}
+      {% for u in usuarios %}
+      <tr>
+        <td><strong>{{ u.username }}</strong></td>
+        <td>
+          <span class="chip" style="background:{{ COLORS.get(u.role,'#2a2a2a') }};color:#e2e8f0">
+            {{ LABELS.get(u.role, u.role) }}
+          </span>
+        </td>
+        <td style="font-size:11px;color:var(--muted)">{{ (u.created_at or '-')[:10] }}</td>
+        <td>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-secondary btn-sm" onclick="abrirModal({{ u.id }},'{{ u.username }}','{{ u.role }}')">✏ Editar</button>
+            {% if u.username != usuario %}
+            <button class="btn btn-danger btn-sm" onclick="excluir({{ u.id }},'{{ u.username }}')">🗑</button>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4"><div class="empty-state"><p>Nenhum usuário cadastrado.</p></div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal -->
+<div id="modalU" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="mTitulo">Novo usuário</span>
+      <button class="modal-close" onclick="fechar()">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="mErro" class="alert alert-error" style="display:none;margin-bottom:12px"></div>
+      <input type="hidden" id="mId">
+      <div class="form-group">
+        <label>Usuário</label>
+        <input class="form-control" id="mUser" placeholder="nome de login (sem espaço)" required>
+      </div>
+      <div class="form-group">
+        <label>Senha <span id="mSenhaObs" style="color:var(--muted);font-weight:400;text-transform:none">(obrigatória)</span></label>
+        <input class="form-control" type="password" id="mSenha" placeholder="mín. 6 caracteres">
+      </div>
+      <div class="form-group">
+        <label>Papel</label>
+        <select class="form-control" id="mPapel">
+          <option value="aluno">Estagiário</option>
+          <option value="recepcao">Recepção</option>
+          <option value="professor">Prof. Supervisor</option>
+          <option value="coordenador">Coordenador</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="fechar()">Cancelar</button>
+      <button class="btn" onclick="salvar()">Salvar</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function abrirModal(id, u, r) {
+  document.getElementById('mId').value    = id || '';
+  document.getElementById('mUser').value  = u  || '';
+  document.getElementById('mSenha').value = '';
+  document.getElementById('mPapel').value = r  || 'aluno';
+  document.getElementById('mTitulo').textContent = id ? 'Editar usuário' : 'Novo usuário';
+  document.getElementById('mSenhaObs').textContent = id ? '(deixe em branco para não alterar)' : '(obrigatória)';
+  document.getElementById('mErro').style.display = 'none';
+  document.getElementById('modalU').classList.add('open');
+}
+function fechar() { document.getElementById('modalU').classList.remove('open'); }
+
+async function salvar() {
+  const id   = document.getElementById('mId').value;
+  const body = {
+    username: document.getElementById('mUser').value.trim(),
+    password: document.getElementById('mSenha').value,
+    role:     document.getElementById('mPapel').value
+  };
+  if (!body.username) { erro('Usuário obrigatório.'); return; }
+  if (!id && body.password.length < 6) { erro('Senha mín. 6 caracteres.'); return; }
+  const r = await fetch(id ? `/api/usuarios/${id}` : '/api/usuarios', {
+    method: id ? 'PUT' : 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
+  const d = await r.json();
+  if (!r.ok) { erro(d.erro || 'Erro ao salvar.'); return; }
+  location.reload();
+}
+
+async function excluir(id, u) {
+  if (!confirm(`Excluir usuário "${u}"?`)) return;
+  const r = await fetch(`/api/usuarios/${id}`, {method:'DELETE'});
+  const d = await r.json();
+  if (!r.ok) { alert(d.erro || 'Erro ao excluir.'); return; }
+  location.reload();
+}
+
+function erro(msg) {
+  const el = document.getElementById('mErro');
+  el.textContent = msg; el.style.display = 'flex';
+}
+</script>
+{% endblock %}

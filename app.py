@@ -16,7 +16,7 @@ except ImportError:
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-local-apenas')
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 
-VERSAO = '2026-06-22-v14'
+VERSAO = '2026-06-22-v15'
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -92,11 +92,11 @@ DIAS_PT = {
 }
 
 CATEGORIAS = [
-    'Estágio 10° período', 'Estágio 10° período Tri',
-    'Estágio 9° período', 'Estágio 9° período Tri',
-    'Supervisão', 'NACE', 'Sou O', 'Marcar', 'Não marcar',
-    'Nutrição', 'Psicodiagnóstico', 'Psiquiatria',
-    'Amb Neuro', 'Plantão', 'Prontuário', 'Livre', 'Outro'
+    'ESTAGIÁRIO 10°', 'ESTAGIÁRIO 10° TRI',
+    'ESTAGIÁRIO 9°', 'ESTAGIÁRIO 9° TRI',
+    'SUPERVISÃO', 'NACE', 'SOU', 'MARCAR', 'NÃO MARCAR',
+    'NUTRIÇÃO', 'PSICODIAGNÓSTICO', 'PSIQUIATRIA',
+    'AMB NEURO', 'PLANTÃO', 'PRONTUÁRIO', 'LIVRE', 'OUTRO'
 ]
 
 PAPEIS_LABEL = {
@@ -515,12 +515,10 @@ def api_nomes():
     sups = [r[0] for r in conn.execute(
         "SELECT DISTINCT supervisor FROM agendamentos WHERE TRIM(supervisor)!='' ORDER BY supervisor COLLATE NOCASE"
     ).fetchall()]
-    # Adiciona nomes de usuários cadastrados como estagiários
     usuarios_ests = [r[0] for r in conn.execute(
         "SELECT username FROM usuarios WHERE role='aluno' ORDER BY username COLLATE NOCASE"
     ).fetchall()]
     conn.close()
-    # Mescla e deduplica mantendo ordem
     todos_ests = list(dict.fromkeys(usuarios_ests + ests))
     return jsonify({'estagiarios': todos_ests, 'pacientes': pacs, 'supervisores': sups})
 
@@ -650,7 +648,7 @@ def stats():
     dia = request.args.get('dia_semana', '') or request.args.get('dia', 'SEGUNDA')
     conn = get_db()
     total = conn.execute('SELECT COUNT(*) FROM agendamentos WHERE dia_semana=?', (dia,)).fetchone()[0]
-    livre = conn.execute("SELECT COUNT(*) FROM agendamentos WHERE dia_semana=? AND categoria='Livre'", (dia,)).fetchone()[0]
+    livre = conn.execute("SELECT COUNT(*) FROM agendamentos WHERE dia_semana=? AND categoria='LIVRE'", (dia,)).fetchone()[0]
     por_cat = conn.execute(
         'SELECT categoria, COUNT(*) as n FROM agendamentos WHERE dia_semana=? GROUP BY categoria ORDER BY n DESC',
         (dia,)).fetchall()

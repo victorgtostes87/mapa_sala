@@ -155,28 +155,27 @@
 
 <script>
 // ── Config ────────────────────────────────────────────────────────
-// Mapa de categoria → classe de badge
 const CAT_CLASS = {
-  'Estágio 10° período': 'badge-est10',
-  'Estágio 10° período Tri': 'badge-est10t',
-  'Estágio 9° período': 'badge-est9',
-  'Estágio 9° período Tri': 'badge-est9t',
-  'Supervisão': 'badge-sup',
-  'NACE': 'badge-nace',
-  'Sou O': 'badge-sou',
-  'Marcar': 'badge-marcar',
-  'Não marcar': 'badge-nmarcar',
-  'Nutrição': 'badge-nutri',
-  'Psicodiagnóstico': 'badge-psicodiag',
-  'Psiquiatria': 'badge-psiq',
-  'Amb Neuro': 'badge-ambneuro',
-  'Plantão': 'badge-plantao',
-  'Prontuário': 'badge-pront',
-  'Livre': 'badge-livre',
-  'Outro': 'badge-outro'
+  'ESTAGIÁRIO 10°':      'badge-est10',
+  'ESTAGIÁRIO 10° TRI':  'badge-est10t',
+  'ESTAGIÁRIO 9°':       'badge-est9',
+  'ESTAGIÁRIO 9° TRI':   'badge-est9t',
+  'SUPERVISÃO':          'badge-sup',
+  'NACE':                'badge-nace',
+  'SOU':                 'badge-sou',
+  'MARCAR':              'badge-marcar',
+  'NÃO MARCAR':          'badge-nmarcar',
+  'NUTRIÇÃO':            'badge-nutri',
+  'PSICODIAGNÓSTICO':    'badge-psicodiag',
+  'PSIQUIATRIA':         'badge-psiq',
+  'AMB NEURO':           'badge-ambneuro',
+  'PLANTÃO':             'badge-plantao',
+  'PRONTUÁRIO':          'badge-pront',
+  'LIVRE':               'badge-livre',
+  'OUTRO':               'badge-outro'
 };
 
-const TRIAGEM_CATS = ['Estágio 10° período Tri', 'Estágio 9° período Tri'];
+const TRIAGEM_CATS = ['ESTAGIÁRIO 10° TRI', 'ESTAGIÁRIO 9° TRI'];
 const PODE_EDITAR = {{ 'true' if current_user.role in ['coordenador','recepcao'] else 'false' }};
 const PODE_VER_PAC = {{ 'true' if current_user.role in ['coordenador','recepcao','professor'] else 'false' }};
 
@@ -188,12 +187,10 @@ window.addEventListener('DOMContentLoaded', () => {
   lucide.createIcons();
   carregarDados();
   carregarNomes();
-  // Filtros
   ['sel-dia','sel-hora','sel-sala','sel-cat','inp-busca'].forEach(id => {
     document.getElementById(id).addEventListener('input', renderTabela);
     document.getElementById(id).addEventListener('change', renderTabela);
   });
-  // Fechar autocomplete ao clicar fora
   document.addEventListener('click', e => {
     if (!e.target.closest('.ac-wrap')) fecharAcs();
   });
@@ -275,7 +272,6 @@ function abrirModalNovo() {
   document.getElementById('modal-titulo').textContent = 'Novo agendamento';
   ['f-dia','f-hora','f-sala','f-cat'].forEach(id => {
     const el = document.getElementById(id);
-    // mantém seleção atual do filtro como sugestão
     const sel = document.getElementById(id.replace('f-','sel-'));
     if (sel && sel.value) el.value = sel.value;
   });
@@ -423,7 +419,6 @@ function verificarConflito() {
   }
 }
 
-// Atualizar conflito ao mudar sala/hora
 ['f-dia','f-hora','f-sala'].forEach(id => {
   document.getElementById(id)?.addEventListener('change', verificarConflito);
 });

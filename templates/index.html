@@ -31,7 +31,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .filters input,.filters select{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:6px 10px;font-size:12px;outline:none}
 .filters input:focus,.filters select:focus{border-color:var(--accent)}
 .filters input{min-width:200px}
-.page-body{position:fixed;top:195px;left:0;right:0;bottom:52px;overflow:hidden}
+.page-body{position:fixed;top:var(--header-h,195px);left:0;right:0;bottom:52px;overflow:hidden}
 .grid-wrap{position:absolute;inset:0;overflow:scroll;padding-bottom:8px}
 .mapa-table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%}
 .mapa-table th{background:var(--surface);color:var(--text2);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:7px 8px;border:1px solid var(--border);position:sticky;top:0;z-index:10;white-space:nowrap;text-align:center}
@@ -128,7 +128,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
   .filters { display: flex; flex-wrap: nowrap; gap: 5px; padding: 6px 10px; }
   .filters input { flex: 1 1 auto; font-size: 12px; padding: 6px 8px; }
   .filters .btn { flex: 0 0 auto; font-size: 11px; padding: 6px 10px; }
-  .page-body { top: 200px; }
+  /* page-body top controlado via JS */
 }
 
 
@@ -556,5 +556,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
+
+<script>
+function ajustarAlturaGrid(){
+  const navbar  = document.querySelector('.navbar');
+  const tabs    = document.getElementById('dayTabs');
+  const stats   = document.querySelector('.stats-bar');
+  const filters = document.querySelector('.filters');
+  if(!navbar||!tabs||!stats||!filters) return;
+  const h = navbar.offsetHeight + tabs.offsetHeight + stats.offsetHeight + filters.offsetHeight;
+  document.documentElement.style.setProperty('--header-h', h + 'px');
+}
+window.addEventListener('load', ajustarAlturaGrid);
+window.addEventListener('resize', ajustarAlturaGrid);
+</script>
 </body>
 </html>

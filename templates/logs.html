@@ -41,7 +41,7 @@ tr:hover td{background:#1a2744}
   <a href="/perfil" class="btn btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
   <a href="/" class="btn btn-ghost"><i data-lucide="arrow-left"></i> Voltar</a>
   <a href="/api/backup" style="display:inline-block;padding:8px 16px;background:#2563eb;color:#fff;border-radius:6px;text-decoration:none;font-size:0.85rem;margin-left:8px;">⬇ Backup do Banco</a>
-  <button id="btnLimparLogs" type="button" style="display:inline-block;padding:8px 16px;background:#f59e0b;color:#111827;border:none;border-radius:6px;text-decoration:none;font-size:0.85rem;margin-left:8px;cursor:pointer;font-weight:600;">🧹 Limpar logs antigos</button>
+  <button id="btnLimparLogs" type="button" style="display:inline-block;padding:8px 16px;background:#f59e0b;color:#111827;border:none;border-radius:6px;text-decoration:none;font-size:0.85rem;margin-left:8px;cursor:pointer;font-weight:600;"><i data-lucide="trash-2"></i> Limpar logs antigos</button>
 </nav>
 <div class="container">
   <div class="filters">
@@ -113,7 +113,7 @@ async function carregar(){
 }
 
 async function limparLogs(){
-  if(!confirm('Limpar logs com mais de 15 dias?')) return;
+  if(!confirm('Excluir logs com mais de 15 dias?')) return;
   const res = await fetch('/api/admin/limpar-logs?dias=15', {method:'POST'});
   let data = {};
   try { data = await res.json(); } catch(e) {}

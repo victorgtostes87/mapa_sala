@@ -212,6 +212,11 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 </div>
 
 <div class="page-body"><div class="grid-wrap" id="gridWrap">
+  <div id="loadingMsg" style="display:none;position:absolute;inset:0;z-index:10;background:var(--bg);display:flex;align-items:center;justify-content:center;gap:10px;color:var(--text2);font-size:13px;font-weight:600">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="animation:spin .8s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+    Carregando...
+  </div>
+  <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
   <table class="mapa-table"><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table>
 </div></div>
 
@@ -271,8 +276,8 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
         <div class="form-row"><label>Triagem?</label>
           <select id="fTriagem"><option value="0">Não</option><option value="1">Sim</option></select></div>
       </div>
-      <div class="form-row"><label>Data específica</label>
-        <input type="text" id="fData" placeholder="Ex: 12/03, 19/03"></div>
+      <div class="form-row"><label>Data específica <span style="font-size:10px;color:var(--text2);font-weight:400;text-transform:none">(opcional — só para agendamentos pontuais)</span></label>
+        <input type="date" id="fData"></div>
       <div class="form-row"><label>Observação</label>
         <textarea id="fObs" placeholder="Notas adicionais..."></textarea></div>
       <div class="modal-footer">
@@ -280,6 +285,24 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
         <button class="btn btn-ghost" onclick="closeModal()"><i data-lucide="x"></i> Cancelar</button>
         <button class="btn btn-primary" id="saveBtn" onclick="saveAg()"><i data-lucide="save"></i> Salvar</button>
       </div>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="confirmOverlay" style="z-index:300">
+  <div class="modal" style="max-width:380px;padding:28px 24px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+      <div style="width:38px;height:38px;border-radius:50%;background:#7f1d1d;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i data-lucide="trash-2" style="width:18px;height:18px;color:#fca5a5"></i>
+      </div>
+      <div>
+        <div style="font-size:15px;font-weight:700;color:#f8fafc">Remover agendamento</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px">Esta ação não pode ser desfeita.</div>
+      </div>
+    </div>
+    <div id="confirmDetail" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;font-size:12px;color:var(--text2);margin-bottom:18px;line-height:1.7"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="fecharConfirm()"><i data-lucide="x"></i> Cancelar</button>
+      <button class="btn btn-danger" id="confirmDeleteBtn"><i data-lucide="trash-2"></i> Sim, remover</button>
     </div>
   </div>
 </div>
@@ -335,7 +358,10 @@ async function loadStats() {
   document.getElementById('stEst').textContent = est;
 }
 async function renderGrid() {
+  const loading = document.getElementById('loadingMsg');
+  loading.style.display = 'flex';
   const data = await loadData();
+  loading.style.display = 'none';
   const filterSala = document.getElementById('filterSala').value;
   const filterHor  = document.getElementById('filterHorario').value;
   const salas = filterSala ? [filterSala] : SALAS;
@@ -476,13 +502,25 @@ async function saveAg(){
     showToast('🚫 Conflito de sala!','error');
   } else { showToast('❌ '+(data.erro||'Erro ao salvar'),'error'); }
 }
-async function deleteAg(){
+function deleteAg(){
   const id=document.getElementById('fId').value;
-  if(!id||!confirm('Remover este agendamento?')) return;
-  const res=await fetch('/api/agendamentos/'+id,{method:'DELETE'});
-  if(res.ok){ showToast('🗑 Removido','success'); closeModal(); renderGrid(); }
-  else{ const e=await res.json(); showToast('❌ '+(e.erro||'Erro ao remover'),'error'); }
+  if(!id) return;
+  const sala    = document.getElementById('fSala').value;
+  const horario = document.getElementById('fHorario').value;
+  const dia     = document.getElementById('fDia').value;
+  const est     = document.getElementById('fEstagiario').value;
+  document.getElementById('confirmDetail').innerHTML =
+    `<strong style="color:var(--text)">${sala}</strong> &mdash; ${horario} (${dia})`+
+    (est ? `<br>Estagiário: <strong style="color:var(--text)">${esc(est)}</strong>` : '');
+  document.getElementById('confirmOverlay').classList.add('open');
+  document.getElementById('confirmDeleteBtn').onclick = async function(){
+    fecharConfirm();
+    const res=await fetch('/api/agendamentos/'+id,{method:'DELETE'});
+    if(res.ok){ showToast('🗑 Removido','success'); closeModal(); renderGrid(); }
+    else{ const e=await res.json(); showToast('❌ '+(e.erro||'Erro ao remover'),'error'); }
+  };
 }
+function fecharConfirm(){ document.getElementById('confirmOverlay').classList.remove('open'); }
 function exportCSV(){ window.location='/api/export'; }
 function showToast(msg,type='success'){
   const t=document.getElementById('toast');
@@ -500,11 +538,7 @@ document.addEventListener('click', function(){
   if(m) m.classList.remove('open');
 });
 </script>
-<script>lucide.createIcons();
-
-  
-
-
+<script>lucide.createIcons();</script>
 
 <script>
 var _estList = [];

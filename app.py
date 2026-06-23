@@ -67,7 +67,8 @@ def load_user(user_id):
         conn.close()
     if not row:
         return None
-    return Usuario(row['id'], row['username'], row['role'], row['nome_completo'] or '', row['email'] or '')
+    return Usuario(row['id'], row['username'], row['role'],
+                   row['nome_completo'] or '', row['email'] or '')
 
 
 def requer_papel(*papeis):
@@ -166,8 +167,10 @@ def init_db():
         )
         existe = conn.execute("SELECT id FROM usuarios WHERE username='coordenador'").fetchone()
         if not existe:
-            conn.execute("INSERT INTO usuarios(username, password_hash, role) VALUES(?,?,?)",
-                         ('coordenador', generate_password_hash('mudar@2026'), 'coordenador'))
+            conn.execute(
+                "INSERT INTO usuarios(username, password_hash, role) VALUES(?,?,?)",
+                ('coordenador', generate_password_hash('mudar@2026'), 'coordenador')
+            )
         conn.executescript(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_conflito ON agendamentos(dia_semana, horario, sala);"
             "CREATE INDEX IF NOT EXISTS idx_dia_semana ON agendamentos(dia_semana);"
@@ -201,11 +204,13 @@ def checar_conflito(dia, horario, sala, excluir_id=None):
         if eid:
             r = conn.execute(
                 'SELECT * FROM agendamentos WHERE dia_semana=? AND horario=? AND sala=? AND CAST(id AS INTEGER)!=?',
-                (dia, horario, sala, eid)).fetchone()
+                (dia, horario, sala, eid)
+            ).fetchone()
         else:
             r = conn.execute(
                 'SELECT * FROM agendamentos WHERE dia_semana=? AND horario=? AND sala=?',
-                (dia, horario, sala)).fetchone()
+                (dia, horario, sala)
+            ).fetchone()
     finally:
         conn.close()
     return dict(r) if r else None
@@ -221,30 +226,46 @@ def normalize(t):
 
 def detect_cat(est, pac):
     c = normalize(est + ' ' + pac).upper()
-    if 'NÃO MARCAR' in c or 'NAO MARCAR' in c: return 'NÃO MARCAR'
-    if 'PSICODIAG' in c: return 'PSICODIAGNÓSTICO'
-    if 'SUPERVISÃO' in c or 'SUPERVISAO' in c or 'PROF.' in c or re.search(r'PROF\s+\w', c): return 'SUPERVISÃO'
-    if 'NACE' in c: return 'NACE'
-    if re.search(r'SOU', c): return 'SOU'
-    if 'MARCAR' in c: return 'MARCAR'
-    if 'NUTRIÇÃO' in c or 'NUTRICAO' in c: return 'NUTRIÇÃO'
-    if 'PSIQUIATRIA' in c: return 'PSIQUIATRIA'
-    if 'AMBULAT' in c: return 'AMBULATÓRIO NEUROPSICOLOGIA'
-    if 'PLANTÃO' in c or 'PLANTAO' in c: return 'PLANTÃO PSICOLÓGICO'
-    if 'PRONTUÁRIO' in c or 'PRONTUARIO' in c or 'ESTUDAR' in c: return 'PRONTUÁRIO/ESTUDAR'
-    if re.search(r'10[°º]', c): return 'ESTAGIÁRIO 10° TRIAGEM' if 'TRIAGEM' in c else 'ESTAGIÁRIO 10°'
-    if re.search(r'9[°º]', c): return 'ESTAGIÁRIO 9° TRIAGEM' if 'TRIAGEM' in c else 'ESTAGIÁRIO 9°'
+    if 'NÃO MARCAR' in c or 'NAO MARCAR' in c:
+        return 'NÃO MARCAR'
+    if 'PSICODIAG' in c:
+        return 'PSICODIAGNÓSTICO'
+    if 'SUPERVISÃO' in c or 'SUPERVISAO' in c or 'PROF.' in c or re.search(r'PROF\s+\w', c):
+        return 'SUPERVISÃO'
+    if 'NACE' in c:
+        return 'NACE'
+    if re.search(r'\bSOU\b', c):
+        return 'SOU'
+    if 'MARCAR' in c:
+        return 'MARCAR'
+    if 'NUTRIÇÃO' in c or 'NUTRICAO' in c:
+        return 'NUTRIÇÃO'
+    if 'PSIQUIATRIA' in c:
+        return 'PSIQUIATRIA'
+    if 'AMBULAT' in c:
+        return 'AMBULATÓRIO NEUROPSICOLOGIA'
+    if 'PLANTÃO' in c or 'PLANTAO' in c:
+        return 'PLANTÃO PSICOLÓGICO'
+    if 'PRONTUÁRIO' in c or 'PRONTUARIO' in c or 'ESTUDAR' in c:
+        return 'PRONTUÁRIO/ESTUDAR'
+    if re.search(r'10[°º]', c):
+        return 'ESTAGIÁRIO 10° TRIAGEM' if 'TRIAGEM' in c else 'ESTAGIÁRIO 10°'
+    if re.search(r'9[°º]', c):
+        return 'ESTAGIÁRIO 9° TRIAGEM' if 'TRIAGEM' in c else 'ESTAGIÁRIO 9°'
     en = normalize(est).strip()
     if en and not any(x in en.upper() for x in ['PSICODIAG', 'NÃO', 'MARCAR', 'SUPERVISÃO']):
         return 'ESTAGIÁRIO 9° TRIAGEM' if 'TRIAGEM' in en.upper() else 'ESTAGIÁRIO 9°'
-    if not normalize(est).strip() and not normalize(pac).strip(): return 'LIVRE'
+    if not normalize(est).strip() and not normalize(pac).strip():
+        return 'LIVRE'
     return 'OUTRO'
 
 
 def detect_sem(t):
     t = normalize(t)
-    if re.search(r'10[°º]', t): return 10
-    if re.search(r'9[°º]', t): return 9
+    if re.search(r'10[°º]', t):
+        return 10
+    if re.search(r'9[°º]', t):
+        return 9
     return 0
 
 
@@ -287,9 +308,15 @@ def logout():
 @app.route('/')
 @login_required
 def index():
-    return render_template('index.html', salas=SALAS, horarios=HORARIOS,
-                           categorias=CATEGORIAS, dias=DIAS,
-                           usuario=current_user.username, papel=current_user.role)
+    return render_template(
+        'index.html',
+        salas=SALAS,
+        horarios=HORARIOS,
+        categorias=CATEGORIAS,
+        dias=DIAS,
+        usuario=current_user.username,
+        papel=current_user.role
+    )
 
 
 @app.route('/perfil', methods=['GET', 'POST'])
@@ -312,8 +339,10 @@ def perfil():
             return redirect(url_for('perfil'))
         conn = get_db()
         try:
-            conn.execute('UPDATE usuarios SET nome_completo=?, email=? WHERE id=?',
-                         (nome_completo, email, current_user.id))
+            conn.execute(
+                'UPDATE usuarios SET nome_completo=?, email=? WHERE id=?',
+                (nome_completo, email, current_user.id)
+            )
             conn.commit()
         finally:
             conn.close()
@@ -321,12 +350,14 @@ def perfil():
         flash('Perfil atualizado com sucesso!', 'success')
         return redirect(url_for('perfil'))
 
-    return render_template('perfil.html',
-                           usuario=current_user.username,
-                           papel=current_user.role,
-                           papel_label=PAPEIS_LABEL.get(current_user.role, current_user.role),
-                           nome_completo=row['nome_completo'] or '',
-                           email=row['email'] or '')
+    return render_template(
+        'perfil.html',
+        usuario=current_user.username,
+        papel=current_user.role,
+        papel_label=PAPEIS_LABEL.get(current_user.role, current_user.role),
+        nome_completo=row['nome_completo'] or '',
+        email=row['email'] or ''
+    )
 
 
 @app.route('/trocar-senha', methods=['GET', 'POST'])
@@ -352,25 +383,30 @@ def trocar_senha():
             return redirect(url_for('trocar_senha'))
         conn = get_db()
         try:
-            conn.execute('UPDATE usuarios SET password_hash=? WHERE id=?',
-                         (generate_password_hash(nova_senha), current_user.id))
+            conn.execute(
+                'UPDATE usuarios SET password_hash=? WHERE id=?',
+                (generate_password_hash(nova_senha), current_user.id)
+            )
             conn.commit()
         finally:
             conn.close()
         registrar_log('TROCAR_SENHA', f'Usuário {current_user.username} alterou a própria senha')
         flash('Senha alterada com sucesso!', 'success')
         return redirect(url_for('perfil'))
-    return render_template('trocar_senha.html',
-                           usuario=current_user.username,
-                           papel=current_user.role)
+    return render_template('trocar_senha.html', usuario=current_user.username, papel=current_user.role)
 
 
 @app.route('/imprimir')
 @login_required
 @requer_papel_page('coordenador', 'recepcao')
 def imprimir_selecao():
-    return render_template('imprimir_selecao.html', dias=DIAS, dias_pt=DIAS_PT,
-                           usuario=current_user.username, papel=current_user.role)
+    return render_template(
+        'imprimir_selecao.html',
+        dias=DIAS,
+        dias_pt=DIAS_PT,
+        usuario=current_user.username,
+        papel=current_user.role
+    )
 
 
 @app.route('/imprimir/<dia>')
@@ -391,10 +427,12 @@ def imprimir(dia):
     finally:
         conn.close()
     pacientes = [{'horario': r['horario'], 'paciente': r['paciente'].strip().title()} for r in rows]
-    return render_template('imprimir.html',
-                           dia_nome=DIAS_PT.get(dia, dia),
-                           gerado_em=datetime.now().strftime('%d/%m/%Y %H:%M'),
-                           pacientes=pacientes)
+    return render_template(
+        'imprimir.html',
+        dia_nome=DIAS_PT.get(dia, dia),
+        gerado_em=datetime.now().strftime('%d/%m/%Y %H:%M'),
+        pacientes=pacientes
+    )
 
 
 @app.route('/logs')
@@ -413,8 +451,12 @@ def usuarios_page():
         rows = conn.execute('SELECT id, username, role, created_at FROM usuarios ORDER BY created_at').fetchall()
     finally:
         conn.close()
-    return render_template('usuarios.html', usuarios=[dict(r) for r in rows],
-                           usuario=current_user.username, papel=current_user.role)
+    return render_template(
+        'usuarios.html',
+        usuarios=[dict(r) for r in rows],
+        usuario=current_user.username,
+        papel=current_user.role
+    )
 
 
 @app.route('/api/estagiarios', methods=['GET'])
@@ -448,20 +490,25 @@ def api_criar_usuario():
     d = request.get_json(silent=True)
     if not d:
         return jsonify({'erro': 'JSON inválido ou Content-Type incorreto'}), 400
+
     username = (d.get('username') or '').strip()
     password = (d.get('password') or '').strip()
     role = d.get('role', 'aluno')
+
     if not username or not password:
         return jsonify({'erro': 'Usuário e senha são obrigatórios'}), 400
     if len(password) < 8:
         return jsonify({'erro': 'A senha deve ter no mínimo 8 caracteres'}), 400
     if role not in PAPEIS_VALIDOS:
         return jsonify({'erro': 'Papel inválido'}), 400
+
     try:
         conn = get_db()
         try:
-            conn.execute('INSERT INTO usuarios(username, password_hash, role) VALUES(?,?,?)',
-                         (username, generate_password_hash(password), role))
+            conn.execute(
+                'INSERT INTO usuarios(username, password_hash, role) VALUES(?,?,?)',
+                (username, generate_password_hash(password), role)
+            )
             conn.commit()
         finally:
             conn.close()
@@ -479,6 +526,7 @@ def api_editar_usuario(uid):
     d = request.get_json(silent=True)
     if not d:
         return jsonify({'erro': 'JSON inválido ou Content-Type incorreto'}), 400
+
     conn = get_db()
     try:
         row = conn.execute('SELECT * FROM usuarios WHERE id=?', (uid,)).fetchone()
@@ -491,11 +539,15 @@ def api_editar_usuario(uid):
         if new_pass and len(new_pass) < 8:
             return jsonify({'erro': 'A senha deve ter no mínimo 8 caracteres'}), 400
         if new_pass:
-            conn.execute('UPDATE usuarios SET username=?, role=?, password_hash=? WHERE id=?',
-                         (d.get('username', row['username']), new_role, generate_password_hash(new_pass), uid))
+            conn.execute(
+                'UPDATE usuarios SET username=?, role=?, password_hash=? WHERE id=?',
+                (d.get('username', row['username']), new_role, generate_password_hash(new_pass), uid)
+            )
         else:
-            conn.execute('UPDATE usuarios SET username=?, role=? WHERE id=?',
-                         (d.get('username', row['username']), new_role, uid))
+            conn.execute(
+                'UPDATE usuarios SET username=?, role=? WHERE id=?',
+                (d.get('username', row['username']), new_role, uid)
+            )
         try:
             conn.commit()
         except Exception:
@@ -537,9 +589,13 @@ def api_conflito():
         return jsonify({'conflito': False})
     conflito = checar_conflito(dia, horario, sala, excluir_id=excluir)
     if conflito:
-        return jsonify({'conflito': True, 'estagiario': conflito.get('estagiario', ''),
-                        'paciente': conflito.get('paciente', ''), 'categoria': conflito.get('categoria', ''),
-                        'id': conflito.get('id')})
+        return jsonify({
+            'conflito': True,
+            'estagiario': conflito.get('estagiario', ''),
+            'paciente': conflito.get('paciente', ''),
+            'categoria': conflito.get('categoria', ''),
+            'id': conflito.get('id')
+        })
     return jsonify({'conflito': False})
 
 
@@ -552,6 +608,7 @@ def list_ag():
     cat = request.args.get('categoria', '')
     busca = request.args.get('busca', '').strip()
     data_ref = request.args.get('data', '').strip()
+
     dia_ref = None
     if data_ref:
         try:
@@ -559,16 +616,25 @@ def list_ag():
             dia_ref = DIAS[d_obj.weekday()] if d_obj.weekday() < 5 else None
         except ValueError:
             pass
+
     dia_busca = dia_ref or dia
     q = ('SELECT * FROM agendamentos WHERE ('
-         '(dia_semana=? AND (data_especifica IS NULL OR data_especifica = ''))'
+         '(dia_semana=? AND (data_especifica IS NULL OR data_especifica = \'\'))'
          ' OR data_especifica=?'
          ')')
     p = [dia_busca, data_ref or '']
-    if horario: q += ' AND horario=?'; p.append(horario)
-    if sala: q += ' AND sala=?'; p.append(sala)
-    if cat: q += ' AND categoria=?'; p.append(cat)
-    if busca: q += ' AND (estagiario LIKE ? OR paciente LIKE ? OR observacao LIKE ?)'; p += [f'%{busca}%'] * 3
+    if horario:
+        q += ' AND horario=?'
+        p.append(horario)
+    if sala:
+        q += ' AND sala=?'
+        p.append(sala)
+    if cat:
+        q += ' AND categoria=?'
+        p.append(cat)
+    if busca:
+        q += ' AND (estagiario LIKE ? OR paciente LIKE ? OR observacao LIKE ?)'
+        p += [f'%{busca}%'] * 3
     if current_user.role == 'aluno':
         q += ' AND (usuario_id = ? OR (usuario_id IS NULL AND estagiario = ?))'
         p += [current_user.id, current_user.username]
@@ -589,7 +655,7 @@ def get_ag(aid):
         r = conn.execute('SELECT * FROM agendamentos WHERE id=?', (aid,)).fetchone()
     finally:
         conn.close()
-    return (jsonify(dict(r)) if r else (jsonify({'erro': 'Não encontrado'}), 404))
+    return jsonify(dict(r)) if r else (jsonify({'erro': 'Não encontrado'}), 404)
 
 
 @app.route('/api/agendamentos', methods=['POST'])
@@ -600,38 +666,51 @@ def create_ag():
     d = request.get_json(silent=True)
     if not d:
         return jsonify({'erro': 'JSON inválido ou Content-Type incorreto'}), 400
+
     dia = (d.get('dia_semana') or 'SEGUNDA').strip()
     horario = (d.get('horario') or '').strip()
     sala = (d.get('sala') or '').strip()
     data_esp = (d.get('data_especifica') or '').strip()
+
     if not horario or not sala:
         return jsonify({'erro': 'Os campos horario e sala são obrigatórios'}), 400
+
     if data_esp:
         try:
             datetime.strptime(data_esp, '%Y-%m-%d')
         except ValueError:
             return jsonify({'erro': 'data_especifica inválida. Use o formato AAAA-MM-DD (ex: 2026-08-15)'}), 400
+
     conflito = checar_conflito(dia, horario, sala)
     if conflito:
         ocu = conflito.get('estagiario') or conflito.get('categoria') or 'outro agendamento'
-        return jsonify({'erro': f'Conflito: {sala} já está ocupada às {horario} ({dia}) por: {ocu}',
-                        'conflito': True, 'conflito_id': conflito.get('id')}), 409
+        return jsonify({
+            'erro': f'Conflito: {sala} já está ocupada às {horario} ({dia}) por: {ocu}',
+            'conflito': True,
+            'conflito_id': conflito.get('id')
+        }), 409
+
     est = d.get('estagiario', '')
     pac = d.get('paciente', '')
     cat = d.get('categoria', '') or detect_cat(est, pac)
     sem = d.get('semestre', 0) or detect_sem(est)
     uid_ag = d.get('usuario_id') or (current_user.id if current_user.is_authenticated else None)
+
     conn = get_db()
     try:
         cur = conn.execute(
             'INSERT INTO agendamentos(dia_semana,horario,sala,estagiario,paciente,categoria,semestre,triagem,observacao,data_especifica,usuario_id)'
             ' VALUES(?,?,?,?,?,?,?,?,?,?,?)',
-            (dia, horario, sala, est, pac, cat, sem, d.get('triagem', 0), d.get('observacao', ''), data_esp, uid_ag)
+            (
+                dia, horario, sala, est, pac, cat, sem,
+                d.get('triagem', 0), d.get('observacao', ''), data_esp, uid_ag
+            )
         )
         nid = cur.lastrowid
         conn.commit()
     finally:
         conn.close()
+
     registrar_log('CRIAR', f'Agendamento #{nid} criado — sala: {sala} {horario}')
     return jsonify({'id': nid, 'message': 'Criado'}), 201
 
@@ -644,36 +723,49 @@ def update_ag(aid):
     d = request.get_json(silent=True)
     if not d:
         return jsonify({'erro': 'JSON inválido ou Content-Type incorreto'}), 400
+
     dia = (d.get('dia_semana') or 'SEGUNDA').strip()
     horario = (d.get('horario') or '').strip()
     sala = (d.get('sala') or '').strip()
     data_esp = (d.get('data_especifica') or '').strip()
+
     if not horario or not sala:
         return jsonify({'erro': 'Os campos horario e sala são obrigatórios'}), 400
+
     if data_esp:
         try:
             datetime.strptime(data_esp, '%Y-%m-%d')
         except ValueError:
             return jsonify({'erro': 'data_especifica inválida. Use o formato AAAA-MM-DD (ex: 2026-08-15)'}), 400
+
     conflito = checar_conflito(dia, horario, sala, excluir_id=aid)
     if conflito:
         ocu = conflito.get('estagiario') or conflito.get('categoria') or 'outro agendamento'
-        return jsonify({'erro': f'Conflito: {sala} já está ocupada às {horario} ({dia}) por: {ocu}',
-                        'conflito': True, 'conflito_id': conflito.get('id')}), 409
+        return jsonify({
+            'erro': f'Conflito: {sala} já está ocupada às {horario} ({dia}) por: {ocu}',
+            'conflito': True,
+            'conflito_id': conflito.get('id')
+        }), 409
+
     est = d.get('estagiario', '')
     pac = d.get('paciente', '')
     cat = d.get('categoria', '') or detect_cat(est, pac)
     sem = d.get('semestre', 0) or detect_sem(est)
+
     conn = get_db()
     try:
         conn.execute(
             'UPDATE agendamentos SET dia_semana=?,horario=?,sala=?,estagiario=?,paciente=?,categoria=?,semestre=?,'
             'triagem=?,observacao=?,data_especifica=?,updated_at=CURRENT_TIMESTAMP WHERE id=?',
-            (dia, horario, sala, est, pac, cat, sem, d.get('triagem', 0), d.get('observacao', ''), data_esp, aid)
+            (
+                dia, horario, sala, est, pac, cat, sem,
+                d.get('triagem', 0), d.get('observacao', ''), data_esp, aid
+            )
         )
         conn.commit()
     finally:
         conn.close()
+
     registrar_log('EDITAR', f'Agendamento #{aid} editado — sala: {sala} {horario}')
     return jsonify({'message': 'Atualizado'})
 
@@ -703,7 +795,10 @@ def stats():
     try:
         total = conn.execute('SELECT COUNT(*) FROM agendamentos WHERE dia_semana=?', (dia,)).fetchone()[0]
         livre = conn.execute("SELECT COUNT(*) FROM agendamentos WHERE dia_semana=? AND categoria='LIVRE'", (dia,)).fetchone()[0]
-        por_cat = conn.execute('SELECT categoria, COUNT(*) as n FROM agendamentos WHERE dia_semana=? GROUP BY categoria ORDER BY n DESC', (dia,)).fetchall()
+        por_cat = conn.execute(
+            'SELECT categoria, COUNT(*) as n FROM agendamentos WHERE dia_semana=? GROUP BY categoria ORDER BY n DESC',
+            (dia,)
+        ).fetchall()
     finally:
         conn.close()
     return jsonify({'total': total, 'livre': livre, 'por_categoria': [dict(r) for r in por_cat]})
@@ -723,18 +818,25 @@ def export_csv():
         ).fetchall()
     finally:
         conn.close()
-    out = io.StringIO(); w = csv.writer(out)
+    out = io.StringIO()
+    w = csv.writer(out)
     w.writerow(['ID', 'Dia', 'Horário', 'Sala', 'Estagiário (usuário)', 'Nome Completo', 'Paciente',
                 'Categoria', 'Semestre', 'Triagem', 'Data Esp.', 'Obs.'])
     for r in rows:
-        w.writerow([r['id'], r['dia_semana'], r['horario'], r['sala'],
-                    r['estagiario'], r['nome_real'], r['paciente'],
-                    r['categoria'], r['semestre'], 'Sim' if r['triagem'] else 'Não',
-                    r['data_especifica'], r['observacao']])
+        w.writerow([
+            r['id'], r['dia_semana'], r['horario'], r['sala'],
+            r['estagiario'], r['nome_real'], r['paciente'],
+            r['categoria'], r['semestre'], 'Sim' if r['triagem'] else 'Não',
+            r['data_especifica'], r['observacao']
+        ])
     out.seek(0)
     registrar_log('EXPORTAR', 'CSV exportado')
-    return send_file(io.BytesIO(out.read().encode('utf-8-sig')), mimetype='text/csv', as_attachment=True,
-                     download_name=f'mapa_salas_{datetime.now().strftime("%Y%m%d_%H%M")}.csv')
+    return send_file(
+        io.BytesIO(out.read().encode('utf-8-sig')),
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name=f'mapa_salas_{datetime.now().strftime("%Y%m%d_%H%M")}.csv'
+    )
 
 
 @app.route('/api/logs')
@@ -751,10 +853,18 @@ def get_logs():
 
     q = 'SELECT * FROM historico WHERE 1=1'
     p = []
-    if usuario: q += ' AND usuario LIKE ?'; p.append(f'%{usuario}%')
-    if acao: q += ' AND acao LIKE ?'; p.append(f'%{acao}%')
-    if data_ini: q += ' AND ts >= ?'; p.append(data_ini)
-    if data_fim: q += ' AND ts <= ?'; p.append(data_fim + ' 23:59:59')
+    if usuario:
+        q += ' AND usuario LIKE ?'
+        p.append(f'%{usuario}%')
+    if acao:
+        q += ' AND acao LIKE ?'
+        p.append(f'%{acao}%')
+    if data_ini:
+        q += ' AND ts >= ?'
+        p.append(data_ini)
+    if data_fim:
+        q += ' AND ts <= ?'
+        p.append(data_fim + ' 23:59:59')
 
     conn = get_db()
     try:
@@ -830,15 +940,15 @@ def import_csv():
 
     for i, row in enumerate(reader, start=2):
         try:
-            dia      = (row.get('Dia') or row.get('dia_semana') or '').strip().upper()
-            horario  = (row.get('Horário') or row.get('horario') or '').strip()
-            sala     = (row.get('Sala') or row.get('sala') or '').strip()
+            dia = (row.get('Dia') or row.get('dia_semana') or '').strip().upper()
+            horario = (row.get('Horário') or row.get('horario') or '').strip()
+            sala = (row.get('Sala') or row.get('sala') or '').strip()
             estagiario = (row.get('Estagiário (usuário)') or row.get('Estagiário') or row.get('estagiario') or '').strip()
             paciente = (row.get('Paciente') or row.get('paciente') or '').strip()
             categoria = (row.get('Categoria') or row.get('categoria') or '').strip()
             semestre = int(row.get('Semestre') or row.get('semestre') or 0)
-            triagem  = 1 if str(row.get('Triagem') or '').strip().lower() in ('sim', '1', 'true') else 0
-            obs      = (row.get('Obs.') or row.get('observacao') or '').strip()
+            triagem = 1 if str(row.get('Triagem') or '').strip().lower() in ('sim', '1', 'true') else 0
+            obs = (row.get('Obs.') or row.get('observacao') or '').strip()
             data_esp = (row.get('Data Esp.') or row.get('data_especifica') or '').strip()
 
             if not dia or not horario or not sala:
@@ -906,7 +1016,5 @@ with app.app_context():
 if __name__ == '__main__':
     if not app.debug or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
         init_db()
-    print(f'
- Versão: {VERSAO} | http://localhost:5000
-')
+    print(f'\n Versão: {VERSAO} | http://localhost:5000\n')
     app.run(debug=True, port=5000)

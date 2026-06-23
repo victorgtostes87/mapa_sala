@@ -29,6 +29,17 @@ tr:hover td{background:#1a2744}
 .ts{color:var(--text2);white-space:nowrap;font-size:11px}
 .dados{color:var(--text2);font-size:11px;max-width:380px;word-break:break-word}
 .empty{text-align:center;padding:60px;color:var(--text2)}
+.pag-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
+.pag-info{font-size:12px;color:var(--text2)}
+.pag-info strong{color:var(--text)}
+.pag-controls{display:flex;align-items:center;gap:4px}
+.pag-btn{display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:32px;padding:0 8px;border-radius:var(--radius);border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
+.pag-btn:hover:not(:disabled){background:#263348;color:var(--text);border-color:#4b6080}
+.pag-btn:disabled{opacity:0.3;cursor:not-allowed}
+.pag-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.pag-sep{font-size:12px;color:var(--text2);padding:0 4px}
+.pag-size{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:4px 8px;font-size:12px;outline:none;cursor:pointer}
+.pag-size:focus{border-color:var(--accent)}
 </style>
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
@@ -40,8 +51,7 @@ tr:hover td{background:#1a2744}
   <span class="role-badge role-{{ papel }}">{{ papel }}</span>
   <a href="/perfil" class="btn btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
   <a href="/" class="btn btn-ghost"><i data-lucide="arrow-left"></i> Voltar</a>
-  <a href="/api/backup" style="display:inline-block;padding:8px 16px;background:#2563eb;color:#fff;border-radius:6px;text-decoration:none;font-size:0.8rem;margin-left:8px;">⬇ Backup do Banco</a>
-  <button id="btnLimparLogs" type="button" style="display:inline-block;padding:7px 12px;background:#f59e0b;color:#111827;border:none;border-radius:6px;text-decoration:none;font-size:0.8rem;margin-left:8px;cursor:pointer;font-weight:600;"><i data-lucide="trash-2"></i> Limpar logs antigos</button>
+  <a href="/api/backup" style="display:inline-block;padding:8px 16px;background:#2563eb;color:#fff;border-radius:6px;text-decoration:none;font-size:0.85rem;margin-left:8px;">⬇ Backup do Banco</a>
 </nav>
 <div class="container">
   <div class="filters">
@@ -59,9 +69,27 @@ tr:hover td{background:#1a2744}
     <tbody id="tbody"></tbody>
   </table>
   <div class="empty" id="empty" style="display:none">Nenhum log encontrado.</div>
+
+  <div class="pag-bar" id="pagBar" style="display:none">
+    <div class="pag-info" id="pagInfo"></div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:12px;color:var(--text2)">Linhas por página:</span>
+        <select class="pag-size" id="pagSize" onchange="mudarTamanho()">
+          <option value="25">25</option>
+          <option value="50" selected>50</option>
+          <option value="100">100</option>
+          <option value="200">200</option>
+        </select>
+      </div>
+      <div class="pag-controls" id="pagControls"></div>
+    </div>
+  </div>
 </div>
 <script>
-let todos = [];
+let todos    = [];
+let filtrado = [];
+let pagAtual = 1;
 
 const CORES = {
   CRIAR:'acao-criar', EDITAR:'acao-editar', EXCLUIR:'acao-excluir',
@@ -71,19 +99,38 @@ const CORES = {
 
 function formatTs(ts){
   if(!ts) return '—';
-  return ts.replace('T',' ').substring(0,16).replace('-', '/').replace('-', '/');
+  return ts.replace('T',' ').substring(0,16).replace('-','/').replace('-','/');
 }
 
-function classeAcao(a){
-  return CORES[a] || 'acao-outro';
-}
+function classeAcao(a){ return CORES[a] || 'acao-outro'; }
 
-function render(lista){
-  const tbody = document.getElementById('tbody');
-  const empty = document.getElementById('empty');
-  if(!lista.length){ tbody.innerHTML=''; empty.style.display='block'; return; }
-  empty.style.display='none';
-  tbody.innerHTML = lista.map(r=>`
+function porPagina(){ return parseInt(document.getElementById('pagSize').value) || 50; }
+
+function totalPags(){ return Math.max(1, Math.ceil(filtrado.length / porPagina())); }
+
+function render(){
+  const tbody  = document.getElementById('tbody');
+  const empty  = document.getElementById('empty');
+  const pagBar = document.getElementById('pagBar');
+
+  if(!filtrado.length){
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    pagBar.style.display = 'none';
+    return;
+  }
+
+  empty.style.display = 'none';
+  pagBar.style.display = 'flex';
+
+  const pp    = porPagina();
+  const total = totalPags();
+  pagAtual    = Math.min(pagAtual, total);
+
+  const inicio = (pagAtual - 1) * pp;
+  const fatia  = filtrado.slice(inicio, inicio + pp);
+
+  tbody.innerHTML = fatia.map(r=>`
     <tr>
       <td class="ts">${formatTs(r.ts)}</td>
       <td>${r.usuario||'—'}</td>
@@ -91,41 +138,79 @@ function render(lista){
       <td class="dados">${r.dados||''}</td>
     </tr>
   `).join('');
+
+  const de  = inicio + 1;
+  const ate = Math.min(inicio + pp, filtrado.length);
+  document.getElementById('pagInfo').innerHTML =
+    `Mostrando <strong>${de}–${ate}</strong> de <strong>${filtrado.length}</strong> registros`;
+
+  renderControles(total);
+}
+
+function renderControles(total){
+  const ctrl = document.getElementById('pagControls');
+  if(total <= 1){ ctrl.innerHTML = ''; return; }
+
+  const MAX_BTNS = 5;
+  let inicio = Math.max(1, pagAtual - Math.floor(MAX_BTNS / 2));
+  let fim    = Math.min(total, inicio + MAX_BTNS - 1);
+  if(fim - inicio < MAX_BTNS - 1) inicio = Math.max(1, fim - MAX_BTNS + 1);
+
+  let html = `<button class="pag-btn" onclick="irPara(${pagAtual-1})" ${pagAtual===1?'disabled':''}>&#8592;</button>`;
+
+  if(inicio > 1){
+    html += `<button class="pag-btn" onclick="irPara(1)">1</button>`;
+    if(inicio > 2) html += `<span class="pag-sep">…</span>`;
+  }
+
+  for(let i = inicio; i <= fim; i++){
+    html += `<button class="pag-btn ${i===pagAtual?'active':''}" onclick="irPara(${i})">${i}</button>`;
+  }
+
+  if(fim < total){
+    if(fim < total - 1) html += `<span class="pag-sep">…</span>`;
+    html += `<button class="pag-btn" onclick="irPara(${total})">${total}</button>`;
+  }
+
+  html += `<button class="pag-btn" onclick="irPara(${pagAtual+1})" ${pagAtual===total?'disabled':''}>&#8594;</button>`;
+  ctrl.innerHTML = html;
+}
+
+function irPara(pag){
+  const total = totalPags();
+  if(pag < 1 || pag > total) return;
+  pagAtual = pag;
+  render();
+  document.querySelector('.container').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function mudarTamanho(){
+  pagAtual = 1;
+  render();
 }
 
 function filtrar(){
   const busca = document.getElementById('busca').value.toLowerCase();
   const acao  = document.getElementById('filtroAcao').value;
-  const lista = todos.filter(r=>{
+  filtrado = todos.filter(r=>{
     const ok_acao  = !acao  || r.acao === acao;
     const ok_busca = !busca || (r.usuario||'').toLowerCase().includes(busca)
                             || (r.acao||'').toLowerCase().includes(busca)
                             || (r.dados||'').toLowerCase().includes(busca);
     return ok_acao && ok_busca;
   });
-  render(lista);
+  pagAtual = 1;
+  render();
 }
 
 async function carregar(){
   const res = await fetch('/api/logs');
-  todos = await res.json();
-  render(todos);
+  todos    = await res.json();
+  filtrado = todos;
+  render();
 }
 
-async function limparLogs(){
-  if(!confirm('Excluir logs com mais de 15 dias?')) return;
-  const res = await fetch('/api/admin/limpar-logs?dias=15', {method:'POST'});
-  let data = {};
-  try { data = await res.json(); } catch(e) {}
-  alert(data.message || data.erro || (res.ok ? 'Concluído' : 'Erro ao limpar logs'));
-  if(res.ok) await carregar();
-}
-
-document.addEventListener('DOMContentLoaded', ()=>{
-  const btn = document.getElementById('btnLimparLogs');
-  if(btn) btn.addEventListener('click', limparLogs);
-  carregar();
-});
+carregar();
 </script>
 <script>lucide.createIcons();</script>
 </body>

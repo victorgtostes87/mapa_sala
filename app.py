@@ -14,12 +14,14 @@ try:
     _ld(dotenv_path='/home/victroid/mapa_sala/.env')
 except ImportError:
     pass
+
 _secret_key = os.environ.get('SECRET_KEY')
 if not _secret_key:
     raise RuntimeError(
         "SECRET_KEY não definida. Crie o arquivo .env com SECRET_KEY=<chave> "
         "ou defina a variável de ambiente antes de iniciar o app."
     )
+
 app.secret_key = _secret_key
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 
@@ -48,7 +50,6 @@ class Usuario(UserMixin):
         self.email = email
 
 
-# ── MELHORIA 1: get_db com timeout e WAL mode ─────────────────────────
 def get_db():
     conn = sqlite3.connect(DB_PATH, timeout=10, check_same_thread=False)
     conn.row_factory = sqlite3.Row
@@ -66,8 +67,7 @@ def load_user(user_id):
         conn.close()
     if not row:
         return None
-    return Usuario(row['id'], row['username'], row['role'],
-                   row['nome_completo'] or '', row['email'] or '')
+    return Usuario(row['id'], row['username'], row['role'], row['nome_completo'] or '', row['email'] or '')
 
 
 def requer_papel(*papeis):
@@ -172,7 +172,6 @@ def init_db():
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_conflito ON agendamentos(dia_semana, horario, sala);"
             "CREATE INDEX IF NOT EXISTS idx_dia_semana ON agendamentos(dia_semana);"
         )
-        # Migration: adiciona usuario_id se não existir (bancos antigos)
         cols = [r[1] for r in conn.execute("PRAGMA table_info(agendamentos)").fetchall()]
         if 'usuario_id' not in cols:
             conn.execute("ALTER TABLE agendamentos ADD COLUMN usuario_id INTEGER DEFAULT NULL")
@@ -182,7 +181,6 @@ def init_db():
         conn.close()
 
 
-# ── MELHORIA 3: registrar_log SEM o DELETE de limpeza ─────────────────
 def registrar_log(acao, dados=''):
     usuario = current_user.username if current_user.is_authenticated else 'sistema'
     conn = get_db()
@@ -227,7 +225,7 @@ def detect_cat(est, pac):
     if 'PSICODIAG' in c: return 'PSICODIAGNÓSTICO'
     if 'SUPERVISÃO' in c or 'SUPERVISAO' in c or 'PROF.' in c or re.search(r'PROF\s+\w', c): return 'SUPERVISÃO'
     if 'NACE' in c: return 'NACE'
-    if re.search(r'\bSOU\b', c): return 'SOU'
+    if re.search(r'SOU', c): return 'SOU'
     if 'MARCAR' in c: return 'MARCAR'
     if 'NUTRIÇÃO' in c or 'NUTRICAO' in c: return 'NUTRIÇÃO'
     if 'PSIQUIATRIA' in c: return 'PSIQUIATRIA'
@@ -250,7 +248,6 @@ def detect_sem(t):
     return 0
 
 
-# ── Rotas ────────────────────────────────────────────────────────────
 @app.route('/api/versao')
 def api_versao():
     return jsonify({'versao': VERSAO, 'ok': True})
@@ -295,7 +292,6 @@ def index():
                            usuario=current_user.username, papel=current_user.role)
 
 
-# ── Perfil ───────────────────────────────────────────────────────────
 @app.route('/perfil', methods=['GET', 'POST'])
 @login_required
 def perfil():
@@ -333,7 +329,6 @@ def perfil():
                            email=row['email'] or '')
 
 
-# ── Troca de senha ───────────────────────────────────────────────────
 @app.route('/trocar-senha', methods=['GET', 'POST'])
 @login_required
 def trocar_senha():
@@ -349,8 +344,8 @@ def trocar_senha():
         if not check_password_hash(row['password_hash'], senha_atual):
             flash('Senha atual incorreta.', 'error')
             return redirect(url_for('trocar_senha'))
-        if len(nova_senha) < 6:
-            flash('A nova senha deve ter no mínimo 6 caracteres.', 'error')
+        if len(nova_senha) < 8:
+            flash('A nova senha deve ter no mínimo 8 caracteres.', 'error')
             return redirect(url_for('trocar_senha'))
         if nova_senha != confirmar:
             flash('As senhas não coincidem.', 'error')
@@ -370,7 +365,6 @@ def trocar_senha():
                            papel=current_user.role)
 
 
-# ── Impressão ────────────────────────────────────────────────────────
 @app.route('/imprimir')
 @login_required
 @requer_papel_page('coordenador', 'recepcao')
@@ -403,7 +397,6 @@ def imprimir(dia):
                            pacientes=pacientes)
 
 
-# ── Logs ─────────────────────────────────────────────────────────────
 @app.route('/logs')
 @login_required
 @requer_papel_page('coordenador')
@@ -411,7 +404,6 @@ def logs_page():
     return render_template('logs.html', usuario=current_user.username, papel=current_user.role)
 
 
-# ── Usuários ─────────────────────────────────────────────────────────
 @app.route('/usuarios')
 @login_required
 @requer_papel_page('coordenador')
@@ -453,12 +445,16 @@ def api_list_usuarios():
 @requer_papel('coordenador')
 @limiter.limit('20 per minute')
 def api_criar_usuario():
-    d = request.json
+    d = request.get_json(silent=True)
+    if not d:
+        return jsonify({'erro': 'JSON inválido ou Content-Type incorreto'}), 400
     username = (d.get('username') or '').strip()
     password = (d.get('password') or '').strip()
     role = d.get('role', 'aluno')
     if not username or not password:
         return jsonify({'erro': 'Usuário e senha são obrigatórios'}), 400
+    if len(password) < 8:
+        return jsonify({'erro': 'A senha deve ter no mínimo 8 caracteres'}), 400
     if role not in PAPEIS_VALIDOS:
         return jsonify({'erro': 'Papel inválido'}), 400
     try:
@@ -480,7 +476,9 @@ def api_criar_usuario():
 @requer_papel('coordenador')
 @limiter.limit('20 per minute')
 def api_editar_usuario(uid):
-    d = request.json
+    d = request.get_json(silent=True)
+    if not d:
+        return jsonify({'erro': 'JSON inválido ou Content-Type incorreto'}), 400
     conn = get_db()
     try:
         row = conn.execute('SELECT * FROM usuarios WHERE id=?', (uid,)).fetchone()
@@ -490,6 +488,8 @@ def api_editar_usuario(uid):
         if new_role not in PAPEIS_VALIDOS:
             return jsonify({'erro': 'Papel inválido'}), 400
         new_pass = (d.get('password') or '').strip()
+        if new_pass and len(new_pass) < 8:
+            return jsonify({'erro': 'A senha deve ter no mínimo 8 caracteres'}), 400
         if new_pass:
             conn.execute('UPDATE usuarios SET username=?, role=?, password_hash=? WHERE id=?',
                          (d.get('username', row['username']), new_role, generate_password_hash(new_pass), uid))
@@ -551,8 +551,7 @@ def list_ag():
     sala = request.args.get('sala', '')
     cat = request.args.get('categoria', '')
     busca = request.args.get('busca', '').strip()
-    data_ref = request.args.get('data', '').strip()  # ex: 2026-06-25
-    # Determina dia_semana da data_ref se fornecida
+    data_ref = request.args.get('data', '').strip()
     dia_ref = None
     if data_ref:
         try:
@@ -560,11 +559,9 @@ def list_ag():
             dia_ref = DIAS[d_obj.weekday()] if d_obj.weekday() < 5 else None
         except ValueError:
             pass
-
     dia_busca = dia_ref or dia
-    # Retorna agendamentos do dia OU agendamentos pontuais nessa data específica
     q = ('SELECT * FROM agendamentos WHERE ('
-         '(dia_semana=? AND (data_especifica IS NULL OR data_especifica = \'\'))'
+         '(dia_semana=? AND (data_especifica IS NULL OR data_especifica = ''))'
          ' OR data_especifica=?'
          ')')
     p = [dia_busca, data_ref or '']
@@ -573,7 +570,6 @@ def list_ag():
     if cat: q += ' AND categoria=?'; p.append(cat)
     if busca: q += ' AND (estagiario LIKE ? OR paciente LIKE ? OR observacao LIKE ?)'; p += [f'%{busca}%'] * 3
     if current_user.role == 'aluno':
-        # Filtra por usuario_id (seguro) com fallback para username (compatibilidade)
         q += ' AND (usuario_id = ? OR (usuario_id IS NULL AND estagiario = ?))'
         p += [current_user.id, current_user.username]
     q += ' ORDER BY horario, sala'
@@ -601,14 +597,27 @@ def get_ag(aid):
 @requer_papel('coordenador', 'recepcao')
 @limiter.limit('60 per minute')
 def create_ag():
-    d = request.json
-    dia = d.get('dia_semana', 'SEGUNDA'); horario = d.get('horario'); sala = d.get('sala')
+    d = request.get_json(silent=True)
+    if not d:
+        return jsonify({'erro': 'JSON inválido ou Content-Type incorreto'}), 400
+    dia = (d.get('dia_semana') or 'SEGUNDA').strip()
+    horario = (d.get('horario') or '').strip()
+    sala = (d.get('sala') or '').strip()
+    data_esp = (d.get('data_especifica') or '').strip()
+    if not horario or not sala:
+        return jsonify({'erro': 'Os campos horario e sala são obrigatórios'}), 400
+    if data_esp:
+        try:
+            datetime.strptime(data_esp, '%Y-%m-%d')
+        except ValueError:
+            return jsonify({'erro': 'data_especifica inválida. Use o formato AAAA-MM-DD (ex: 2026-08-15)'}), 400
     conflito = checar_conflito(dia, horario, sala)
     if conflito:
         ocu = conflito.get('estagiario') or conflito.get('categoria') or 'outro agendamento'
         return jsonify({'erro': f'Conflito: {sala} já está ocupada às {horario} ({dia}) por: {ocu}',
                         'conflito': True, 'conflito_id': conflito.get('id')}), 409
-    est = d.get('estagiario', ''); pac = d.get('paciente', '')
+    est = d.get('estagiario', '')
+    pac = d.get('paciente', '')
     cat = d.get('categoria', '') or detect_cat(est, pac)
     sem = d.get('semestre', 0) or detect_sem(est)
     uid_ag = d.get('usuario_id') or (current_user.id if current_user.is_authenticated else None)
@@ -617,7 +626,7 @@ def create_ag():
         cur = conn.execute(
             'INSERT INTO agendamentos(dia_semana,horario,sala,estagiario,paciente,categoria,semestre,triagem,observacao,data_especifica,usuario_id)'
             ' VALUES(?,?,?,?,?,?,?,?,?,?,?)',
-            (dia, horario, sala, est, pac, cat, sem, d.get('triagem', 0), d.get('observacao', ''), d.get('data_especifica', ''), uid_ag)
+            (dia, horario, sala, est, pac, cat, sem, d.get('triagem', 0), d.get('observacao', ''), data_esp, uid_ag)
         )
         nid = cur.lastrowid
         conn.commit()
@@ -632,14 +641,27 @@ def create_ag():
 @requer_papel('coordenador', 'recepcao')
 @limiter.limit('60 per minute')
 def update_ag(aid):
-    d = request.json
-    dia = d.get('dia_semana', 'SEGUNDA'); horario = d.get('horario'); sala = d.get('sala')
+    d = request.get_json(silent=True)
+    if not d:
+        return jsonify({'erro': 'JSON inválido ou Content-Type incorreto'}), 400
+    dia = (d.get('dia_semana') or 'SEGUNDA').strip()
+    horario = (d.get('horario') or '').strip()
+    sala = (d.get('sala') or '').strip()
+    data_esp = (d.get('data_especifica') or '').strip()
+    if not horario or not sala:
+        return jsonify({'erro': 'Os campos horario e sala são obrigatórios'}), 400
+    if data_esp:
+        try:
+            datetime.strptime(data_esp, '%Y-%m-%d')
+        except ValueError:
+            return jsonify({'erro': 'data_especifica inválida. Use o formato AAAA-MM-DD (ex: 2026-08-15)'}), 400
     conflito = checar_conflito(dia, horario, sala, excluir_id=aid)
     if conflito:
         ocu = conflito.get('estagiario') or conflito.get('categoria') or 'outro agendamento'
         return jsonify({'erro': f'Conflito: {sala} já está ocupada às {horario} ({dia}) por: {ocu}',
                         'conflito': True, 'conflito_id': conflito.get('id')}), 409
-    est = d.get('estagiario', ''); pac = d.get('paciente', '')
+    est = d.get('estagiario', '')
+    pac = d.get('paciente', '')
     cat = d.get('categoria', '') or detect_cat(est, pac)
     sem = d.get('semestre', 0) or detect_sem(est)
     conn = get_db()
@@ -647,7 +669,7 @@ def update_ag(aid):
         conn.execute(
             'UPDATE agendamentos SET dia_semana=?,horario=?,sala=?,estagiario=?,paciente=?,categoria=?,semestre=?,'
             'triagem=?,observacao=?,data_especifica=?,updated_at=CURRENT_TIMESTAMP WHERE id=?',
-            (dia, horario, sala, est, pac, cat, sem, d.get('triagem', 0), d.get('observacao', ''), d.get('data_especifica', ''), aid)
+            (dia, horario, sala, est, pac, cat, sem, d.get('triagem', 0), d.get('observacao', ''), data_esp, aid)
         )
         conn.commit()
     finally:
@@ -719,25 +741,25 @@ def export_csv():
 @login_required
 @requer_papel('coordenador')
 def get_logs():
-    pagina   = max(1, int(request.args.get('pagina', 1)))
-    por_pag  = min(100, max(10, int(request.args.get('por_pagina', 50))))
-    usuario  = request.args.get('usuario', '').strip()
-    acao     = request.args.get('acao', '').strip()
+    pagina = max(1, int(request.args.get('pagina', 1)))
+    por_pag = min(100, max(10, int(request.args.get('por_pagina', 50))))
+    usuario = request.args.get('usuario', '').strip()
+    acao = request.args.get('acao', '').strip()
     data_ini = request.args.get('data_ini', '').strip()
     data_fim = request.args.get('data_fim', '').strip()
-    offset   = (pagina - 1) * por_pag
+    offset = (pagina - 1) * por_pag
 
     q = 'SELECT * FROM historico WHERE 1=1'
     p = []
     if usuario: q += ' AND usuario LIKE ?'; p.append(f'%{usuario}%')
-    if acao:    q += ' AND acao LIKE ?';    p.append(f'%{acao}%')
-    if data_ini: q += ' AND ts >= ?';       p.append(data_ini)
-    if data_fim: q += ' AND ts <= ?';       p.append(data_fim + ' 23:59:59')
+    if acao: q += ' AND acao LIKE ?'; p.append(f'%{acao}%')
+    if data_ini: q += ' AND ts >= ?'; p.append(data_ini)
+    if data_fim: q += ' AND ts <= ?'; p.append(data_fim + ' 23:59:59')
 
     conn = get_db()
     try:
         total = conn.execute(q.replace('SELECT *', 'SELECT COUNT(*)'), p).fetchone()[0]
-        rows  = conn.execute(q + ' ORDER BY ts DESC LIMIT ? OFFSET ?', p + [por_pag, offset]).fetchall()
+        rows = conn.execute(q + ' ORDER BY ts DESC LIMIT ? OFFSET ?', p + [por_pag, offset]).fetchall()
     finally:
         conn.close()
     return jsonify({
@@ -749,7 +771,6 @@ def get_logs():
     })
 
 
-# ── MELHORIA 3: Rota separada para limpar logs antigos ────────────────
 @app.route('/api/admin/limpar-logs', methods=['POST'])
 @login_required
 @requer_papel('coordenador')
@@ -788,7 +809,6 @@ def busca_global():
     finally:
         conn.close()
     return jsonify([dict(r) for r in rows])
-
 
 
 @app.route('/api/import', methods=['POST'])
@@ -860,6 +880,7 @@ def import_csv():
         'message': f'{inseridos} agendamento(s) importado(s) com sucesso.'
     })
 
+
 @app.route('/api/backup')
 @login_required
 @requer_papel('coordenador')
@@ -879,12 +900,13 @@ def backup_db():
     )
 
 
-# Garante que o banco é inicializado também quando rodando via WSGI
 with app.app_context():
     init_db()
 
 if __name__ == '__main__':
     if not app.debug or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
         init_db()
-    print(f'\n Versão: {VERSAO} | http://localhost:5000\n')
+    print(f'
+ Versão: {VERSAO} | http://localhost:5000
+')
     app.run(debug=True, port=5000)

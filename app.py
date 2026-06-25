@@ -4,10 +4,8 @@ import os
 import re
 import secrets
 import sqlite3
-import zipfile
 from datetime import datetime
 from functools import wraps
-from xml.sax.saxutils import escape
 import click
 from flask import Flask, render_template, render_template_string, jsonify, request, send_file, redirect, url_for, flash, session
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
@@ -36,7 +34,10 @@ if not _secret_key:
     )
 
 app.secret_key = _secret_key
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
+DB_PATH = os.environ.get(
+    'DB_PATH',
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
+)
 
 VERSAO = '2026-06-22-v15'
 
@@ -101,6 +102,7 @@ def get_db():
     # timeout=10 reduz falhas quando duas pessoas salvam dados quase ao mesmo tempo.
     conn = sqlite3.connect(DB_PATH, timeout=10, check_same_thread=False)
     conn.row_factory = sqlite3.Row
+    conn.execute('PRAGMA foreign_keys=ON')
     # WAL melhora leitura simultanea em sistemas pequenos com varios usuarios internos.
     conn.execute('PRAGMA journal_mode=WAL')
     # NORMAL equilibra seguranca e desempenho para um SQLite usado em aplicacao web interna.
@@ -174,9 +176,9 @@ CATEGORIAS = [
 
 PAPEIS_LABEL = {
     'coordenador': 'Coordenador',
-    'recepcao': 'Recepção',
-    'professor': 'Professor Supervisor',
-    'aluno': 'Estagiário'
+    'recepcao': 'Recepcionista',
+    'professor': 'Professor',
+    'aluno': 'Aluno'
 }
 
 LOG_RETENCAO_DIAS = 15
@@ -227,7 +229,7 @@ def preparar_dados_agendamento(dados, usuario_id_padrao=None):
     categoria_informada = (dados.get('categoria') or '').strip()
 
     if not horario or not sala:
-        return None, 'Os campos hor?rio e sala são obrigatórios'
+        return None, 'Os campos horário e sala são obrigatórios.'
 
     data_esp, erro_data = normalizar_data_especifica(data_esp)
     if erro_data:
@@ -259,6 +261,49 @@ def preparar_dados_agendamento(dados, usuario_id_padrao=None):
     }, None
 
 
+def usuario_pode_ver_agendamento(row):
+    if not row:
+        return False
+    if current_user.role != 'aluno':
+        return True
+    return row['usuario_id'] == current_user.id or (
+        row['usuario_id'] is None and row['estagiario'] == current_user.username
+    )
+
+
+def buscar_usuario_id_aluno(username, conn):
+    username = (username or '').strip()
+    if not username:
+        return None
+    row = conn.execute(
+        "SELECT id FROM usuarios WHERE username=? AND role='aluno' AND ativo=1",
+        (username,)
+    ).fetchone()
+    return row['id'] if row else None
+
+
+def vincular_aluno_do_agendamento(dados_ag, conn):
+    aluno_id = buscar_usuario_id_aluno(dados_ag.get('estagiario'), conn)
+    if aluno_id:
+        dados_ag['usuario_id'] = aluno_id
+    return dados_ag
+
+
+def inserir_agendamento(conn, dados_ag):
+    vincular_aluno_do_agendamento(dados_ag, conn)
+    cur = conn.execute(
+        'INSERT INTO agendamentos(dia_semana,horario,sala,estagiario,paciente,categoria,semestre,triagem,observacao,data_especifica,usuario_id)'
+        ' VALUES(?,?,?,?,?,?,?,?,?,?,?)',
+        (
+            dados_ag['dia'], dados_ag['horario'], dados_ag['sala'],
+            dados_ag['estagiario'], dados_ag['paciente'], dados_ag['categoria'],
+            dados_ag['semestre'], dados_ag['triagem'], dados_ag['observacao'],
+            dados_ag['data_especifica'], dados_ag['usuario_id']
+        )
+    )
+    return cur.lastrowid
+
+
 def valor_ativo(valor, padrao=1):
     if valor is None:
         return padrao
@@ -274,6 +319,88 @@ def limpar_logs_antigos(conn):
         (LOG_RETENCAO_DIAS,)
     )
     return cur.rowcount
+
+
+def criar_indices_agendamentos(conn):
+    conn.executescript(
+        "DROP INDEX IF EXISTS idx_conflito;"
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_conflito_semanal "
+        "ON agendamentos(dia_semana, horario, sala) "
+        "WHERE data_especifica IS NULL OR data_especifica = '';"
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_conflito_data "
+        "ON agendamentos(data_especifica, horario, sala) "
+        "WHERE data_especifica IS NOT NULL AND data_especifica != '';"
+        "CREATE INDEX IF NOT EXISTS idx_dia_semana ON agendamentos(dia_semana);"
+        "CREATE INDEX IF NOT EXISTS idx_data_especifica ON agendamentos(data_especifica);"
+    )
+
+
+def migrar_fk_usuario_id_agendamentos(conn):
+    fks = conn.execute("PRAGMA foreign_key_list(agendamentos)").fetchall()
+    if any(row['table'] == 'usuarios' and row['from'] == 'usuario_id' for row in fks):
+        return
+
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(agendamentos)").fetchall()]
+    if 'usuario_id' not in cols:
+        return
+
+    conn.executescript(
+        "DROP INDEX IF EXISTS idx_conflito;"
+        "DROP INDEX IF EXISTS idx_conflito_semanal;"
+        "DROP INDEX IF EXISTS idx_conflito_data;"
+        "DROP INDEX IF EXISTS idx_dia_semana;"
+        "DROP INDEX IF EXISTS idx_data_especifica;"
+        "ALTER TABLE agendamentos RENAME TO agendamentos_old;"
+        "CREATE TABLE agendamentos ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "dia_semana TEXT DEFAULT 'SEGUNDA',"
+        "horario TEXT NOT NULL,"
+        "sala TEXT NOT NULL,"
+        "estagiario TEXT DEFAULT '',"
+        "paciente TEXT DEFAULT '',"
+        "categoria TEXT DEFAULT '',"
+        "semestre INTEGER DEFAULT 0,"
+        "triagem INTEGER DEFAULT 0,"
+        "observacao TEXT DEFAULT '',"
+        "data_especifica TEXT DEFAULT '',"
+        "usuario_id INTEGER DEFAULT NULL REFERENCES usuarios(id) ON DELETE SET NULL,"
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+        ");"
+        "INSERT INTO agendamentos("
+        "id,dia_semana,horario,sala,estagiario,paciente,categoria,semestre,triagem,"
+        "observacao,data_especifica,usuario_id,created_at,updated_at"
+        ") SELECT "
+        "id,dia_semana,horario,sala,estagiario,paciente,categoria,semestre,triagem,"
+        "observacao,data_especifica,"
+        "CASE WHEN usuario_id IS NULL OR EXISTS (SELECT 1 FROM usuarios u WHERE u.id = agendamentos_old.usuario_id) "
+        "THEN usuario_id ELSE NULL END,"
+        "created_at,updated_at "
+        "FROM agendamentos_old;"
+        "DROP TABLE agendamentos_old;"
+    )
+
+
+def corrigir_vinculos_alunos_agendamentos(conn):
+    conn.execute(
+        """
+        UPDATE agendamentos
+        SET usuario_id = (
+            SELECT u.id
+            FROM usuarios u
+            WHERE u.username = agendamentos.estagiario
+              AND u.role = 'aluno'
+              AND u.ativo = 1
+        )
+        WHERE EXISTS (
+            SELECT 1
+            FROM usuarios u
+            WHERE u.username = agendamentos.estagiario
+              AND u.role = 'aluno'
+              AND u.ativo = 1
+        )
+        """
+    )
 
 
 def init_db():
@@ -292,7 +419,7 @@ def init_db():
             "triagem INTEGER DEFAULT 0,"
             "observacao TEXT DEFAULT '',"
             "data_especifica TEXT DEFAULT '',"
-            "usuario_id INTEGER DEFAULT NULL,"
+            "usuario_id INTEGER DEFAULT NULL REFERENCES usuarios(id) ON DELETE SET NULL,"
             "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
             "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
             ");"
@@ -322,25 +449,11 @@ def init_db():
                 "INSERT INTO usuarios(username, password_hash, role) VALUES(?,?,?)",
                 ('coordenador', generate_password_hash('mudar@2026'), 'coordenador')
             )
-        conn.executescript(
-            "DROP INDEX IF EXISTS idx_conflito;"
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_conflito_semanal "
-            "ON agendamentos(dia_semana, horario, sala) "
-            "WHERE data_especifica IS NULL OR data_especifica = '';"
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_conflito_data "
-            "ON agendamentos(data_especifica, horario, sala) "
-            "WHERE data_especifica IS NOT NULL AND data_especifica != '';"
-            "CREATE INDEX IF NOT EXISTS idx_dia_semana ON agendamentos(dia_semana);"
-            "CREATE INDEX IF NOT EXISTS idx_data_especifica ON agendamentos(data_especifica);"
-        )
         cols = [r[1] for r in conn.execute("PRAGMA table_info(agendamentos)").fetchall()]
         if 'usuario_id' not in cols:
             conn.execute("ALTER TABLE agendamentos ADD COLUMN usuario_id INTEGER DEFAULT NULL")
             conn.commit()
         cols_usuarios = [r[1] for r in conn.execute("PRAGMA table_info(usuarios)").fetchall()]
-        if 'email' not in cols_usuarios:
-            conn.execute("ALTER TABLE usuarios ADD COLUMN email TEXT DEFAULT ''")
-            conn.commit()
         if 'ativo' not in cols_usuarios:
             conn.execute("ALTER TABLE usuarios ADD COLUMN ativo INTEGER DEFAULT 1")
             conn.commit()
@@ -351,6 +464,9 @@ def init_db():
         if 'user_agent' not in cols_historico:
             conn.execute("ALTER TABLE historico ADD COLUMN user_agent TEXT DEFAULT ''")
             conn.commit()
+        migrar_fk_usuario_id_agendamentos(conn)
+        corrigir_vinculos_alunos_agendamentos(conn)
+        criar_indices_agendamentos(conn)
         limpar_logs_antigos(conn)
         conn.commit()
     finally:
@@ -722,14 +838,15 @@ def logs_page():
 def usuarios_page():
     conn = get_db()
     try:
-        rows = conn.execute('SELECT id, username, email, role, ativo, created_at FROM usuarios ORDER BY created_at').fetchall()
+        rows = conn.execute('SELECT id, username, role, ativo, created_at FROM usuarios ORDER BY created_at').fetchall()
     finally:
         conn.close()
     return render_template(
         'usuarios.html',
         usuarios=[dict(r) for r in rows],
         usuario=current_user.username,
-        papel=current_user.role
+        papel=current_user.role,
+        papeis_label=PAPEIS_LABEL
     )
 
 
@@ -750,7 +867,7 @@ def api_list_estagiarios():
 def api_list_usuarios():
     conn = get_db()
     try:
-        rows = conn.execute('SELECT id, username, email, role, ativo, created_at FROM usuarios ORDER BY created_at').fetchall()
+        rows = conn.execute('SELECT id, username, role, ativo, created_at FROM usuarios ORDER BY created_at').fetchall()
     finally:
         conn.close()
     return jsonify([dict(r) for r in rows])
@@ -766,7 +883,6 @@ def api_criar_usuario():
         return jsonify({'erro': 'JSON inválido ou Content-Type incorreto'}), 400
 
     username = (d.get('username') or '').strip()
-    email = (d.get('email') or '').strip()
     password = (d.get('password') or '').strip()
     role = (d.get('role') or 'aluno').strip()
     ativo = valor_ativo(d.get('ativo'), 1)
@@ -782,8 +898,8 @@ def api_criar_usuario():
         conn = get_db()
         try:
             conn.execute(
-                'INSERT INTO usuarios(username, email, password_hash, role, ativo) VALUES(?,?,?,?,?)',
-                (username, email, generate_password_hash(password), role, ativo)
+                'INSERT INTO usuarios(username, password_hash, role, ativo) VALUES(?,?,?,?)',
+                (username, generate_password_hash(password), role, ativo)
             )
             conn.commit()
         finally:
@@ -809,7 +925,6 @@ def api_editar_usuario(uid):
         if not row:
             return jsonify({'erro': 'Usuário não encontrado'}), 404
         new_username = (d.get('username', row['username']) or '').strip()
-        new_email = (d.get('email', row['email']) or '').strip()
         if not new_username:
             return jsonify({'erro': 'Usuario e obrigatorio'}), 400
         new_role = (d.get('role') or row['role']).strip()
@@ -823,13 +938,13 @@ def api_editar_usuario(uid):
             return jsonify({'erro': 'A senha deve ter no mínimo 8 caracteres'}), 400
         if new_pass:
             conn.execute(
-                'UPDATE usuarios SET username=?, email=?, role=?, ativo=?, password_hash=? WHERE id=?',
-                (new_username, new_email, new_role, ativo, generate_password_hash(new_pass), uid)
+                'UPDATE usuarios SET username=?, role=?, ativo=?, password_hash=? WHERE id=?',
+                (new_username, new_role, ativo, generate_password_hash(new_pass), uid)
             )
         else:
             conn.execute(
-                'UPDATE usuarios SET username=?, email=?, role=?, ativo=? WHERE id=?',
-                (new_username, new_email, new_role, ativo, uid)
+                'UPDATE usuarios SET username=?, role=?, ativo=? WHERE id=?',
+                (new_username, new_role, ativo, uid)
             )
         try:
             conn.commit()
@@ -885,6 +1000,8 @@ def api_conflito():
         dia = dia_semana_da_data(data_esp)
     conflito = checar_conflito(dia, horario, sala, data_especifica=data_esp, excluir_id=excluir)
     if conflito:
+        if current_user.role == 'aluno':
+            return jsonify({'conflito': True})
         return jsonify({
             'conflito': True,
             'estagiario': conflito.get('estagiario', ''),
@@ -946,7 +1063,7 @@ def list_ag():
     if current_user.role == 'aluno':
         q += ' AND (usuario_id = ? OR (usuario_id IS NULL AND estagiario = ?))'
         p += [current_user.id, current_user.username]
-    q += ' ORDER BY horario, sala'
+    q += ' ORDER BY horario, sala, data_especifica'
     conn = get_db()
     try:
         rows = conn.execute(q, p).fetchall()
@@ -963,7 +1080,9 @@ def get_ag(aid):
         r = conn.execute('SELECT * FROM agendamentos WHERE id=?', (aid,)).fetchone()
     finally:
         conn.close()
-    return jsonify(dict(r)) if r else (jsonify({'erro': 'Não encontrado'}), 404)
+    if not usuario_pode_ver_agendamento(r):
+        return jsonify({'erro': 'Não encontrado'}), 404
+    return jsonify(dict(r))
 
 
 @app.route('/api/agendamentos', methods=['POST'])
@@ -989,7 +1108,7 @@ def create_ag():
         ocu = conflito.get('estagiario') or conflito.get('categoria') or 'outro agendamento'
         return jsonify({
             'erro': (
-                f'Conflito: {dados_ag["sala"]} j? est? ocupada ?s {dados_ag["horario"]} '
+                f'Conflito: {dados_ag["sala"]} já está ocupada às {dados_ag["horario"]} '
                 f'({dados_ag["data_especifica"] or dados_ag["dia"]}) por: {ocu}'
             ),
             'conflito': True,
@@ -999,22 +1118,12 @@ def create_ag():
     try:
         conn = get_db()
         try:
-            cur = conn.execute(
-                'INSERT INTO agendamentos(dia_semana,horario,sala,estagiario,paciente,categoria,semestre,triagem,observacao,data_especifica,usuario_id)'
-                ' VALUES(?,?,?,?,?,?,?,?,?,?,?)',
-                (
-                    dados_ag['dia'], dados_ag['horario'], dados_ag['sala'],
-                    dados_ag['estagiario'], dados_ag['paciente'], dados_ag['categoria'],
-                    dados_ag['semestre'], dados_ag['triagem'], dados_ag['observacao'],
-                    dados_ag['data_especifica'], dados_ag['usuario_id']
-                )
-            )
-            nid = cur.lastrowid
+            nid = inserir_agendamento(conn, dados_ag)
             conn.commit()
         finally:
             conn.close()
     except sqlite3.IntegrityError:
-        return jsonify({'erro': 'Conflito: esse hor?rio j? foi ocupado por outro agendamento.'}), 409
+        return jsonify({'erro': 'Conflito: esse horário já foi ocupado por outro agendamento.'}), 409
 
     registrar_log('CRIAR', f'Agendamento #{nid} criado — sala: {dados_ag["sala"]} {dados_ag["horario"]}')
     return jsonify({'id': nid, 'message': 'Criado'}), 201
@@ -1044,7 +1153,7 @@ def update_ag(aid):
         ocu = conflito.get('estagiario') or conflito.get('categoria') or 'outro agendamento'
         return jsonify({
             'erro': (
-                f'Conflito: {dados_ag["sala"]} j? est? ocupada ?s {dados_ag["horario"]} '
+                f'Conflito: {dados_ag["sala"]} já está ocupada às {dados_ag["horario"]} '
                 f'({dados_ag["data_especifica"] or dados_ag["dia"]}) por: {ocu}'
             ),
             'conflito': True,
@@ -1056,12 +1165,14 @@ def update_ag(aid):
         try:
             cur = conn.execute(
                 'UPDATE agendamentos SET dia_semana=?,horario=?,sala=?,estagiario=?,paciente=?,categoria=?,semestre=?,'
-                'triagem=?,observacao=?,data_especifica=?,updated_at=CURRENT_TIMESTAMP WHERE id=?',
+                'triagem=?,observacao=?,data_especifica=?,usuario_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?',
                 (
                     dados_ag['dia'], dados_ag['horario'], dados_ag['sala'],
                     dados_ag['estagiario'], dados_ag['paciente'], dados_ag['categoria'],
                     dados_ag['semestre'], dados_ag['triagem'], dados_ag['observacao'],
-                    dados_ag['data_especifica'], aid
+                    dados_ag['data_especifica'],
+                    buscar_usuario_id_aluno(dados_ag['estagiario'], conn) or dados_ag['usuario_id'],
+                    aid
                 )
             )
             if cur.rowcount == 0:
@@ -1070,7 +1181,7 @@ def update_ag(aid):
         finally:
             conn.close()
     except sqlite3.IntegrityError:
-        return jsonify({'erro': 'Conflito: esse hor?rio j? foi ocupado por outro agendamento.'}), 409
+        return jsonify({'erro': 'Conflito: esse horário já foi ocupado por outro agendamento.'}), 409
 
     registrar_log('EDITAR', f'Agendamento #{aid} editado — sala: {dados_ag["sala"]} {dados_ag["horario"]}')
     return jsonify({'message': 'Atualizado'})
@@ -1119,7 +1230,7 @@ def stats():
 @app.route('/api/export')
 @login_required
 @requer_papel('coordenador', 'recepcao')
-def export_xlsx():
+def export_csv():
     conn = get_db()
     try:
         rows = conn.execute(
@@ -1130,77 +1241,24 @@ def export_xlsx():
         ).fetchall()
     finally:
         conn.close()
-
-    linhas = [[
-        'ID', 'Dia', 'Horario', 'Sala', 'Estagiario (usuario)', 'Nome Completo',
-        'Paciente', 'Categoria', 'Semestre', 'Triagem', 'Data Esp.', 'Obs.'
-    ]]
+    out = io.StringIO()
+    w = csv.writer(out)
+    w.writerow(['ID', 'Dia', 'Horário', 'Sala', 'Estagiário (usuário)', 'Nome Completo', 'Paciente',
+                'Categoria', 'Semestre', 'Triagem', 'Data Esp.', 'Obs.'])
     for r in rows:
-        linhas.append([
+        w.writerow([
             r['id'], r['dia_semana'], r['horario'], r['sala'],
             r['estagiario'], r['nome_real'], r['paciente'],
-            r['categoria'], r['semestre'], 'Sim' if r['triagem'] else 'Nao',
+            r['categoria'], r['semestre'], 'Sim' if r['triagem'] else 'Não',
             r['data_especifica'], r['observacao']
         ])
-
-    def celula(valor):
-        valor = '' if valor is None else str(valor)
-        return f'<c t="inlineStr"><is><t>{escape(valor)}</t></is></c>'
-
-    linhas_xml = []
-    for idx, linha in enumerate(linhas, start=1):
-        linhas_xml.append(f'<row r="{idx}">{"".join(celula(valor) for valor in linha)}</row>')
-
-    sheet_xml = (
-        '<?xml version="1.0" encoding="UTF-8"?>'
-        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-        '<sheetData>' + ''.join(linhas_xml) + '</sheetData>'
-        '</worksheet>'
-    )
-    workbook_xml = (
-        '<?xml version="1.0" encoding="UTF-8"?>'
-        '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
-        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-        '<sheets><sheet name="Agendamentos" sheetId="1" r:id="rId1"/></sheets>'
-        '</workbook>'
-    )
-    rels_xml = (
-        '<?xml version="1.0" encoding="UTF-8"?>'
-        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
-        '</Relationships>'
-    )
-    workbook_rels_xml = (
-        '<?xml version="1.0" encoding="UTF-8"?>'
-        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
-        '</Relationships>'
-    )
-    content_types_xml = (
-        '<?xml version="1.0" encoding="UTF-8"?>'
-        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
-        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
-        '<Default Extension="xml" ContentType="application/xml"/>'
-        '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
-        '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
-        '</Types>'
-    )
-
-    arquivo = io.BytesIO()
-    with zipfile.ZipFile(arquivo, 'w', zipfile.ZIP_DEFLATED) as xlsx:
-        xlsx.writestr('[Content_Types].xml', content_types_xml)
-        xlsx.writestr('_rels/.rels', rels_xml)
-        xlsx.writestr('xl/workbook.xml', workbook_xml)
-        xlsx.writestr('xl/_rels/workbook.xml.rels', workbook_rels_xml)
-        xlsx.writestr('xl/worksheets/sheet1.xml', sheet_xml)
-    arquivo.seek(0)
-
-    registrar_log('EXPORTAR', 'XLSX exportado')
+    out.seek(0)
+    registrar_log('EXPORTAR', 'CSV exportado')
     return send_file(
-        arquivo,
-        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        io.BytesIO(out.read().encode('utf-8-sig')),
+        mimetype='text/csv',
         as_attachment=True,
-        download_name=f'mapa_salas_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx'
+        download_name=f'mapa_salas_{datetime.now().strftime("%Y%m%d_%H%M")}.csv'
     )
 
 
@@ -1260,6 +1318,24 @@ def limpar_logs():
     return jsonify({'message': f'{removidos} logs removidos'})
 
 
+@app.route('/api/admin/apagar-logs-recentes', methods=['POST'])
+@login_required
+@requer_papel('coordenador')
+def apagar_logs_recentes():
+    conn = get_db()
+    try:
+        cur = conn.execute(
+            "DELETE FROM historico WHERE ts >= datetime('now', '-' || ? || ' days')",
+            (LOG_RETENCAO_DIAS,)
+        )
+        removidos = cur.rowcount
+        conn.commit()
+    finally:
+        conn.close()
+    registrar_log('APAGAR_LOGS_RECENTES', f'{removidos} logs dos últimos {LOG_RETENCAO_DIAS} dias removidos')
+    return jsonify({'message': f'{removidos} logs dos últimos {LOG_RETENCAO_DIAS} dias removidos'})
+
+
 @app.route('/api/busca')
 @login_required
 def busca_global():
@@ -1299,69 +1375,60 @@ def import_csv():
     conflitos = []
     erros = []
 
-    for i, row in enumerate(reader, start=2):
-        try:
-            dia = (row.get('Dia') or row.get('dia_semana') or '').strip().upper()
-            horario = (row.get('Horário') or row.get('horario') or '').strip()
-            sala = (row.get('Sala') or row.get('sala') or '').strip()
-            estagiario = (row.get('Estagiário (usuário)') or row.get('Estagiário') or row.get('estagiario') or '').strip()
-            paciente = (row.get('Paciente') or row.get('paciente') or '').strip()
-            categoria = (row.get('Categoria') or row.get('categoria') or '').strip()
-            semestre = int(row.get('Semestre') or row.get('semestre') or 0)
-            triagem = 1 if str(row.get('Triagem') or '').strip().lower() in ('sim', '1', 'true') else 0
-            obs = (row.get('Obs.') or row.get('observacao') or '').strip()
-            data_esp = (row.get('Data Esp.') or row.get('data_especifica') or '').strip()
-
-            dados_ag, erro = preparar_dados_agendamento({
-                'dia_semana': dia,
-                'horario': horario,
-                'sala': sala,
-                'estagiario': estagiario,
-                'paciente': paciente,
-                'categoria': categoria,
-                'semestre': semestre,
-                'triagem': triagem,
-                'observacao': obs,
-                'data_especifica': data_esp
-            })
-            if erro:
-                erros.append(f'Linha {i}: {erro}')
-                continue
-
-            conflito = checar_conflito(
-                dados_ag['dia'],
-                dados_ag['horario'],
-                dados_ag['sala'],
-                data_especifica=dados_ag['data_especifica']
-            )
-            if conflito:
-                conflitos.append({
-                    'linha': i,
-                    'dia': dados_ag['dia'],
-                    'horario': dados_ag['horario'],
-                    'sala': dados_ag['sala'],
-                    'ocupado_por': conflito.get('estagiario') or conflito.get('categoria')
-                })
-                continue
-
-            conn = get_db()
+    conn = get_db()
+    try:
+        for i, row in enumerate(reader, start=2):
             try:
-                conn.execute(
-                    'INSERT INTO agendamentos(dia_semana,horario,sala,estagiario,paciente,categoria,semestre,triagem,observacao,data_especifica)'
-                    ' VALUES(?,?,?,?,?,?,?,?,?,?)',
-                    (
-                        dados_ag['dia'], dados_ag['horario'], dados_ag['sala'],
-                        dados_ag['estagiario'], dados_ag['paciente'], dados_ag['categoria'],
-                        dados_ag['semestre'], dados_ag['triagem'], dados_ag['observacao'],
-                        dados_ag['data_especifica']
-                    )
+                dia = (row.get('Dia') or row.get('dia_semana') or '').strip().upper()
+                horario = (row.get('Horário') or row.get('horario') or '').strip()
+                sala = (row.get('Sala') or row.get('sala') or '').strip()
+                estagiario = (row.get('Estagiário (usuário)') or row.get('Estagiário') or row.get('estagiario') or '').strip()
+                paciente = (row.get('Paciente') or row.get('paciente') or '').strip()
+                categoria = (row.get('Categoria') or row.get('categoria') or '').strip()
+                semestre = int(row.get('Semestre') or row.get('semestre') or 0)
+                triagem = 1 if str(row.get('Triagem') or '').strip().lower() in ('sim', '1', 'true') else 0
+                obs = (row.get('Obs.') or row.get('observacao') or '').strip()
+                data_esp = (row.get('Data Esp.') or row.get('data_especifica') or '').strip()
+
+                dados_ag, erro = preparar_dados_agendamento({
+                    'dia_semana': dia,
+                    'horario': horario,
+                    'sala': sala,
+                    'estagiario': estagiario,
+                    'paciente': paciente,
+                    'categoria': categoria,
+                    'semestre': semestre,
+                    'triagem': triagem,
+                    'observacao': obs,
+                    'data_especifica': data_esp
+                })
+                if erro:
+                    erros.append(f'Linha {i}: {erro}')
+                    continue
+
+                conflito = checar_conflito(
+                    dados_ag['dia'],
+                    dados_ag['horario'],
+                    dados_ag['sala'],
+                    data_especifica=dados_ag['data_especifica']
                 )
-                conn.commit()
-            finally:
-                conn.close()
-            inseridos += 1
-        except Exception as e:
-            erros.append(f'Linha {i}: {str(e)}')
+                if conflito:
+                    conflitos.append({
+                        'linha': i,
+                        'dia': dados_ag['dia'],
+                        'horario': dados_ag['horario'],
+                        'sala': dados_ag['sala'],
+                        'ocupado_por': conflito.get('estagiario') or conflito.get('categoria')
+                    })
+                    continue
+
+                inserir_agendamento(conn, dados_ag)
+                inseridos += 1
+            except Exception as e:
+                erros.append(f'Linha {i}: {str(e)}')
+        conn.commit()
+    finally:
+        conn.close()
 
     registrar_log('IMPORTAR_CSV', f'{inseridos} agendamentos importados, {len(conflitos)} conflitos, {len(erros)} erros')
     return jsonify({

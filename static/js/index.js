@@ -52,6 +52,7 @@ async function loadStats() {
   document.getElementById('stEst').textContent = est;
 }
 async function renderGrid() {
+  updateDateFilterBadge();
   const loading = document.getElementById('loadingMsg');
   loading.style.display = 'flex';
   let data = [];
@@ -67,7 +68,11 @@ async function renderGrid() {
   const salas = filterSala ? [filterSala] : SALAS;
   const hors  = filterHor  ? [filterHor]  : HORARIOS;
   const lk = {};
-  for (const ag of data) lk[ag.horario+'|'+ag.sala] = ag;
+  for (const ag of data) {
+    const key = ag.horario+'|'+ag.sala;
+    if(!lk[key]) lk[key] = [];
+    lk[key].push(ag);
+  }
   document.getElementById('tableHead').innerHTML =
     '<tr><th>Hora</th>' + salas.map(s=>'<th>'+s+'</th>').join('') + '</tr>';
   const tbody = document.getElementById('tableBody');
@@ -76,23 +81,10 @@ async function renderGrid() {
     const tr = document.createElement('tr');
     tr.innerHTML = '<td>'+h+'</td>';
     for (const s of salas) {
-      const ag = lk[h+'|'+s];
+      const ags = lk[h+'|'+s] || [];
       const td = document.createElement('td');
-      if (ag) {
-        const cls = CAT_CLASS[ag.categoria] || 'cat-outro';
-        const categoriaHtml = ag.categoria ? '<span class="cat-label">'+esc(ag.categoria)+'</span>' : '';
-        const obsHtml = ag.observacao ? '<div class="obs-line">'+esc(ag.observacao)+'</div>' : '';
-        const badgeHtml = ag.triagem ? '<span class="badge">triagem</span>' : '';
-        const dataHtml  = ag.data_especifica ? '<span class="badge">'+ag.data_especifica+'</span>' : '';
-        const editBtn   = PODE_EDITAR ? `<button class="edit-btn" onclick="event.stopPropagation();openModal(${ag.id})">✏️</button>` : '';
-        td.innerHTML = `<div class="cell ${cls}" onclick="openModal(${ag.id})">
-          ${editBtn}
-          ${categoriaHtml}
-          <div class="intern">${esc(ag.estagiario)}</div>
-          ${ag.paciente ? '<div class="patient">'+esc(ag.paciente)+'</div>' : ''}
-          ${obsHtml}
-          <div style="display:flex;gap:3px;flex-wrap:wrap">${badgeHtml}${dataHtml}</div>
-        </div>`;
+      if (ags.length) {
+        td.innerHTML = ags.map(renderAgendamentoCell).join('');
       } else {
         if (PODE_EDITAR) {
           td.innerHTML = `<div class="cell cat-livre" onclick="openModalNew('${h}','${s}')">
@@ -107,6 +99,31 @@ async function renderGrid() {
     tbody.appendChild(tr);
   }
   loadStats();
+}
+function renderAgendamentoCell(ag){
+  const cls = CAT_CLASS[ag.categoria] || 'cat-outro';
+  const badgeHtml = ag.triagem ? '<span class="badge">triagem</span>' : '';
+  const dataHtml  = ag.data_especifica ? '<span class="badge">'+esc(ag.data_especifica)+'</span>' : '';
+  const editBtn   = PODE_EDITAR ? `<button class="edit-btn" onclick="event.stopPropagation();openModal(${ag.id})">✏️</button>` : '';
+  return `<div class="cell ${cls}" onclick="openModal(${ag.id})">
+    ${editBtn}
+    <div class="intern">${esc(ag.estagiario)}</div>
+    ${ag.paciente ? '<div class="patient">'+esc(ag.paciente)+'</div>' : ''}
+    <div style="display:flex;gap:3px;flex-wrap:wrap">${badgeHtml}${dataHtml}</div>
+  </div>`;
+}
+function updateDateFilterBadge(){
+  const el = document.getElementById('dateFilterBadge');
+  const data = document.getElementById('filterData').value;
+  if(!el) return;
+  if(!data){
+    el.style.display = 'none';
+    el.textContent = '';
+    return;
+  }
+  const [ano, mes, dia] = data.split('-');
+  el.textContent = `Mostrando data específica: ${dia}/${mes}/${ano}`;
+  el.style.display = 'inline-flex';
 }
 function esc(t){ if(!t)return''; return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function debounceRender(){ clearTimeout(debTimer); debTimer=setTimeout(renderGrid,300); }

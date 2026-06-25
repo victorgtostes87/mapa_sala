@@ -12,7 +12,7 @@
     <div class="topbar">
       <div class="userbox">
         <span>{{ usuario }}</span>
-        <span>{{ papel }}</span>
+        <span>{{ papeis_label.get(papel, papel) }}</span>
       </div>
       <div class="nav">
         <a href="{{ url_for('perfil') }}" class="btn btn-secondary">Perfil</a>
@@ -24,14 +24,13 @@
     <div class="card">
       <div class="header-row">
         <h1 style="margin:0;">👥 Gerenciar Usuários</h1>
-        <button class="btn btn-primary" id="btnNovoUsuario">＋ Novo usuário</button>
+        <button type="button" class="btn btn-primary" id="btnNovoUsuario">＋ Novo usuário</button>
       </div>
 
       <table>
         <thead>
           <tr>
             <th>Usuário</th>
-            <th>E-mail</th>
             <th>Papel</th>
             <th>Status</th>
             <th>Criado em</th>
@@ -43,18 +42,17 @@
             {% for u in usuarios %}
             <tr>
               <td>{{ u.username }}</td>
-              <td>{{ u.email or '---' }}</td>
-              <td>{{ u.role }}</td>
+              <td>{{ papeis_label.get(u.role, u.role) }}</td>
               <td>{{ 'Ativo' if u.ativo else 'Inativo' }}</td>
               <td>{{ u.created_at[:10] if u.created_at else '—' }}</td>
               <td>
                 <div class="actions">
-                  <button type="button" class="btn btn-secondary" onclick="abrirEditarUsuario({{ u.id }}, {{ u.username | tojson }}, {{ u.email | tojson }}, {{ u.role | tojson }}, {{ u.ativo | tojson }})">Editar</button>
+                  <button type="button" class="btn btn-secondary btn-editar" data-id="{{ u.id }}" data-username="{{ u.username }}" data-role="{{ u.role }}" data-ativo="{{ 1 if u.ativo else 0 }}">Editar</button>
                   {% if u.username != usuario %}
                   {% if u.ativo %}
-                  <button type="button" class="btn btn-danger" onclick="inativarUsuario({{ u.id }}, {{ u.username | tojson }})">Inativar</button>
+                  <button type="button" class="btn btn-danger btn-inativar" data-id="{{ u.id }}" data-username="{{ u.username }}">Inativar</button>
                   {% else %}
-                  <button type="button" class="btn btn-primary" onclick="reativarUsuario({{ u.id }}, {{ u.username | tojson }}, {{ u.email | tojson }}, {{ u.role | tojson }})">Reativar</button>
+                  <button type="button" class="btn btn-primary btn-reativar" data-id="{{ u.id }}" data-username="{{ u.username }}" data-role="{{ u.role }}">Reativar</button>
                   {% endif %}
                   {% endif %}
                 </div>
@@ -82,15 +80,12 @@
         <label for="username">Usuário *</label>
         <input type="text" id="username" name="username" required>
 
-        <label for="email">E-mail</label>
-        <input type="email" id="email" name="email">
-
         <label for="role">Papel *</label>
         <select id="role" name="role" required>
-          <option value="aluno">aluno — visualiza só os próprios agendamentos</option>
-          <option value="professor">professor — visualiza o mapa completo</option>
-          <option value="recepcao">recepcao — cria, edita e exclui</option>
-          <option value="coordenador">coordenador — acesso total</option>
+          <option value="aluno">Aluno</option>
+          <option value="coordenador">Coordenador</option>
+          <option value="recepcao">Recepcionista</option>
+          <option value="professor">Professor</option>
         </select>
 
         <label for="ativo">Status *</label>
@@ -119,10 +114,6 @@
     const erroUsuario = document.getElementById('erroUsuario');
     const tituloModalUsuario = document.getElementById('tituloModalUsuario');
     const CSRF_TOKEN = {{ csrf_token() | tojson }};
-    const roleSelect = document.getElementById('role');
-    roleSelect.innerHTML = ['aluno', 'coordenador', 'recepcao', 'professor']
-      .map((role) => `<option value="${role}">${role}</option>`)
-      .join('');
 
     function prepararNovoUsuario() {
       tituloModalUsuario.textContent = 'Novo Usuário';
@@ -140,11 +131,10 @@
       modalUsuario.style.display = 'flex';
     }
 
-    function abrirEditarUsuario(id, username, email, role, ativo) {
+    function abrirEditarUsuario(id, username, role, ativo) {
       tituloModalUsuario.textContent = 'Editar Usuário';
       document.getElementById('userId').value = id;
       document.getElementById('username').value = username;
-      document.getElementById('email').value = email || '';
       document.getElementById('role').value = role;
       document.getElementById('ativo').value = ativo ? '1' : '0';
       document.getElementById('password').value = '';
@@ -170,6 +160,29 @@
     btnNovoUsuario.addEventListener('click', abrirModalUsuario);
     btnCancelarUsuario.addEventListener('click', fecharModalUsuario);
 
+    document.querySelectorAll('.btn-editar').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        abrirEditarUsuario(
+          parseInt(btn.dataset.id, 10),
+          btn.dataset.username,
+          btn.dataset.role,
+          btn.dataset.ativo === '1'
+        );
+      });
+    });
+
+    document.querySelectorAll('.btn-inativar').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        inativarUsuario(parseInt(btn.dataset.id, 10), btn.dataset.username);
+      });
+    });
+
+    document.querySelectorAll('.btn-reativar').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        reativarUsuario(parseInt(btn.dataset.id, 10), btn.dataset.username, btn.dataset.role);
+      });
+    });
+
     modalUsuario.addEventListener('click', (e) => {
       if (e.target === modalUsuario) fecharModalUsuario();
     });
@@ -179,7 +192,6 @@
 
       const userId = document.getElementById('userId').value;
       const username = document.getElementById('username').value.trim();
-      const email = document.getElementById('email').value.trim();
       const role = document.getElementById('role').value;
       const ativo = document.getElementById('ativo').value === '1';
       const password = document.getElementById('password').value;
@@ -194,7 +206,7 @@
         return;
       }
 
-      const payload = { username, email, role, ativo };
+      const payload = { username, role, ativo };
       if (password) payload.password = password;
 
       try {
@@ -241,7 +253,7 @@
       }
     }
 
-    async function reativarUsuario(id, username, email, role) {
+    async function reativarUsuario(id, username, role) {
       try {
         const resp = await fetch(`/api/usuarios/${id}`, {
           method: 'PUT',
@@ -249,7 +261,7 @@
             'Content-Type': 'application/json',
             'X-CSRFToken': CSRF_TOKEN
           },
-          body: JSON.stringify({ username, email, role, ativo: true })
+          body: JSON.stringify({ username, role, ativo: true })
         });
         const data = await resp.json();
 
@@ -264,6 +276,6 @@
       }
     }
   </script>
-<div style="margin:18px 0;text-align:center;color:#6b7280;font-size:12px">Vers?o {{ versao }}</div>
+<div class="version-footer">Versão {{ versao }}</div>
 </body>
 </html>

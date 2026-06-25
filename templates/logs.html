@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Logs do Sistema</title>
 
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/logs.css') }}">
 </head>
 <body>
@@ -16,7 +16,7 @@
   <span class="role-badge role-{{ papel }}">{{ papel }}</span>
   <a href="/perfil" class="btn btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
   <a href="/" class="btn btn-ghost"><i data-lucide="arrow-left"></i> Voltar</a>
-  <a href="/api/backup?confirmar=sim" style="display:inline-block;padding:8px 16px;background:#2563eb;color:#fff;border-radius:6px;text-decoration:none;font-size:0.85rem;margin-left:8px;">Backup do Banco</a>
+  <a href="/api/backup" style="display:inline-block;padding:8px 16px;background:#2563eb;color:#fff;border-radius:6px;text-decoration:none;font-size:0.85rem;margin-left:8px;">⬇ Backup do Banco</a>
 </nav>
 <div class="container">
   <div class="filters">
@@ -28,6 +28,7 @@
       <option>CRIAR_USUARIO</option><option>EDITAR_USUARIO</option><option>EXCLUIR_USUARIO</option>
       <option>EXPORTAR</option>
     </select>
+    <button type="button" class="btn-danger" id="btnApagarLogs">Apagar logs dos últimos 15 dias</button>
   </div>
   <table>
     <thead><tr><th>Data/Hora</th><th>Usuário</th><th>Ação</th><th>IP</th><th>Navegador</th><th>Detalhes</th></tr></thead>
@@ -191,9 +192,27 @@ async function carregar(){
   }
 }
 
+async function apagarLogsRecentes(){
+  if(!confirm('Apagar os logs dos últimos 15 dias? Esta ação não pode ser desfeita.')) return;
+
+  try {
+    const res = await fetch('/api/admin/apagar-logs-recentes', {
+      method: 'POST',
+      headers: {'X-CSRFToken': {{ csrf_token() | tojson }}}
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.erro || 'Não foi possível apagar os logs.');
+    alert(data.message || 'Logs apagados com sucesso.');
+    carregar();
+  } catch (err) {
+    alert(err.message || 'Falha ao apagar os logs. Tente novamente.');
+  }
+}
+
+document.getElementById('btnApagarLogs').addEventListener('click', apagarLogsRecentes);
 carregar();
 </script>
 <script>lucide.createIcons();</script>
-<div style="margin:18px 0;text-align:center;color:#6b7280;font-size:12px">Vers?o {{ versao }}</div>
+<div style="margin:18px 0;text-align:center;color:#6b7280;font-size:12px">Versão {{ versao }}</div>
 </body>
 </html>

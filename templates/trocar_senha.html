@@ -4,90 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Trocar Senha</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #f4f6f9;
-      color: #1f2937;
-    }
-    .container {
-      max-width: 560px;
-      margin: 40px auto;
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 10px 30px rgba(0,0,0,.08);
-      padding: 32px;
-    }
-    h1 {
-      margin: 0 0 8px;
-      font-size: 28px;
-    }
-    .sub {
-      color: #6b7280;
-      margin-bottom: 24px;
-    }
-    .flash {
-      padding: 12px 14px;
-      border-radius: 8px;
-      margin-bottom: 16px;
-      font-size: 14px;
-    }
-    .flash.error {
-      background: #fee2e2;
-      color: #991b1b;
-    }
-    .flash.success {
-      background: #dcfce7;
-      color: #166534;
-    }
-    label {
-      display: block;
-      font-weight: 600;
-      margin: 14px 0 6px;
-    }
-    input {
-      width: 100%;
-      padding: 12px 14px;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      font-size: 15px;
-    }
-    input:focus {
-      outline: none;
-      border-color: #2563eb;
-      box-shadow: 0 0 0 3px rgba(37,99,235,.12);
-    }
-    .hint {
-      margin-top: 6px;
-      font-size: 13px;
-      color: #6b7280;
-    }
-    .actions {
-      display: flex;
-      gap: 12px;
-      margin-top: 24px;
-      flex-wrap: wrap;
-    }
-    .btn {
-      border: 0;
-      border-radius: 8px;
-      padding: 12px 16px;
-      font-size: 15px;
-      cursor: pointer;
-      text-decoration: none;
-      display: inline-block;
-    }
-    .btn-primary {
-      background: #2563eb;
-      color: #fff;
-    }
-    .btn-secondary {
-      background: #e5e7eb;
-      color: #111827;
-    }
-  </style>
+  
+<link rel="stylesheet" href="{{ url_for('static', filename='css/trocar_senha.css') }}">
 </head>
 <body>
   <div class="container">
@@ -103,6 +21,7 @@
     {% endwith %}
 
     <form method="POST" action="{{ url_for('trocar_senha') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label for="senha_atual">Senha atual</label>
       <input type="password" id="senha_atual" name="senha_atual" required>
 
@@ -119,5 +38,6 @@
       </div>
     </form>
   </div>
+<div style="margin:18px 0;text-align:center;color:#6b7280;font-size:12px">Versão {{ versao }}</div>
 </body>
 </html>

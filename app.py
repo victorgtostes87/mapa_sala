@@ -166,8 +166,7 @@ DIAS_PT = {
 }
 
 CATEGORIAS = [
-    'ESTAGIÁRIO 10°', 'ESTAGIÁRIO 10° TRIAGEM',
-    'ESTAGIÁRIO 9°', 'ESTAGIÁRIO 9° TRIAGEM',
+    'ESTAGIÁRIO 10°', 'ESTAGIÁRIO 9°',
     'SUPERVISÃO', 'NACE', 'SOU', 'MARCAR', 'NÃO MARCAR',
     'NUTRIÇÃO', 'PSICODIAGNÓSTICO', 'PSIQUIATRIA',
     'AMBULATÓRIO NEUROPSICOLOGIA', 'PLANTÃO PSICOLÓGICO',
@@ -221,12 +220,66 @@ def validar_valores_agendamento(dia, horario, sala, categoria=''):
     return None
 
 
+def data_hoje_iso():
+    return datetime.now().strftime('%Y-%m-%d')
+
+
+def normalizar_categoria_triagem(categoria):
+    categoria = (categoria or '').strip()
+    if categoria == 'ESTAGIÁRIO 10° TRIAGEM':
+        return 'ESTAGIÁRIO 10°', 1
+    if categoria == 'ESTAGIÁRIO 9° TRIAGEM':
+        return 'ESTAGIÁRIO 9°', 1
+    return categoria, None
+
+
+def texto_indica_triagem(estagiario, paciente):
+    return 'TRIAGEM' in normalize(f'{estagiario} {paciente}').upper()
+
+
+def valor_triagem(valor, padrao=0):
+    if valor is None:
+        return padrao
+    if isinstance(valor, bool):
+        return 1 if valor else 0
+    return 1 if str(valor).strip().lower() in ('1', 'true', 'sim', 'yes') else 0
+
+
+def valor_ocupa_sala(valor, padrao=None):
+    if valor in (None, ''):
+        return padrao
+    if isinstance(valor, bool):
+        return 1 if valor else 0
+    return 1 if str(valor).strip().lower() in ('1', 'true', 'sim', 'yes') else 0
+
+
+def calcular_ocupa_sala(categoria, paciente='', observacao='', data_especifica='', triagem=0):
+    categoria = (categoria or '').strip().upper()
+    paciente = (paciente or '').strip()
+    observacao = (observacao or '').strip()
+    data_especifica = (data_especifica or '').strip()
+
+    if paciente:
+        return 1
+    if valor_triagem(triagem, 0) and paciente:
+        return 1
+    if categoria in (
+        'SUPERVISÃO', 'NACE', 'SOU', 'NUTRIÇÃO', 'PSICODIAGNÓSTICO',
+        'PSIQUIATRIA', 'AMBULATÓRIO NEUROPSICOLOGIA', 'PLANTÃO PSICOLÓGICO',
+        'PRONTUÁRIO/ESTUDAR'
+    ):
+        return 1
+    if data_especifica and observacao:
+        return 1
+    return 0
+
+
 def preparar_dados_agendamento(dados, usuario_id_padrao=None):
     dia = (dados.get('dia_semana') or 'SEGUNDA').strip()
     horario = (dados.get('horario') or '').strip()
     sala = (dados.get('sala') or '').strip()
     data_esp = (dados.get('data_especifica') or '').strip()
-    categoria_informada = (dados.get('categoria') or '').strip()
+    categoria_informada, triagem_categoria = normalizar_categoria_triagem(dados.get('categoria'))
 
     if not horario or not sala:
         return None, 'Os campos horário e sala são obrigatórios.'
@@ -245,6 +298,11 @@ def preparar_dados_agendamento(dados, usuario_id_padrao=None):
     paciente = dados.get('paciente', '')
     categoria = categoria_informada or detect_cat(estagiario, paciente)
     semestre = dados.get('semestre', 0) or detect_sem(estagiario)
+    triagem_padrao = 1 if texto_indica_triagem(estagiario, paciente) else 0
+    triagem = triagem_categoria if triagem_categoria is not None else valor_triagem(dados.get('triagem'), triagem_padrao)
+    observacao = dados.get('observacao', '')
+    ocupa_calculado = calcular_ocupa_sala(categoria, paciente, observacao, data_esp, triagem)
+    ocupa_sala = valor_ocupa_sala(dados.get('ocupa_sala'), ocupa_calculado)
 
     return {
         'dia': dia,
@@ -254,10 +312,11 @@ def preparar_dados_agendamento(dados, usuario_id_padrao=None):
         'paciente': paciente,
         'categoria': categoria,
         'semestre': semestre,
-        'triagem': dados.get('triagem', 0),
-        'observacao': dados.get('observacao', ''),
+        'triagem': triagem,
+        'observacao': observacao,
         'data_especifica': data_esp,
         'usuario_id': dados.get('usuario_id') or usuario_id_padrao,
+        'ocupa_sala': ocupa_sala,
     }, None
 
 
@@ -291,14 +350,22 @@ def vincular_aluno_do_agendamento(dados_ag, conn):
 
 def inserir_agendamento(conn, dados_ag):
     vincular_aluno_do_agendamento(dados_ag, conn)
+    if 'ocupa_sala' not in dados_ag:
+        dados_ag['ocupa_sala'] = calcular_ocupa_sala(
+            dados_ag.get('categoria', ''),
+            dados_ag.get('paciente', ''),
+            dados_ag.get('observacao', ''),
+            dados_ag.get('data_especifica', ''),
+            dados_ag.get('triagem', 0)
+        )
     cur = conn.execute(
-        'INSERT INTO agendamentos(dia_semana,horario,sala,estagiario,paciente,categoria,semestre,triagem,observacao,data_especifica,usuario_id)'
-        ' VALUES(?,?,?,?,?,?,?,?,?,?,?)',
+        'INSERT INTO agendamentos(dia_semana,horario,sala,estagiario,paciente,categoria,semestre,triagem,observacao,data_especifica,usuario_id,ocupa_sala)'
+        ' VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
         (
             dados_ag['dia'], dados_ag['horario'], dados_ag['sala'],
             dados_ag['estagiario'], dados_ag['paciente'], dados_ag['categoria'],
             dados_ag['semestre'], dados_ag['triagem'], dados_ag['observacao'],
-            dados_ag['data_especifica'], dados_ag['usuario_id']
+            dados_ag['data_especifica'], dados_ag['usuario_id'], dados_ag['ocupa_sala']
         )
     )
     return cur.lastrowid
@@ -326,12 +393,13 @@ def criar_indices_agendamentos(conn):
         "DROP INDEX IF EXISTS idx_conflito;"
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_conflito_semanal "
         "ON agendamentos(dia_semana, horario, sala) "
-        "WHERE data_especifica IS NULL OR data_especifica = '';"
+        "WHERE ocupa_sala = 1 AND (data_especifica IS NULL OR data_especifica = '');"
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_conflito_data "
         "ON agendamentos(data_especifica, horario, sala) "
-        "WHERE data_especifica IS NOT NULL AND data_especifica != '';"
+        "WHERE ocupa_sala = 1 AND data_especifica IS NOT NULL AND data_especifica != '';"
         "CREATE INDEX IF NOT EXISTS idx_dia_semana ON agendamentos(dia_semana);"
         "CREATE INDEX IF NOT EXISTS idx_data_especifica ON agendamentos(data_especifica);"
+        "CREATE INDEX IF NOT EXISTS idx_ocupa_sala ON agendamentos(ocupa_sala);"
     )
 
 
@@ -350,6 +418,7 @@ def migrar_fk_usuario_id_agendamentos(conn):
         "DROP INDEX IF EXISTS idx_conflito_data;"
         "DROP INDEX IF EXISTS idx_dia_semana;"
         "DROP INDEX IF EXISTS idx_data_especifica;"
+        "DROP INDEX IF EXISTS idx_ocupa_sala;"
         "ALTER TABLE agendamentos RENAME TO agendamentos_old;"
         "CREATE TABLE agendamentos ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -364,17 +433,19 @@ def migrar_fk_usuario_id_agendamentos(conn):
         "observacao TEXT DEFAULT '',"
         "data_especifica TEXT DEFAULT '',"
         "usuario_id INTEGER DEFAULT NULL REFERENCES usuarios(id) ON DELETE SET NULL,"
+        "ocupa_sala INTEGER DEFAULT 0,"
         "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
         "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
         ");"
         "INSERT INTO agendamentos("
         "id,dia_semana,horario,sala,estagiario,paciente,categoria,semestre,triagem,"
-        "observacao,data_especifica,usuario_id,created_at,updated_at"
+        "observacao,data_especifica,usuario_id,ocupa_sala,created_at,updated_at"
         ") SELECT "
         "id,dia_semana,horario,sala,estagiario,paciente,categoria,semestre,triagem,"
         "observacao,data_especifica,"
         "CASE WHEN usuario_id IS NULL OR EXISTS (SELECT 1 FROM usuarios u WHERE u.id = agendamentos_old.usuario_id) "
         "THEN usuario_id ELSE NULL END,"
+        "ocupa_sala,"
         "created_at,updated_at "
         "FROM agendamentos_old;"
         "DROP TABLE agendamentos_old;"
@@ -403,6 +474,44 @@ def corrigir_vinculos_alunos_agendamentos(conn):
     )
 
 
+def migrar_categorias_triagem(conn):
+    conn.execute(
+        """
+        UPDATE agendamentos
+        SET categoria = 'ESTAGIÁRIO 10°',
+            triagem = 1
+        WHERE categoria = 'ESTAGIÁRIO 10° TRIAGEM'
+        """
+    )
+    conn.execute(
+        """
+        UPDATE agendamentos
+        SET categoria = 'ESTAGIÁRIO 9°',
+            triagem = 1
+        WHERE categoria = 'ESTAGIÁRIO 9° TRIAGEM'
+        """
+    )
+
+
+def recalcular_ocupacao_sala_agendamentos(conn):
+    conn.execute(
+        """
+        UPDATE agendamentos
+        SET ocupa_sala = CASE
+            WHEN TRIM(COALESCE(paciente, '')) != '' THEN 1
+            WHEN categoria IN (
+                'SUPERVISÃO', 'NACE', 'SOU', 'NUTRIÇÃO', 'PSICODIAGNÓSTICO',
+                'PSIQUIATRIA', 'AMBULATÓRIO NEUROPSICOLOGIA', 'PLANTÃO PSICOLÓGICO',
+                'PRONTUÁRIO/ESTUDAR'
+            ) THEN 1
+            WHEN TRIM(COALESCE(data_especifica, '')) != ''
+                 AND TRIM(COALESCE(observacao, '')) != '' THEN 1
+            ELSE 0
+        END
+        """
+    )
+
+
 def init_db():
     conn = get_db()
     try:
@@ -417,10 +526,11 @@ def init_db():
             "categoria TEXT DEFAULT '',"
             "semestre INTEGER DEFAULT 0,"
             "triagem INTEGER DEFAULT 0,"
-            "observacao TEXT DEFAULT '',"
-            "data_especifica TEXT DEFAULT '',"
-            "usuario_id INTEGER DEFAULT NULL REFERENCES usuarios(id) ON DELETE SET NULL,"
-            "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
+        "observacao TEXT DEFAULT '',"
+        "data_especifica TEXT DEFAULT '',"
+        "usuario_id INTEGER DEFAULT NULL REFERENCES usuarios(id) ON DELETE SET NULL,"
+        "ocupa_sala INTEGER DEFAULT 0,"
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
             "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
             ");"
             "CREATE TABLE IF NOT EXISTS historico ("
@@ -450,10 +560,18 @@ def init_db():
                 ('coordenador', generate_password_hash('mudar@2026'), 'coordenador')
             )
         cols = [r[1] for r in conn.execute("PRAGMA table_info(agendamentos)").fetchall()]
+        ocupa_col_criada = False
         if 'usuario_id' not in cols:
             conn.execute("ALTER TABLE agendamentos ADD COLUMN usuario_id INTEGER DEFAULT NULL")
             conn.commit()
+        if 'ocupa_sala' not in cols:
+            conn.execute("ALTER TABLE agendamentos ADD COLUMN ocupa_sala INTEGER DEFAULT 0")
+            ocupa_col_criada = True
+            conn.commit()
         cols_usuarios = [r[1] for r in conn.execute("PRAGMA table_info(usuarios)").fetchall()]
+        if 'email' not in cols_usuarios:
+            conn.execute("ALTER TABLE usuarios ADD COLUMN email TEXT DEFAULT ''")
+            conn.commit()
         if 'ativo' not in cols_usuarios:
             conn.execute("ALTER TABLE usuarios ADD COLUMN ativo INTEGER DEFAULT 1")
             conn.commit()
@@ -466,6 +584,9 @@ def init_db():
             conn.commit()
         migrar_fk_usuario_id_agendamentos(conn)
         corrigir_vinculos_alunos_agendamentos(conn)
+        migrar_categorias_triagem(conn)
+        if ocupa_col_criada:
+            recalcular_ocupacao_sala_agendamentos(conn)
         criar_indices_agendamentos(conn)
         limpar_logs_antigos(conn)
         conn.commit()
@@ -499,7 +620,7 @@ def checar_conflito(dia, horario, sala, data_especifica='', excluir_id=None):
 
         data_especifica = (data_especifica or '').strip()
         params = [horario, sala]
-        q = 'SELECT * FROM agendamentos WHERE horario=? AND sala=?'
+        q = 'SELECT * FROM agendamentos WHERE horario=? AND sala=? AND ocupa_sala=1'
 
         if data_especifica:
             q += (
@@ -508,8 +629,11 @@ def checar_conflito(dia, horario, sala, data_especifica='', excluir_id=None):
             )
             params.extend([data_especifica, dia])
         else:
-            q += ' AND dia_semana=?'
-            params.append(dia)
+            q += (
+                ' AND dia_semana=? '
+                'AND (data_especifica IS NULL OR data_especifica = \'\' OR data_especifica >= ?)'
+            )
+            params.extend([dia, data_hoje_iso()])
 
         if eid:
             q += ' AND CAST(id AS INTEGER)!=?'
@@ -558,12 +682,12 @@ def detect_cat(est, pac):
     if 'PRONTUÁRIO' in c or 'PRONTUARIO' in c or 'ESTUDAR' in c:
         return 'PRONTUÁRIO/ESTUDAR'
     if re.search(r'10[°º]', c):
-        return 'ESTAGIÁRIO 10° TRIAGEM' if 'TRIAGEM' in c else 'ESTAGIÁRIO 10°'
+        return 'ESTAGIÁRIO 10°'
     if re.search(r'9[°º]', c):
-        return 'ESTAGIÁRIO 9° TRIAGEM' if 'TRIAGEM' in c else 'ESTAGIÁRIO 9°'
+        return 'ESTAGIÁRIO 9°'
     en = normalize(est).strip()
     if en and not any(x in en.upper() for x in ['PSICODIAG', 'NÃO', 'MARCAR', 'SUPERVISÃO']):
-        return 'ESTAGIÁRIO 9° TRIAGEM' if 'TRIAGEM' in en.upper() else 'ESTAGIÁRIO 9°'
+        return 'ESTAGIÁRIO 9°'
     if not normalize(est).strip() and not normalize(pac).strip():
         return 'LIVRE'
     return 'OUTRO'
@@ -838,7 +962,7 @@ def logs_page():
 def usuarios_page():
     conn = get_db()
     try:
-        rows = conn.execute('SELECT id, username, role, ativo, created_at FROM usuarios ORDER BY created_at').fetchall()
+        rows = conn.execute('SELECT id, username, email, role, ativo, created_at FROM usuarios ORDER BY created_at').fetchall()
     finally:
         conn.close()
     return render_template(
@@ -867,7 +991,7 @@ def api_list_estagiarios():
 def api_list_usuarios():
     conn = get_db()
     try:
-        rows = conn.execute('SELECT id, username, role, ativo, created_at FROM usuarios ORDER BY created_at').fetchall()
+        rows = conn.execute('SELECT id, username, email, role, ativo, created_at FROM usuarios ORDER BY created_at').fetchall()
     finally:
         conn.close()
     return jsonify([dict(r) for r in rows])
@@ -883,6 +1007,7 @@ def api_criar_usuario():
         return jsonify({'erro': 'JSON inválido ou Content-Type incorreto'}), 400
 
     username = (d.get('username') or '').strip()
+    email = (d.get('email') or '').strip()
     password = (d.get('password') or '').strip()
     role = (d.get('role') or 'aluno').strip()
     ativo = valor_ativo(d.get('ativo'), 1)
@@ -898,8 +1023,8 @@ def api_criar_usuario():
         conn = get_db()
         try:
             conn.execute(
-                'INSERT INTO usuarios(username, password_hash, role, ativo) VALUES(?,?,?,?)',
-                (username, generate_password_hash(password), role, ativo)
+                'INSERT INTO usuarios(username, email, password_hash, role, ativo) VALUES(?,?,?,?,?)',
+                (username, email, generate_password_hash(password), role, ativo)
             )
             conn.commit()
         finally:
@@ -925,6 +1050,7 @@ def api_editar_usuario(uid):
         if not row:
             return jsonify({'erro': 'Usuário não encontrado'}), 404
         new_username = (d.get('username', row['username']) or '').strip()
+        new_email = (d.get('email', row['email']) or '').strip()
         if not new_username:
             return jsonify({'erro': 'Usuario e obrigatorio'}), 400
         new_role = (d.get('role') or row['role']).strip()
@@ -938,13 +1064,13 @@ def api_editar_usuario(uid):
             return jsonify({'erro': 'A senha deve ter no mínimo 8 caracteres'}), 400
         if new_pass:
             conn.execute(
-                'UPDATE usuarios SET username=?, role=?, ativo=?, password_hash=? WHERE id=?',
-                (new_username, new_role, ativo, generate_password_hash(new_pass), uid)
+                'UPDATE usuarios SET username=?, email=?, role=?, ativo=?, password_hash=? WHERE id=?',
+                (new_username, new_email, new_role, ativo, generate_password_hash(new_pass), uid)
             )
         else:
             conn.execute(
-                'UPDATE usuarios SET username=?, role=?, ativo=? WHERE id=?',
-                (new_username, new_role, ativo, uid)
+                'UPDATE usuarios SET username=?, email=?, role=?, ativo=? WHERE id=?',
+                (new_username, new_email, new_role, ativo, uid)
             )
         try:
             conn.commit()
@@ -988,6 +1114,17 @@ def api_conflito():
     sala = request.args.get('sala', '')
     data_esp = request.args.get('data_especifica', '').strip()
     excluir = request.args.get('excluir_id', None)
+    ocupa_manual = valor_ocupa_sala(request.args.get('ocupa_sala'), None)
+    if ocupa_manual is None:
+        ocupa_manual = calcular_ocupa_sala(
+            request.args.get('categoria', ''),
+            request.args.get('paciente', ''),
+            request.args.get('observacao', ''),
+            data_esp,
+            request.args.get('triagem', 0)
+        )
+    if not ocupa_manual:
+        return jsonify({'conflito': False, 'ocupa_sala': False})
     if not dia or not horario or not sala:
         return jsonify({'conflito': False})
     erro_validacao = validar_valores_agendamento(dia, horario, sala)
@@ -1019,6 +1156,7 @@ def list_ag():
     horario = request.args.get('horario', '')
     sala = request.args.get('sala', '')
     cat = request.args.get('categoria', '')
+    ocupa_sala = request.args.get('ocupa_sala', '').strip()
     busca = request.args.get('busca', '').strip()
     data_ref = request.args.get('data', '').strip()
 
@@ -1046,8 +1184,11 @@ def list_ag():
              ')')
         p = [dia_busca, data_ref]
     else:
-        q = 'SELECT * FROM agendamentos WHERE dia_semana=?'
-        p = [dia_busca]
+        q = (
+            'SELECT * FROM agendamentos WHERE dia_semana=? '
+            'AND (data_especifica IS NULL OR data_especifica = \'\' OR data_especifica >= ?)'
+        )
+        p = [dia_busca, data_hoje_iso()]
     if horario:
         q += ' AND horario=?'
         p.append(horario)
@@ -1057,6 +1198,9 @@ def list_ag():
     if cat:
         q += ' AND categoria=?'
         p.append(cat)
+    if ocupa_sala in ('0', '1'):
+        q += ' AND ocupa_sala=?'
+        p.append(int(ocupa_sala))
     if busca:
         q += ' AND (estagiario LIKE ? OR paciente LIKE ? OR observacao LIKE ?)'
         p += [f'%{busca}%'] * 3
@@ -1103,7 +1247,7 @@ def create_ag():
         dados_ag['horario'],
         dados_ag['sala'],
         data_especifica=dados_ag['data_especifica']
-    )
+    ) if dados_ag['ocupa_sala'] else None
     if conflito:
         ocu = conflito.get('estagiario') or conflito.get('categoria') or 'outro agendamento'
         return jsonify({
@@ -1148,7 +1292,7 @@ def update_ag(aid):
         dados_ag['sala'],
         data_especifica=dados_ag['data_especifica'],
         excluir_id=aid
-    )
+    ) if dados_ag['ocupa_sala'] else None
     if conflito:
         ocu = conflito.get('estagiario') or conflito.get('categoria') or 'outro agendamento'
         return jsonify({
@@ -1165,13 +1309,14 @@ def update_ag(aid):
         try:
             cur = conn.execute(
                 'UPDATE agendamentos SET dia_semana=?,horario=?,sala=?,estagiario=?,paciente=?,categoria=?,semestre=?,'
-                'triagem=?,observacao=?,data_especifica=?,usuario_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?',
+                'triagem=?,observacao=?,data_especifica=?,usuario_id=?,ocupa_sala=?,updated_at=CURRENT_TIMESTAMP WHERE id=?',
                 (
                     dados_ag['dia'], dados_ag['horario'], dados_ag['sala'],
                     dados_ag['estagiario'], dados_ag['paciente'], dados_ag['categoria'],
                     dados_ag['semestre'], dados_ag['triagem'], dados_ag['observacao'],
                     dados_ag['data_especifica'],
                     buscar_usuario_id_aluno(dados_ag['estagiario'], conn) or dados_ag['usuario_id'],
+                    dados_ag['ocupa_sala'],
                     aid
                 )
             )
@@ -1214,13 +1359,20 @@ def stats():
     dia = request.args.get('dia_semana', 'SEGUNDA')
     if dia not in DIAS:
         return jsonify({'erro': f'Dia inválido: {dia}'}), 400
+    filtro_visao = (
+        "dia_semana=? AND (data_especifica IS NULL OR data_especifica = '' OR data_especifica >= ?)"
+    )
+    params = (dia, data_hoje_iso())
     conn = get_db()
     try:
-        total = conn.execute('SELECT COUNT(*) FROM agendamentos WHERE dia_semana=?', (dia,)).fetchone()[0]
-        livre = conn.execute("SELECT COUNT(*) FROM agendamentos WHERE dia_semana=? AND categoria='LIVRE'", (dia,)).fetchone()[0]
+        total = conn.execute(f'SELECT COUNT(*) FROM agendamentos WHERE {filtro_visao}', params).fetchone()[0]
+        livre = conn.execute(
+            f"SELECT COUNT(*) FROM agendamentos WHERE {filtro_visao} AND categoria='LIVRE'",
+            params
+        ).fetchone()[0]
         por_cat = conn.execute(
-            'SELECT categoria, COUNT(*) as n FROM agendamentos WHERE dia_semana=? GROUP BY categoria ORDER BY n DESC',
-            (dia,)
+            f'SELECT categoria, COUNT(*) as n FROM agendamentos WHERE {filtro_visao} GROUP BY categoria ORDER BY n DESC',
+            params
         ).fetchall()
     finally:
         conn.close()
@@ -1230,7 +1382,15 @@ def stats():
 @app.route('/api/export')
 @login_required
 @requer_papel('coordenador', 'recepcao')
-def export_csv():
+def export_xlsx():
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill
+    except ImportError:
+        return jsonify({
+            'erro': 'Exportação XLSX indisponível. Instale as dependências com: pip install -r requirements.txt'
+        }), 500
+
     conn = get_db()
     try:
         rows = conn.execute(
@@ -1241,24 +1401,41 @@ def export_csv():
         ).fetchall()
     finally:
         conn.close()
-    out = io.StringIO()
-    w = csv.writer(out)
-    w.writerow(['ID', 'Dia', 'Horário', 'Sala', 'Estagiário (usuário)', 'Nome Completo', 'Paciente',
-                'Categoria', 'Semestre', 'Triagem', 'Data Esp.', 'Obs.'])
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Mapa de Salas'
+    headers = ['ID', 'Dia', 'Horário', 'Sala', 'Estagiário (usuário)', 'Nome Completo', 'Paciente',
+               'Categoria', 'Semestre', 'Triagem', 'Ocupa Sala', 'Data Esp.', 'Obs.']
+    ws.append(headers)
+
+    header_fill = PatternFill('solid', fgColor='1E293B')
+    header_font = Font(color='FFFFFF', bold=True)
+    for cell in ws[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+
     for r in rows:
-        w.writerow([
+        ws.append([
             r['id'], r['dia_semana'], r['horario'], r['sala'],
             r['estagiario'], r['nome_real'], r['paciente'],
             r['categoria'], r['semestre'], 'Sim' if r['triagem'] else 'Não',
-            r['data_especifica'], r['observacao']
+            'Sim' if r['ocupa_sala'] else 'Não', r['data_especifica'], r['observacao']
         ])
+
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or '')) for cell in col)
+        ws.column_dimensions[col[0].column_letter].width = min(max(max_len + 2, 10), 42)
+
+    out = io.BytesIO()
+    wb.save(out)
     out.seek(0)
-    registrar_log('EXPORTAR', 'CSV exportado')
+    registrar_log('EXPORTAR', 'XLSX exportado')
     return send_file(
-        io.BytesIO(out.read().encode('utf-8-sig')),
-        mimetype='text/csv',
+        out,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         as_attachment=True,
-        download_name=f'mapa_salas_{datetime.now().strftime("%Y%m%d_%H%M")}.csv'
+        download_name=f'mapa_salas_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx'
     )
 
 
@@ -1389,6 +1566,7 @@ def import_csv():
                 triagem = 1 if str(row.get('Triagem') or '').strip().lower() in ('sim', '1', 'true') else 0
                 obs = (row.get('Obs.') or row.get('observacao') or '').strip()
                 data_esp = (row.get('Data Esp.') or row.get('data_especifica') or '').strip()
+                ocupa_sala = row.get('Ocupa Sala') or row.get('ocupa_sala') or ''
 
                 dados_ag, erro = preparar_dados_agendamento({
                     'dia_semana': dia,
@@ -1400,7 +1578,8 @@ def import_csv():
                     'semestre': semestre,
                     'triagem': triagem,
                     'observacao': obs,
-                    'data_especifica': data_esp
+                    'data_especifica': data_esp,
+                    'ocupa_sala': ocupa_sala
                 })
                 if erro:
                     erros.append(f'Linha {i}: {erro}')
@@ -1446,10 +1625,12 @@ def import_csv():
 def backup_db():
     confirm = request.args.get('confirmar', '')
     if confirm != 'sim':
-        return jsonify({
-            'erro': 'Confirmação necessária. Adicione ?confirmar=sim na URL.',
-            'aviso': 'O backup contém dados sensíveis do banco incluindo hashes de senha.'
-        }), 400
+        return render_template(
+            'backup.html',
+            usuario=current_user.username,
+            papel=current_user.role,
+            versao=VERSAO
+        )
     registrar_log('BACKUP', f'Backup manual baixado por {current_user.username} — IP: {request.remote_addr}')
     return send_file(
         DB_PATH,

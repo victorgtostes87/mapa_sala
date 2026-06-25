@@ -31,6 +31,7 @@
         <thead>
           <tr>
             <th>Usuário</th>
+            <th>E-mail</th>
             <th>Papel</th>
             <th>Status</th>
             <th>Criado em</th>
@@ -42,17 +43,18 @@
             {% for u in usuarios %}
             <tr>
               <td>{{ u.username }}</td>
+              <td>{{ u.email or '—' }}</td>
               <td>{{ papeis_label.get(u.role, u.role) }}</td>
               <td>{{ 'Ativo' if u.ativo else 'Inativo' }}</td>
               <td>{{ u.created_at[:10] if u.created_at else '—' }}</td>
               <td>
                 <div class="actions">
-                  <button type="button" class="btn btn-secondary btn-editar" data-id="{{ u.id }}" data-username="{{ u.username }}" data-role="{{ u.role }}" data-ativo="{{ 1 if u.ativo else 0 }}">Editar</button>
+                  <button type="button" class="btn btn-secondary btn-editar" data-id="{{ u.id }}" data-username="{{ u.username }}" data-email="{{ u.email or '' }}" data-role="{{ u.role }}" data-ativo="{{ 1 if u.ativo else 0 }}">Editar</button>
                   {% if u.username != usuario %}
                   {% if u.ativo %}
                   <button type="button" class="btn btn-danger btn-inativar" data-id="{{ u.id }}" data-username="{{ u.username }}">Inativar</button>
                   {% else %}
-                  <button type="button" class="btn btn-primary btn-reativar" data-id="{{ u.id }}" data-username="{{ u.username }}" data-role="{{ u.role }}">Reativar</button>
+                  <button type="button" class="btn btn-primary btn-reativar" data-id="{{ u.id }}" data-username="{{ u.username }}" data-email="{{ u.email or '' }}" data-role="{{ u.role }}">Reativar</button>
                   {% endif %}
                   {% endif %}
                 </div>
@@ -61,7 +63,7 @@
             {% endfor %}
           {% else %}
             <tr>
-              <td colspan="5">Nenhum usuário cadastrado.</td>
+              <td colspan="6">Nenhum usuário cadastrado.</td>
             </tr>
           {% endif %}
         </tbody>
@@ -79,6 +81,10 @@
         <input type="hidden" id="userId" name="userId">
         <label for="username">Usuário *</label>
         <input type="text" id="username" name="username" required>
+
+        <label for="email">E-mail</label>
+        <input type="email" id="email" name="email" placeholder="nome@exemplo.com">
+        <div class="help">Opcional por enquanto. No futuro poderá ser usado para convites, troca de senha e avisos.</div>
 
         <label for="role">Papel *</label>
         <select id="role" name="role" required>
@@ -131,10 +137,11 @@
       modalUsuario.style.display = 'flex';
     }
 
-    function abrirEditarUsuario(id, username, role, ativo) {
+    function abrirEditarUsuario(id, username, email, role, ativo) {
       tituloModalUsuario.textContent = 'Editar Usuário';
       document.getElementById('userId').value = id;
       document.getElementById('username').value = username;
+      document.getElementById('email').value = email || '';
       document.getElementById('role').value = role;
       document.getElementById('ativo').value = ativo ? '1' : '0';
       document.getElementById('password').value = '';
@@ -165,6 +172,7 @@
         abrirEditarUsuario(
           parseInt(btn.dataset.id, 10),
           btn.dataset.username,
+          btn.dataset.email,
           btn.dataset.role,
           btn.dataset.ativo === '1'
         );
@@ -179,7 +187,7 @@
 
     document.querySelectorAll('.btn-reativar').forEach((btn) => {
       btn.addEventListener('click', () => {
-        reativarUsuario(parseInt(btn.dataset.id, 10), btn.dataset.username, btn.dataset.role);
+        reativarUsuario(parseInt(btn.dataset.id, 10), btn.dataset.username, btn.dataset.email, btn.dataset.role);
       });
     });
 
@@ -192,6 +200,7 @@
 
       const userId = document.getElementById('userId').value;
       const username = document.getElementById('username').value.trim();
+      const email = document.getElementById('email').value.trim();
       const role = document.getElementById('role').value;
       const ativo = document.getElementById('ativo').value === '1';
       const password = document.getElementById('password').value;
@@ -206,7 +215,7 @@
         return;
       }
 
-      const payload = { username, role, ativo };
+      const payload = { username, email, role, ativo };
       if (password) payload.password = password;
 
       try {
@@ -253,7 +262,7 @@
       }
     }
 
-    async function reativarUsuario(id, username, role) {
+    async function reativarUsuario(id, username, email, role) {
       try {
         const resp = await fetch(`/api/usuarios/${id}`, {
           method: 'PUT',
@@ -261,7 +270,7 @@
             'Content-Type': 'application/json',
             'X-CSRFToken': CSRF_TOKEN
           },
-          body: JSON.stringify({ username, role, ativo: true })
+          body: JSON.stringify({ username, email, role, ativo: true })
         });
         const data = await resp.json();
 

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Backup do Banco</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/backup.css') }}">
+</head>
+<body>
+  <main class="container">
+    <section class="card">
+      <h1>Backup do banco de dados</h1>
+      <p>
+        Este arquivo contém informações sensíveis do sistema, incluindo dados de agendamentos,
+        usuários e hashes de senha. Baixe apenas quando realmente precisar e guarde em local seguro.
+      </p>
+
+      <div class="warning">
+        Depois de baixar, não envie este arquivo por grupos de mensagem e não deixe salvo em computadores compartilhados.
+      </div>
+
+      <div class="actions">
+        <a class="btn btn-primary" href="{{ url_for('backup_db', confirmar='sim') }}">Baixar backup agora</a>
+        <a class="btn btn-secondary" href="{{ url_for('logs_page') }}">Voltar para logs</a>
+      </div>
+    </section>
+    <div class="version-footer">Versão {{ versao }}</div>
+  </main>
+</body>
+</html>

@@ -10,8 +10,8 @@ let conflictTimer = null;
 let temConflito = false;
 
 const CAT_CLASS = {
-  'ESTAGIÁRIO 10°':'cat-est10','ESTAGIÁRIO 10° TRIAGEM':'cat-est10t',
-  'ESTAGIÁRIO 9°':'cat-est9','ESTAGIÁRIO 9° TRIAGEM':'cat-est9t',
+  'ESTAGIÁRIO 10°':'cat-est10',
+  'ESTAGIÁRIO 9°':'cat-est9',
   'SUPERVISÃO':'cat-sup','NACE':'cat-nace','SOU':'cat-sou',
   'MARCAR':'cat-marcar','NÃO MARCAR':'cat-nmarcar',
   'NUTRIÇÃO':'cat-nutri','PSICODIAGNÓSTICO':'cat-psico',
@@ -30,12 +30,14 @@ async function loadData() {
   const horario = document.getElementById('filterHorario').value;
   const sala    = document.getElementById('filterSala').value;
   const cat     = document.getElementById('filterCat').value;
+  const ocupacao= document.getElementById('filterOcupacao').value;
   const busca   = document.getElementById('searchInput').value.trim();
   const data    = document.getElementById('filterData').value;
   const p = new URLSearchParams({dia_semana: currentDay});
   if (horario) p.set('horario', horario);
   if (sala)    p.set('sala', sala);
   if (cat)     p.set('categoria', cat);
+  if (ocupacao !== '') p.set('ocupa_sala', ocupacao);
   if (busca)   p.set('busca', busca);
   if (data)    p.set('data', data);
   const res = await fetch('/api/agendamentos?' + p);
@@ -84,7 +86,8 @@ async function renderGrid() {
       const ags = lk[h+'|'+s] || [];
       const td = document.createElement('td');
       if (ags.length) {
-        td.innerHTML = ags.map(renderAgendamentoCell).join('');
+        const cellTemOcupacao = ags.some(ag => parseInt(ag.ocupa_sala) === 1);
+        td.innerHTML = ags.map(ag => renderAgendamentoCell(ag, cellTemOcupacao)).join('');
       } else {
         if (PODE_EDITAR) {
           td.innerHTML = `<div class="cell cat-livre" onclick="openModalNew('${h}','${s}')">
@@ -100,16 +103,22 @@ async function renderGrid() {
   }
   loadStats();
 }
-function renderAgendamentoCell(ag){
+function renderAgendamentoCell(ag, cellTemOcupacao=false){
   const cls = CAT_CLASS[ag.categoria] || 'cat-outro';
   const badgeHtml = ag.triagem ? '<span class="badge">triagem</span>' : '';
   const dataHtml  = ag.data_especifica ? '<span class="badge">'+esc(ag.data_especifica)+'</span>' : '';
+  const ocupa = parseInt(ag.ocupa_sala) === 1;
+  const ocupacaoHtml = ocupa ? '<span class="badge badge-ocupa">ocupa sala</span>' : '<span class="badge badge-livre">sala livre</span>';
+  const obsHtml = ag.observacao ? '<div class="obs">'+esc(ag.observacao)+'</div>' : '';
   const editBtn   = PODE_EDITAR ? `<button class="edit-btn" onclick="event.stopPropagation();openModal(${ag.id})">✏️</button>` : '';
-  return `<div class="cell ${cls}" onclick="openModal(${ag.id})">
+  const usarBtn = PODE_EDITAR && !ocupa && !cellTemOcupacao ? `<button class="use-room-btn" onclick="event.stopPropagation();openUsoPontual('${escAttr(ag.horario)}','${escAttr(ag.sala)}')">+ Usar sala</button>` : '';
+  return `<div class="cell ${cls} ${ocupa ? 'cell-ocupa' : 'cell-livre-info'}" onclick="openModal(${ag.id})">
     ${editBtn}
     <div class="intern">${esc(ag.estagiario)}</div>
     ${ag.paciente ? '<div class="patient">'+esc(ag.paciente)+'</div>' : ''}
-    <div style="display:flex;gap:3px;flex-wrap:wrap">${badgeHtml}${dataHtml}</div>
+    ${obsHtml}
+    <div style="display:flex;gap:3px;flex-wrap:wrap">${badgeHtml}${dataHtml}${ocupacaoHtml}</div>
+    ${usarBtn}
   </div>`;
 }
 function updateDateFilterBadge(){
@@ -125,9 +134,34 @@ function updateDateFilterBadge(){
   el.textContent = `Mostrando data específica: ${dia}/${mes}/${ano}`;
   el.style.display = 'inline-flex';
 }
-function esc(t){ if(!t)return''; return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function esc(t){ if(!t)return''; return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escAttr(t){ return esc(t).replace(/'/g,'&#39;').replace(/"/g,'&quot;'); }
 function debounceRender(){ clearTimeout(debTimer); debTimer=setTimeout(renderGrid,300); }
-function clearFilters(){ document.getElementById('searchInput').value=''; document.getElementById('filterData').value=''; document.getElementById('filterHorario').value=''; document.getElementById('filterSala').value=''; document.getElementById('filterCat').value=''; renderGrid(); }
+function clearFilters(){ document.getElementById('searchInput').value=''; document.getElementById('filterData').value=''; document.getElementById('filterHorario').value=''; document.getElementById('filterSala').value=''; document.getElementById('filterCat').value=''; document.getElementById('filterOcupacao').value=''; renderGrid(); }
+function calcularOcupaSalaLocal(){
+  const manual = document.getElementById('fOcupaSala').value;
+  if(manual === '1') return true;
+  if(manual === '0') return false;
+
+  const categoria = (document.getElementById('fCategoria').value || '').toUpperCase();
+  const paciente = document.getElementById('fPaciente').value.trim();
+  const obs = document.getElementById('fObs').value.trim();
+  const dataEsp = document.getElementById('fData').value.trim();
+  if(paciente) return true;
+  if(['SUPERVISÃO','NACE','SOU','NUTRIÇÃO','PSICODIAGNÓSTICO','PSIQUIATRIA','AMBULATÓRIO NEUROPSICOLOGIA','PLANTÃO PSICOLÓGICO','PRONTUÁRIO/ESTUDAR'].includes(categoria)) return true;
+  if(dataEsp && obs) return true;
+  return false;
+}
+function atualizarOcupacaoPreview(){
+  const hint = document.getElementById('ocupaHint');
+  if(!hint) return;
+  const ocupa = calcularOcupaSalaLocal();
+  hint.textContent = ocupa
+    ? 'Este registro ocupa a sala e bloqueia outro uso no mesmo horário.'
+    : 'Este registro é informativo. A sala continua livre para uso pontual ou atendimento.';
+  hint.classList.toggle('ocupa', ocupa);
+  hint.classList.toggle('livre', !ocupa);
+}
 async function verificarConflito() {
   clearTimeout(conflictTimer);
   conflictTimer = setTimeout(async () => {
@@ -136,7 +170,16 @@ async function verificarConflito() {
     const horario=document.getElementById('fHorario').value;
     const sala=document.getElementById('fSala').value;
     const dataEsp=document.getElementById('fData').value.trim();
-    const p=new URLSearchParams({dia_semana:dia,horario,sala});
+    const p=new URLSearchParams({
+      dia_semana:dia,
+      horario,
+      sala,
+      categoria:document.getElementById('fCategoria').value,
+      paciente:document.getElementById('fPaciente').value.trim(),
+      observacao:document.getElementById('fObs').value.trim(),
+      triagem:document.getElementById('fTriagem').value,
+      ocupa_sala:calcularOcupaSalaLocal() ? '1' : '0'
+    });
     if(dataEsp) p.set('data_especifica',dataEsp);
     if(id) p.set('excluir_id',id);
     let res;
@@ -187,6 +230,7 @@ async function openModal(id){
          <strong>Estagiário:</strong> ${esc(d.estagiario)||'—'}<br>
          <strong>Paciente:</strong> ${esc(d.paciente)||'—'}<br>
          <strong>Categoria:</strong> ${esc(d.categoria)||'—'}<br>
+         <strong>Ocupa sala:</strong> ${parseInt(d.ocupa_sala)===1?'Sim':'Não'}<br>
          ${d.observacao?'<strong>Obs:</strong> '+esc(d.observacao):''}`;
     } catch (err) {
       showToast(err.message || 'Falha ao abrir o agendamento.', 'error');
@@ -207,18 +251,36 @@ async function openModal(id){
       setF('fCategoria',d.categoria); setF('fTriagem',d.triagem);
       document.getElementById('fData').value=d.data_especifica||'';
       document.getElementById('fObs').value=d.observacao||'';
+      setF('fOcupaSala', String(d.ocupa_sala ?? ''));
     } catch (err) {
       showToast(err.message || 'Falha ao abrir o agendamento.', 'error');
       return;
     }
   } else {
-    setF('fDia',currentDay); setF('fCategoria',''); setF('fTriagem',0);
+    setF('fDia',currentDay); setF('fCategoria',''); setF('fTriagem',0); setF('fOcupaSala','');
     ['fEstagiario','fPaciente','fData','fObs'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('fObs').placeholder='Ex: estudar, lançar prontuário, professor não liberou, uso interno...';
     document.getElementById('fData').value=document.getElementById('filterData').value||'';
   }
+  atualizarOcupacaoPreview();
   document.getElementById('modalOverlay').classList.add('open');
 }
 function openModalNew(h,s){ if(!PODE_EDITAR)return; openModal(null); setTimeout(()=>{setF('fHorario',h);setF('fSala',s);verificarConflito();},50); }
+function todayIso(){ return new Date().toISOString().slice(0,10); }
+function openUsoPontual(h,s){
+  if(!PODE_EDITAR)return;
+  openModal(null);
+  setTimeout(()=>{
+    setF('fHorario',h);
+    setF('fSala',s);
+    setF('fCategoria','PRONTUÁRIO/ESTUDAR');
+    setF('fOcupaSala','1');
+    document.getElementById('fData').value=document.getElementById('filterData').value||todayIso();
+    document.getElementById('fObs').placeholder='Ex: Victor estudar, lançar prontuário, reunião pontual...';
+    atualizarOcupacaoPreview();
+    verificarConflito();
+  },50);
+}
 function setF(id,val){ const el=document.getElementById(id); if(el) el.value=val; }
 function closeModal(){ document.getElementById('modalOverlay').classList.remove('open'); }
 function closeModalIfBg(e){ if(e.target.id==='modalOverlay') closeModal(); }
@@ -234,7 +296,8 @@ async function saveAg(){
     categoria:document.getElementById('fCategoria').value,
     triagem:parseInt(document.getElementById('fTriagem').value)||0,
     data_especifica:document.getElementById('fData').value.trim(),
-    observacao:document.getElementById('fObs').value.trim()
+    observacao:document.getElementById('fObs').value.trim(),
+    ocupa_sala:calcularOcupaSalaLocal() ? 1 : 0
   };
   let res;
   let data;

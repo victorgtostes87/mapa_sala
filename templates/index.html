@@ -64,6 +64,11 @@
     {% for s in salas %}<option>{{s}}</option>{% endfor %}</select>
   <select id="filterCat" onchange="renderGrid()"><option value="">Todas categorias</option>
     {% for c in categorias %}<option>{{c}}</option>{% endfor %}</select>
+  <select id="filterOcupacao" onchange="renderGrid()">
+    <option value="">Todas ocupações</option>
+    <option value="1">Somente salas ocupadas</option>
+    <option value="0">Somente registros informativos</option>
+  </select>
   <button class="btn btn-ghost btn-sm" onclick="clearFilters()">&#x2715; Limpar</button>
 </div>
 
@@ -122,21 +127,29 @@
       <div class="form-row"><label>Sala *</label>
         <select id="fSala" onchange="verificarConflito()">{% for s in salas %}<option>{{s}}</option>{% endfor %}</select></div>
       <div class="form-row"><label>Estagiário / Conteúdo</label>
-        <div class="ac-wrap"><input type="text" id="fEstagiario" placeholder="Digite o nome do estagiário..." autocomplete="off">
+        <div class="ac-wrap"><input type="text" id="fEstagiario" placeholder="Digite o nome do estagiário..." autocomplete="off" oninput="atualizarOcupacaoPreview()">
         <div id="estSuggestions" class="ac-box"></div></div></div>
       <div class="form-row"><label>Paciente</label>
-        <input type="text" id="fPaciente" placeholder="Nome do paciente"></div>
+        <input type="text" id="fPaciente" placeholder="Nome do paciente" oninput="atualizarOcupacaoPreview();verificarConflito()"></div>
       <div class="form-grid">
         <div class="form-row"><label>Categoria</label>
-          <select id="fCategoria"><option value="">Auto-detectar</option>
+          <select id="fCategoria" onchange="atualizarOcupacaoPreview();verificarConflito()"><option value="">Auto-detectar</option>
             {% for c in categorias %}<option>{{c}}</option>{% endfor %}</select></div>
         <div class="form-row"><label>Triagem?</label>
-          <select id="fTriagem"><option value="0">Não</option><option value="1">Sim</option></select></div>
+          <select id="fTriagem" onchange="atualizarOcupacaoPreview();verificarConflito()"><option value="0">Não</option><option value="1">Sim</option></select></div>
       </div>
       <div class="form-row"><label>Data específica <span style="font-size:10px;color:var(--text2);font-weight:400;text-transform:none">(opcional — só para agendamentos pontuais)</span></label>
-        <input type="date" id="fData" onchange="verificarConflito()"></div>
+        <input type="date" id="fData" onchange="atualizarOcupacaoPreview();verificarConflito()"></div>
       <div class="form-row"><label>Observação</label>
-        <textarea id="fObs" placeholder="Notas adicionais..."></textarea></div>
+        <textarea id="fObs" placeholder="Ex: estudar, lançar prontuário, professor não liberou, uso interno..." oninput="atualizarOcupacaoPreview();verificarConflito()"></textarea></div>
+      <div class="form-row"><label>Ocupa sala?</label>
+        <select id="fOcupaSala" onchange="atualizarOcupacaoPreview();verificarConflito()">
+          <option value="">Automático</option>
+          <option value="1">Sim, ocupa sala</option>
+          <option value="0">Não, é só informação do mapa</option>
+        </select>
+        <div class="occupancy-hint" id="ocupaHint">O sistema calcula isso para mostrar se a sala está realmente livre.</div>
+      </div>
       <div class="modal-footer">
         <button class="btn btn-danger btn-sm" id="deleteBtn" onclick="deleteAg()" style="display:none;margin-right:auto"><i data-lucide="trash-2"></i> Remover</button>
         <button class="btn btn-ghost" onclick="closeModal()"><i data-lucide="x"></i> Cancelar</button>

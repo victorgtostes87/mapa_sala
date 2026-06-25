@@ -4,128 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Usuários</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #f4f6f9;
-      color: #1f2937;
-    }
-    .container {
-      max-width: 1100px;
-      margin: 32px auto;
-      padding: 0 16px;
-    }
-    .topbar, .header-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-    .userbox {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      color: #6b7280;
-      font-size: 14px;
-    }
-    .nav {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-    .btn {
-      border: 0;
-      border-radius: 8px;
-      padding: 10px 14px;
-      cursor: pointer;
-      text-decoration: none;
-      font-size: 14px;
-      display: inline-block;
-    }
-    .btn-primary { background: #2563eb; color: #fff; }
-    .btn-secondary { background: #e5e7eb; color: #111827; }
-    .btn-danger { background: #dc2626; color: #fff; }
-    .card {
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 10px 30px rgba(0,0,0,.08);
-      padding: 20px;
-      margin-top: 18px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 16px;
-    }
-    th, td {
-      text-align: left;
-      padding: 12px 10px;
-      border-bottom: 1px solid #e5e7eb;
-    }
-    th {
-      font-size: 13px;
-      text-transform: uppercase;
-      color: #6b7280;
-    }
-    .actions {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .modal-backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(17,24,39,.45);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-    }
-    .modal {
-      width: 100%;
-      max-width: 520px;
-      background: #fff;
-      border-radius: 12px;
-      padding: 24px;
-      box-shadow: 0 20px 50px rgba(0,0,0,.18);
-    }
-    label {
-      display: block;
-      font-weight: 600;
-      margin: 12px 0 6px;
-    }
-    input, select {
-      width: 100%;
-      padding: 11px 12px;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      font-size: 14px;
-    }
-    .help {
-      color: #6b7280;
-      font-size: 13px;
-      margin-top: 6px;
-      line-height: 1.45;
-    }
-    .error-box {
-      display: none;
-      background: #fee2e2;
-      color: #991b1b;
-      border-radius: 8px;
-      padding: 10px 12px;
-      margin-bottom: 12px;
-      font-size: 14px;
-    }
-    .modal-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 20px;
-      flex-wrap: wrap;
-    }
-  </style>
+  
+<link rel="stylesheet" href="{{ url_for('static', filename='css/usuarios.css') }}">
 </head>
 <body>
   <div class="container">
@@ -151,7 +31,9 @@
         <thead>
           <tr>
             <th>Usuário</th>
+            <th>E-mail</th>
             <th>Papel</th>
+            <th>Status</th>
             <th>Criado em</th>
             <th>Ações</th>
           </tr>
@@ -161,13 +43,19 @@
             {% for u in usuarios %}
             <tr>
               <td>{{ u.username }}</td>
+              <td>{{ u.email or '---' }}</td>
               <td>{{ u.role }}</td>
+              <td>{{ 'Ativo' if u.ativo else 'Inativo' }}</td>
               <td>{{ u.created_at[:10] if u.created_at else '—' }}</td>
               <td>
                 <div class="actions">
-                  <button class="btn btn-secondary">✏️ Editar</button>
+                  <button type="button" class="btn btn-secondary" onclick="abrirEditarUsuario({{ u.id }}, {{ u.username | tojson }}, {{ u.email | tojson }}, {{ u.role | tojson }}, {{ u.ativo | tojson }})">Editar</button>
                   {% if u.username != usuario %}
-                  <button class="btn btn-danger">🗑 Excluir</button>
+                  {% if u.ativo %}
+                  <button type="button" class="btn btn-danger" onclick="inativarUsuario({{ u.id }}, {{ u.username | tojson }})">Inativar</button>
+                  {% else %}
+                  <button type="button" class="btn btn-primary" onclick="reativarUsuario({{ u.id }}, {{ u.username | tojson }}, {{ u.email | tojson }}, {{ u.role | tojson }})">Reativar</button>
+                  {% endif %}
                   {% endif %}
                 </div>
               </td>
@@ -175,7 +63,7 @@
             {% endfor %}
           {% else %}
             <tr>
-              <td colspan="4">Nenhum usuário cadastrado.</td>
+              <td colspan="5">Nenhum usuário cadastrado.</td>
             </tr>
           {% endif %}
         </tbody>
@@ -185,13 +73,17 @@
 
   <div class="modal-backdrop" id="modalUsuario">
     <div class="modal">
-      <h2 style="margin-top:0;">Novo Usuário</h2>
+      <h2 style="margin-top:0;" id="tituloModalUsuario">Novo Usuário</h2>
 
       <div class="error-box" id="erroUsuario"></div>
 
       <form id="formNovoUsuario">
+        <input type="hidden" id="userId" name="userId">
         <label for="username">Usuário *</label>
         <input type="text" id="username" name="username" required>
+
+        <label for="email">E-mail</label>
+        <input type="email" id="email" name="email">
 
         <label for="role">Papel *</label>
         <select id="role" name="role" required>
@@ -201,9 +93,15 @@
           <option value="coordenador">coordenador — acesso total</option>
         </select>
 
-        <label for="password">Senha *</label>
-        <input type="password" id="password" name="password" minlength="8" required>
-        <div class="help">Mínimo 8 caracteres.</div>
+        <label for="ativo">Status *</label>
+        <select id="ativo" name="ativo" required>
+          <option value="1">Ativo</option>
+          <option value="0">Inativo</option>
+        </select>
+
+        <label for="password">Senha</label>
+        <input type="password" id="password" name="password" minlength="8">
+        <div class="help" id="senhaHelp">Mínimo 8 caracteres. Ao editar, deixe em branco para manter a senha atual.</div>
 
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" id="btnCancelarUsuario">Cancelar</button>
@@ -219,8 +117,39 @@
     const btnCancelarUsuario = document.getElementById('btnCancelarUsuario');
     const formNovoUsuario = document.getElementById('formNovoUsuario');
     const erroUsuario = document.getElementById('erroUsuario');
+    const tituloModalUsuario = document.getElementById('tituloModalUsuario');
+    const CSRF_TOKEN = {{ csrf_token() | tojson }};
+    const roleSelect = document.getElementById('role');
+    roleSelect.innerHTML = ['aluno', 'coordenador', 'recepcao', 'professor']
+      .map((role) => `<option value="${role}">${role}</option>`)
+      .join('');
+
+    function prepararNovoUsuario() {
+      tituloModalUsuario.textContent = 'Novo Usuário';
+      formNovoUsuario.reset();
+      document.getElementById('userId').value = '';
+      document.getElementById('ativo').value = '1';
+      document.getElementById('password').required = true;
+      document.getElementById('senhaHelp').textContent = 'Mínimo 8 caracteres.';
+    }
 
     function abrirModalUsuario() {
+      prepararNovoUsuario();
+      erroUsuario.style.display = 'none';
+      erroUsuario.textContent = '';
+      modalUsuario.style.display = 'flex';
+    }
+
+    function abrirEditarUsuario(id, username, email, role, ativo) {
+      tituloModalUsuario.textContent = 'Editar Usuário';
+      document.getElementById('userId').value = id;
+      document.getElementById('username').value = username;
+      document.getElementById('email').value = email || '';
+      document.getElementById('role').value = role;
+      document.getElementById('ativo').value = ativo ? '1' : '0';
+      document.getElementById('password').value = '';
+      document.getElementById('password').required = false;
+      document.getElementById('senhaHelp').textContent = 'Deixe em branco para manter a senha atual.';
       erroUsuario.style.display = 'none';
       erroUsuario.textContent = '';
       modalUsuario.style.display = 'flex';
@@ -228,7 +157,7 @@
 
     function fecharModalUsuario() {
       modalUsuario.style.display = 'none';
-      formNovoUsuario.reset();
+      prepararNovoUsuario();
       erroUsuario.style.display = 'none';
       erroUsuario.textContent = '';
     }
@@ -248,41 +177,93 @@
     formNovoUsuario.addEventListener('submit', async (e) => {
       e.preventDefault();
 
+      const userId = document.getElementById('userId').value;
       const username = document.getElementById('username').value.trim();
+      const email = document.getElementById('email').value.trim();
       const role = document.getElementById('role').value;
+      const ativo = document.getElementById('ativo').value === '1';
       const password = document.getElementById('password').value;
 
-      if (!username || !password) {
+      if (!username || (!userId && !password)) {
         mostrarErroUsuario('Usuário e senha são obrigatórios.');
         return;
       }
 
-      if (password.length < 8) {
+      if (password && password.length < 8) {
         mostrarErroUsuario('A senha deve ter no mínimo 8 caracteres.');
         return;
       }
 
+      const payload = { username, email, role, ativo };
+      if (password) payload.password = password;
+
       try {
-        const resp = await fetch('/api/usuarios', {
-          method: 'POST',
+        const resp = await fetch(userId ? `/api/usuarios/${userId}` : '/api/usuarios', {
+          method: userId ? 'PUT' : 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'X-CSRFToken': CSRF_TOKEN
           },
-          body: JSON.stringify({ username, role, password })
+          body: JSON.stringify(payload)
         });
 
         const data = await resp.json();
 
         if (!resp.ok) {
-          mostrarErroUsuario(data.erro || 'Erro ao criar usuário.');
+          mostrarErroUsuario(data.erro || 'Erro ao salvar usuário.');
           return;
         }
 
         window.location.reload();
       } catch (err) {
-        mostrarErroUsuario('Erro de conexão ao criar usuário.');
+        mostrarErroUsuario('Não foi possível salvar agora. Verifique a conexão e tente novamente.');
       }
     });
+
+    async function inativarUsuario(id, username) {
+      if (!confirm(`Inativar o usuário "${username}"?`)) return;
+
+      try {
+        const resp = await fetch(`/api/usuarios/${id}`, {
+          method: 'DELETE',
+          headers: {'X-CSRFToken': CSRF_TOKEN}
+        });
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          alert(data.erro || 'Erro ao inativar usuário.');
+          return;
+        }
+
+        window.location.reload();
+      } catch (err) {
+        alert('Não foi possível inativar agora. Verifique a conexão e tente novamente.');
+      }
+    }
+
+    async function reativarUsuario(id, username, email, role) {
+      try {
+        const resp = await fetch(`/api/usuarios/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': CSRF_TOKEN
+          },
+          body: JSON.stringify({ username, email, role, ativo: true })
+        });
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          alert(data.erro || 'Erro ao reativar usuário.');
+          return;
+        }
+
+        window.location.reload();
+      } catch (err) {
+        alert('Não foi possível reativar agora. Verifique a conexão e tente novamente.');
+      }
+    }
   </script>
+<div style="margin:18px 0;text-align:center;color:#6b7280;font-size:12px">Vers?o {{ versao }}</div>
 </body>
 </html>

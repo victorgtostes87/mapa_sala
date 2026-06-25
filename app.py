@@ -1,16 +1,29 @@
-import sqlite3, csv, io, os, re
-from datetime import datetime, date
+import csv
+import io
+import os
+import re
+import secrets
+import sqlite3
+import zipfile
+from datetime import datetime
 from functools import wraps
-from flask import Flask, render_template, jsonify, request, send_file, redirect, url_for, flash
+from xml.sax.saxutils import escape
+import click
+from flask import Flask, render_template, render_template_string, jsonify, request, send_file, redirect, url_for, flash, session
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from jinja2 import TemplateNotFound
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
+
+# ========================================
+# CONFIGURACAO
+# ========================================
+
 app = Flask(__name__)
 try:
     from dotenv import load_dotenv as _ld
-    import os as _os
     _ld(dotenv_path='/home/victroid/mapa_sala/.env')
 except ImportError:
     pass
@@ -41,19 +54,56 @@ limiter = Limiter(
 
 PAPEIS_VALIDOS = ('coordenador', 'recepcao', 'professor', 'aluno')
 
+
+# ========================================
+# MODELOS E PERMISSOES
+# ========================================
+
+def gerar_csrf_token():
+    if '_csrf_token' not in session:
+        session['_csrf_token'] = secrets.token_urlsafe(32)
+    return session['_csrf_token']
+
+
+@app.context_processor
+def injetar_csrf_token():
+    return {'csrf_token': gerar_csrf_token, 'versao': VERSAO}
+
+
+@app.before_request
+def proteger_csrf():
+    if request.method not in ('POST', 'PUT', 'PATCH', 'DELETE'):
+        return None
+
+    token_salvo = session.get('_csrf_token')
+    token_enviado = request.headers.get('X-CSRFToken') or request.form.get('csrf_token')
+    if token_salvo and token_enviado and secrets.compare_digest(token_salvo, token_enviado):
+        return None
+
+    if request.path.startswith('/api/'):
+        return jsonify({'erro': 'Sua sessao expirou. Recarregue a pagina e tente novamente.'}), 400
+
+    flash('Sua sessao expirou. Recarregue a pagina e tente novamente.', 'error')
+    return redirect(url_for('login'))
+
+
 class Usuario(UserMixin):
-    def __init__(self, id, username, role, nome_completo='', email=''):
+    def __init__(self, id, username, role, nome_completo='', email='', ativo=1):
         self.id = id
         self.username = username
         self.role = role
         self.nome_completo = nome_completo
         self.email = email
+        self.ativo = ativo
 
 
 def get_db():
+    # timeout=10 reduz falhas quando duas pessoas salvam dados quase ao mesmo tempo.
     conn = sqlite3.connect(DB_PATH, timeout=10, check_same_thread=False)
     conn.row_factory = sqlite3.Row
+    # WAL melhora leitura simultanea em sistemas pequenos com varios usuarios internos.
     conn.execute('PRAGMA journal_mode=WAL')
+    # NORMAL equilibra seguranca e desempenho para um SQLite usado em aplicacao web interna.
     conn.execute('PRAGMA synchronous=NORMAL')
     return conn
 
@@ -62,13 +112,13 @@ def get_db():
 def load_user(user_id):
     conn = get_db()
     try:
-        row = conn.execute('SELECT * FROM usuarios WHERE id=?', (user_id,)).fetchone()
+        row = conn.execute('SELECT * FROM usuarios WHERE id=? AND ativo=1', (user_id,)).fetchone()
     finally:
         conn.close()
     if not row:
         return None
     return Usuario(row['id'], row['username'], row['role'],
-                   row['nome_completo'] or '', row['email'] or '')
+                   row['nome_completo'] or '', row['email'] or '', row['ativo'])
 
 
 def requer_papel(*papeis):
@@ -93,6 +143,10 @@ def requer_papel_page(*papeis):
         return wrapped
     return decorator
 
+
+# ========================================
+# CONSTANTES DE NEGOCIO
+# ========================================
 
 SALAS = [
     'Consultório 1', 'Consultório 2', 'Consultório 3', 'Consultório 4',
@@ -128,6 +182,100 @@ PAPEIS_LABEL = {
 LOG_RETENCAO_DIAS = 15
 
 
+# ========================================
+# BANCO DE DADOS
+# ========================================
+
+def normalizar_data_especifica(data_especifica):
+    data_especifica = (data_especifica or '').strip()
+    if not data_especifica:
+        return '', None
+
+    try:
+        data_obj = datetime.strptime(data_especifica, '%Y-%m-%d')
+    except ValueError:
+        return None, 'Data especifica invalida. Use o formato AAAA-MM-DD (ex: 2026-08-15).'
+
+    if data_obj.weekday() >= len(DIAS):
+        return None, 'Data especifica deve cair entre segunda e sexta-feira.'
+
+    return data_especifica, None
+
+
+def dia_semana_da_data(data_especifica):
+    data_obj = datetime.strptime(data_especifica, '%Y-%m-%d')
+    return DIAS[data_obj.weekday()]
+
+
+def validar_valores_agendamento(dia, horario, sala, categoria=''):
+    if dia not in DIAS:
+        return f'Dia inválido: {dia}'
+    if horario not in HORARIOS:
+        return f'Horário inválido: {horario}'
+    if sala not in SALAS:
+        return f'Sala inválida: {sala}'
+    if categoria and categoria not in CATEGORIAS:
+        return f'Categoria inválida: {categoria}'
+    return None
+
+
+def preparar_dados_agendamento(dados, usuario_id_padrao=None):
+    dia = (dados.get('dia_semana') or 'SEGUNDA').strip()
+    horario = (dados.get('horario') or '').strip()
+    sala = (dados.get('sala') or '').strip()
+    data_esp = (dados.get('data_especifica') or '').strip()
+    categoria_informada = (dados.get('categoria') or '').strip()
+
+    if not horario or not sala:
+        return None, 'Os campos hor?rio e sala são obrigatórios'
+
+    data_esp, erro_data = normalizar_data_especifica(data_esp)
+    if erro_data:
+        return None, erro_data
+    if data_esp:
+        dia = dia_semana_da_data(data_esp)
+
+    erro_validacao = validar_valores_agendamento(dia, horario, sala, categoria_informada)
+    if erro_validacao:
+        return None, erro_validacao
+
+    estagiario = dados.get('estagiario', '')
+    paciente = dados.get('paciente', '')
+    categoria = categoria_informada or detect_cat(estagiario, paciente)
+    semestre = dados.get('semestre', 0) or detect_sem(estagiario)
+
+    return {
+        'dia': dia,
+        'horario': horario,
+        'sala': sala,
+        'estagiario': estagiario,
+        'paciente': paciente,
+        'categoria': categoria,
+        'semestre': semestre,
+        'triagem': dados.get('triagem', 0),
+        'observacao': dados.get('observacao', ''),
+        'data_especifica': data_esp,
+        'usuario_id': dados.get('usuario_id') or usuario_id_padrao,
+    }, None
+
+
+def valor_ativo(valor, padrao=1):
+    if valor is None:
+        return padrao
+    if isinstance(valor, bool):
+        return 1 if valor else 0
+    return 0 if str(valor).strip().lower() in ('0', 'false', 'nao', 'não', 'inativo') else 1
+
+
+def limpar_logs_antigos(conn):
+    """Remove historico antigo para impedir crescimento continuo do arquivo SQLite."""
+    cur = conn.execute(
+        "DELETE FROM historico WHERE ts < datetime('now', '-' || ? || ' days')",
+        (LOG_RETENCAO_DIAS,)
+    )
+    return cur.rowcount
+
+
 def init_db():
     conn = get_db()
     try:
@@ -153,6 +301,8 @@ def init_db():
             "usuario TEXT DEFAULT '',"
             "acao TEXT,"
             "dados TEXT,"
+            "ip TEXT DEFAULT '',"
+            "user_agent TEXT DEFAULT '',"
             "ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
             ");"
             "CREATE TABLE IF NOT EXISTS usuarios ("
@@ -162,6 +312,7 @@ def init_db():
             "role TEXT NOT NULL DEFAULT 'aluno',"
             "nome_completo TEXT DEFAULT '',"
             "email TEXT DEFAULT '',"
+            "ativo INTEGER DEFAULT 1,"
             "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
             ");"
         )
@@ -172,13 +323,35 @@ def init_db():
                 ('coordenador', generate_password_hash('mudar@2026'), 'coordenador')
             )
         conn.executescript(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_conflito ON agendamentos(dia_semana, horario, sala);"
+            "DROP INDEX IF EXISTS idx_conflito;"
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_conflito_semanal "
+            "ON agendamentos(dia_semana, horario, sala) "
+            "WHERE data_especifica IS NULL OR data_especifica = '';"
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_conflito_data "
+            "ON agendamentos(data_especifica, horario, sala) "
+            "WHERE data_especifica IS NOT NULL AND data_especifica != '';"
             "CREATE INDEX IF NOT EXISTS idx_dia_semana ON agendamentos(dia_semana);"
+            "CREATE INDEX IF NOT EXISTS idx_data_especifica ON agendamentos(data_especifica);"
         )
         cols = [r[1] for r in conn.execute("PRAGMA table_info(agendamentos)").fetchall()]
         if 'usuario_id' not in cols:
             conn.execute("ALTER TABLE agendamentos ADD COLUMN usuario_id INTEGER DEFAULT NULL")
             conn.commit()
+        cols_usuarios = [r[1] for r in conn.execute("PRAGMA table_info(usuarios)").fetchall()]
+        if 'email' not in cols_usuarios:
+            conn.execute("ALTER TABLE usuarios ADD COLUMN email TEXT DEFAULT ''")
+            conn.commit()
+        if 'ativo' not in cols_usuarios:
+            conn.execute("ALTER TABLE usuarios ADD COLUMN ativo INTEGER DEFAULT 1")
+            conn.commit()
+        cols_historico = [r[1] for r in conn.execute("PRAGMA table_info(historico)").fetchall()]
+        if 'ip' not in cols_historico:
+            conn.execute("ALTER TABLE historico ADD COLUMN ip TEXT DEFAULT ''")
+            conn.commit()
+        if 'user_agent' not in cols_historico:
+            conn.execute("ALTER TABLE historico ADD COLUMN user_agent TEXT DEFAULT ''")
+            conn.commit()
+        limpar_logs_antigos(conn)
         conn.commit()
     finally:
         conn.close()
@@ -186,40 +359,60 @@ def init_db():
 
 def registrar_log(acao, dados=''):
     usuario = current_user.username if current_user.is_authenticated else 'sistema'
+    ip = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
+    user_agent = (request.headers.get('User-Agent') or '')[:300]
     conn = get_db()
     try:
-        conn.execute('INSERT INTO historico(usuario, acao, dados) VALUES(?,?,?)', (usuario, acao, dados))
+        conn.execute(
+            'INSERT INTO historico(usuario, acao, dados, ip, user_agent) VALUES(?,?,?,?,?)',
+            (usuario, acao, dados, ip, user_agent)
+        )
+        limpar_logs_antigos(conn)
         conn.commit()
     finally:
         conn.close()
 
 
-def checar_conflito(dia, horario, sala, excluir_id=None):
+def checar_conflito(dia, horario, sala, data_especifica='', excluir_id=None):
     conn = get_db()
     try:
         try:
             eid = int(excluir_id) if excluir_id else None
         except (ValueError, TypeError):
             eid = None
-        if eid:
-            r = conn.execute(
-                'SELECT * FROM agendamentos WHERE dia_semana=? AND horario=? AND sala=? AND CAST(id AS INTEGER)!=?',
-                (dia, horario, sala, eid)
-            ).fetchone()
+
+        data_especifica = (data_especifica or '').strip()
+        params = [horario, sala]
+        q = 'SELECT * FROM agendamentos WHERE horario=? AND sala=?'
+
+        if data_especifica:
+            q += (
+                ' AND (data_especifica=? '
+                'OR (dia_semana=? AND (data_especifica IS NULL OR data_especifica = \'\')))'
+            )
+            params.extend([data_especifica, dia])
         else:
-            r = conn.execute(
-                'SELECT * FROM agendamentos WHERE dia_semana=? AND horario=? AND sala=?',
-                (dia, horario, sala)
-            ).fetchone()
+            q += ' AND dia_semana=?'
+            params.append(dia)
+
+        if eid:
+            q += ' AND CAST(id AS INTEGER)!=?'
+            params.append(eid)
+
+        r = conn.execute(q, params).fetchone()
     finally:
         conn.close()
     return dict(r) if r else None
 
 
+# ========================================
+# REGRAS DE NEGOCIO
+# ========================================
+
 def normalize(t):
     if not t:
         return ''
-    for o, n in [('ă', 'ã'), ('Ă', 'Ã'), ('ş', 'º'), ('Ş', 'º'), ('ţ', 'ç')]:
+    for o, n in [('?', 'ã'), ('?', 'Ã'), ('ş', 'º'), ('Ş', 'º'), ('ţ', 'ç')]:
         t = t.replace(o, n)
     return t.strip()
 
@@ -269,10 +462,80 @@ def detect_sem(t):
     return 0
 
 
+# ========================================
+# API PUBLICA
+# ========================================
+
+def pagina_erro(titulo, mensagem, status):
+    try:
+        return render_template(
+            'error.html',
+            titulo=titulo,
+            mensagem=mensagem,
+            status=status,
+            versao=VERSAO
+        ), status
+    except TemplateNotFound:
+        return render_template_string(
+            '''
+            <!doctype html>
+            <html lang="pt-BR">
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <title>{{ status }} - {{ titulo }}</title>
+              <style>
+                body{font-family:Arial,sans-serif;background:#f4f6f9;color:#1f2937;margin:0}
+                main{max-width:680px;margin:80px auto;padding:24px}
+                .box{background:#fff;border-radius:10px;padding:28px;box-shadow:0 10px 30px rgba(0,0,0,.08)}
+                h1{margin:0 0 10px;font-size:28px}
+                p{line-height:1.5;color:#4b5563}
+                a{display:inline-block;margin-top:14px;background:#2563eb;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px}
+                footer{margin-top:18px;color:#6b7280;font-size:12px}
+              </style>
+            </head>
+            <body>
+              <main>
+                <div class="box">
+                  <h1>{{ status }} - {{ titulo }}</h1>
+                  <p>{{ mensagem }}</p>
+                  <a href="{{ url_for('index') }}">Voltar ao mapa</a>
+                  <footer>Versão {{ versao }}</footer>
+                </div>
+              </main>
+            </body>
+            </html>
+            ''',
+            titulo=titulo,
+            mensagem=mensagem,
+            status=status,
+            versao=VERSAO
+        ), status
+
+
+@app.errorhandler(403)
+def erro_403(e):
+    return pagina_erro('Acesso negado', 'Você não tem permissão para acessar esta área.', 403)
+
+
+@app.errorhandler(404)
+def erro_404(e):
+    return pagina_erro('Página não encontrada', 'Confira o endereço ou volte para o mapa de salas.', 404)
+
+
+@app.errorhandler(500)
+def erro_500(e):
+    return pagina_erro('Erro interno', 'Algo saiu do esperado. Tente novamente e avise a coordenação se persistir.', 500)
+
+
 @app.route('/api/versao')
 def api_versao():
     return jsonify({'versao': VERSAO, 'ok': True})
 
+
+# ========================================
+# ROTAS DE AUTENTICACAO
+# ========================================
 
 @app.route('/login', methods=['GET', 'POST'])
 @limiter.limit('5 per minute', methods=['POST'])
@@ -287,9 +550,12 @@ def login():
             row = conn.execute('SELECT * FROM usuarios WHERE username=?', (username,)).fetchone()
         finally:
             conn.close()
+        if row and not row['ativo']:
+            flash('Usuário inativo. Procure a coordenação.')
+            return render_template('login.html')
         if row and check_password_hash(row['password_hash'], password):
             user = Usuario(row['id'], row['username'], row['role'],
-                           row['nome_completo'] or '', row['email'] or '')
+                           row['nome_completo'] or '', row['email'] or '', row['ativo'])
             login_user(user)
             registrar_log('LOGIN', f'Usuário {username} fez login')
             return redirect(url_for('index'))
@@ -304,6 +570,10 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
+
+# ========================================
+# ROTAS DE PAGINAS
+# ========================================
 
 @app.route('/')
 @login_required
@@ -442,13 +712,17 @@ def logs_page():
     return render_template('logs.html', usuario=current_user.username, papel=current_user.role)
 
 
+# ========================================
+# ROTAS DE USUARIOS
+# ========================================
+
 @app.route('/usuarios')
 @login_required
 @requer_papel_page('coordenador')
 def usuarios_page():
     conn = get_db()
     try:
-        rows = conn.execute('SELECT id, username, role, created_at FROM usuarios ORDER BY created_at').fetchall()
+        rows = conn.execute('SELECT id, username, email, role, ativo, created_at FROM usuarios ORDER BY created_at').fetchall()
     finally:
         conn.close()
     return render_template(
@@ -464,7 +738,7 @@ def usuarios_page():
 def api_list_estagiarios():
     conn = get_db()
     try:
-        rows = conn.execute("SELECT id, username FROM usuarios WHERE role='aluno' ORDER BY username").fetchall()
+        rows = conn.execute("SELECT id, username FROM usuarios WHERE role='aluno' AND ativo=1 ORDER BY username").fetchall()
     finally:
         conn.close()
     return jsonify([dict(r) for r in rows])
@@ -476,7 +750,7 @@ def api_list_estagiarios():
 def api_list_usuarios():
     conn = get_db()
     try:
-        rows = conn.execute('SELECT id, username, role, created_at FROM usuarios ORDER BY created_at').fetchall()
+        rows = conn.execute('SELECT id, username, email, role, ativo, created_at FROM usuarios ORDER BY created_at').fetchall()
     finally:
         conn.close()
     return jsonify([dict(r) for r in rows])
@@ -492,8 +766,10 @@ def api_criar_usuario():
         return jsonify({'erro': 'JSON inválido ou Content-Type incorreto'}), 400
 
     username = (d.get('username') or '').strip()
+    email = (d.get('email') or '').strip()
     password = (d.get('password') or '').strip()
-    role = d.get('role', 'aluno')
+    role = (d.get('role') or 'aluno').strip()
+    ativo = valor_ativo(d.get('ativo'), 1)
 
     if not username or not password:
         return jsonify({'erro': 'Usuário e senha são obrigatórios'}), 400
@@ -506,8 +782,8 @@ def api_criar_usuario():
         conn = get_db()
         try:
             conn.execute(
-                'INSERT INTO usuarios(username, password_hash, role) VALUES(?,?,?)',
-                (username, generate_password_hash(password), role)
+                'INSERT INTO usuarios(username, email, password_hash, role, ativo) VALUES(?,?,?,?,?)',
+                (username, email, generate_password_hash(password), role, ativo)
             )
             conn.commit()
         finally:
@@ -532,21 +808,28 @@ def api_editar_usuario(uid):
         row = conn.execute('SELECT * FROM usuarios WHERE id=?', (uid,)).fetchone()
         if not row:
             return jsonify({'erro': 'Usuário não encontrado'}), 404
-        new_role = d.get('role', row['role'])
+        new_username = (d.get('username', row['username']) or '').strip()
+        new_email = (d.get('email', row['email']) or '').strip()
+        if not new_username:
+            return jsonify({'erro': 'Usuario e obrigatorio'}), 400
+        new_role = (d.get('role') or row['role']).strip()
         if new_role not in PAPEIS_VALIDOS:
             return jsonify({'erro': 'Papel inválido'}), 400
+        ativo = valor_ativo(d.get('ativo'), row['ativo'])
+        if row['id'] == current_user.id and not ativo:
+            return jsonify({'erro': 'Você não pode inativar sua própria conta'}), 400
         new_pass = (d.get('password') or '').strip()
         if new_pass and len(new_pass) < 8:
             return jsonify({'erro': 'A senha deve ter no mínimo 8 caracteres'}), 400
         if new_pass:
             conn.execute(
-                'UPDATE usuarios SET username=?, role=?, password_hash=? WHERE id=?',
-                (d.get('username', row['username']), new_role, generate_password_hash(new_pass), uid)
+                'UPDATE usuarios SET username=?, email=?, role=?, ativo=?, password_hash=? WHERE id=?',
+                (new_username, new_email, new_role, ativo, generate_password_hash(new_pass), uid)
             )
         else:
             conn.execute(
-                'UPDATE usuarios SET username=?, role=? WHERE id=?',
-                (d.get('username', row['username']), new_role, uid)
+                'UPDATE usuarios SET username=?, email=?, role=?, ativo=? WHERE id=?',
+                (new_username, new_email, new_role, ativo, uid)
             )
         try:
             conn.commit()
@@ -570,13 +853,17 @@ def api_excluir_usuario(uid):
             return jsonify({'erro': 'Usuário não encontrado'}), 404
         if row['id'] == current_user.id:
             return jsonify({'erro': 'Você não pode excluir sua própria conta'}), 400
-        conn.execute('DELETE FROM usuarios WHERE id=?', (uid,))
+        conn.execute('UPDATE usuarios SET ativo=0 WHERE id=?', (uid,))
         conn.commit()
     finally:
         conn.close()
-    registrar_log('EXCLUIR_USUARIO', f'Usuário "{row["username"]}" excluído')
-    return jsonify({'message': 'Usuário excluído'})
+    registrar_log('INATIVAR_USUARIO', f'Usuário "{row["username"]}" inativado')
+    return jsonify({'message': 'Usuário inativado'})
 
+
+# ========================================
+# API DE AGENDAMENTOS
+# ========================================
 
 @app.route('/api/conflito', methods=['GET'])
 @login_required
@@ -584,10 +871,19 @@ def api_conflito():
     dia = request.args.get('dia_semana', '')
     horario = request.args.get('horario', '')
     sala = request.args.get('sala', '')
+    data_esp = request.args.get('data_especifica', '').strip()
     excluir = request.args.get('excluir_id', None)
     if not dia or not horario or not sala:
         return jsonify({'conflito': False})
-    conflito = checar_conflito(dia, horario, sala, excluir_id=excluir)
+    erro_validacao = validar_valores_agendamento(dia, horario, sala)
+    if erro_validacao:
+        return jsonify({'erro': erro_validacao}), 400
+    if data_esp:
+        data_esp, erro_data = normalizar_data_especifica(data_esp)
+        if erro_data:
+            return jsonify({'erro': erro_data}), 400
+        dia = dia_semana_da_data(data_esp)
+    conflito = checar_conflito(dia, horario, sala, data_especifica=data_esp, excluir_id=excluir)
     if conflito:
         return jsonify({
             'conflito': True,
@@ -611,18 +907,30 @@ def list_ag():
 
     dia_ref = None
     if data_ref:
-        try:
-            d_obj = datetime.strptime(data_ref, '%Y-%m-%d')
-            dia_ref = DIAS[d_obj.weekday()] if d_obj.weekday() < 5 else None
-        except ValueError:
-            pass
+        data_ref, erro_data = normalizar_data_especifica(data_ref)
+        if erro_data:
+            return jsonify({'erro': erro_data}), 400
+        dia_ref = dia_semana_da_data(data_ref)
 
     dia_busca = dia_ref or dia
-    q = ('SELECT * FROM agendamentos WHERE ('
-         '(dia_semana=? AND (data_especifica IS NULL OR data_especifica = \'\'))'
-         ' OR data_especifica=?'
-         ')')
-    p = [dia_busca, data_ref or '']
+    erro_validacao = validar_valores_agendamento(
+        dia_busca,
+        horario or HORARIOS[0],
+        sala or SALAS[0],
+        cat
+    )
+    if erro_validacao:
+        return jsonify({'erro': erro_validacao}), 400
+
+    if data_ref:
+        q = ('SELECT * FROM agendamentos WHERE ('
+             '(dia_semana=? AND (data_especifica IS NULL OR data_especifica = \'\'))'
+             ' OR data_especifica=?'
+             ')')
+        p = [dia_busca, data_ref]
+    else:
+        q = 'SELECT * FROM agendamentos WHERE dia_semana=?'
+        p = [dia_busca]
     if horario:
         q += ' AND horario=?'
         p.append(horario)
@@ -667,51 +975,48 @@ def create_ag():
     if not d:
         return jsonify({'erro': 'JSON inválido ou Content-Type incorreto'}), 400
 
-    dia = (d.get('dia_semana') or 'SEGUNDA').strip()
-    horario = (d.get('horario') or '').strip()
-    sala = (d.get('sala') or '').strip()
-    data_esp = (d.get('data_especifica') or '').strip()
+    dados_ag, erro = preparar_dados_agendamento(d, current_user.id if current_user.is_authenticated else None)
+    if erro:
+        return jsonify({'erro': erro}), 400
 
-    if not horario or not sala:
-        return jsonify({'erro': 'Os campos horario e sala são obrigatórios'}), 400
-
-    if data_esp:
-        try:
-            datetime.strptime(data_esp, '%Y-%m-%d')
-        except ValueError:
-            return jsonify({'erro': 'data_especifica inválida. Use o formato AAAA-MM-DD (ex: 2026-08-15)'}), 400
-
-    conflito = checar_conflito(dia, horario, sala)
+    conflito = checar_conflito(
+        dados_ag['dia'],
+        dados_ag['horario'],
+        dados_ag['sala'],
+        data_especifica=dados_ag['data_especifica']
+    )
     if conflito:
         ocu = conflito.get('estagiario') or conflito.get('categoria') or 'outro agendamento'
         return jsonify({
-            'erro': f'Conflito: {sala} já está ocupada às {horario} ({dia}) por: {ocu}',
+            'erro': (
+                f'Conflito: {dados_ag["sala"]} j? est? ocupada ?s {dados_ag["horario"]} '
+                f'({dados_ag["data_especifica"] or dados_ag["dia"]}) por: {ocu}'
+            ),
             'conflito': True,
             'conflito_id': conflito.get('id')
         }), 409
 
-    est = d.get('estagiario', '')
-    pac = d.get('paciente', '')
-    cat = d.get('categoria', '') or detect_cat(est, pac)
-    sem = d.get('semestre', 0) or detect_sem(est)
-    uid_ag = d.get('usuario_id') or (current_user.id if current_user.is_authenticated else None)
-
-    conn = get_db()
     try:
-        cur = conn.execute(
-            'INSERT INTO agendamentos(dia_semana,horario,sala,estagiario,paciente,categoria,semestre,triagem,observacao,data_especifica,usuario_id)'
-            ' VALUES(?,?,?,?,?,?,?,?,?,?,?)',
-            (
-                dia, horario, sala, est, pac, cat, sem,
-                d.get('triagem', 0), d.get('observacao', ''), data_esp, uid_ag
+        conn = get_db()
+        try:
+            cur = conn.execute(
+                'INSERT INTO agendamentos(dia_semana,horario,sala,estagiario,paciente,categoria,semestre,triagem,observacao,data_especifica,usuario_id)'
+                ' VALUES(?,?,?,?,?,?,?,?,?,?,?)',
+                (
+                    dados_ag['dia'], dados_ag['horario'], dados_ag['sala'],
+                    dados_ag['estagiario'], dados_ag['paciente'], dados_ag['categoria'],
+                    dados_ag['semestre'], dados_ag['triagem'], dados_ag['observacao'],
+                    dados_ag['data_especifica'], dados_ag['usuario_id']
+                )
             )
-        )
-        nid = cur.lastrowid
-        conn.commit()
-    finally:
-        conn.close()
+            nid = cur.lastrowid
+            conn.commit()
+        finally:
+            conn.close()
+    except sqlite3.IntegrityError:
+        return jsonify({'erro': 'Conflito: esse hor?rio j? foi ocupado por outro agendamento.'}), 409
 
-    registrar_log('CRIAR', f'Agendamento #{nid} criado — sala: {sala} {horario}')
+    registrar_log('CRIAR', f'Agendamento #{nid} criado — sala: {dados_ag["sala"]} {dados_ag["horario"]}')
     return jsonify({'id': nid, 'message': 'Criado'}), 201
 
 
@@ -724,49 +1029,50 @@ def update_ag(aid):
     if not d:
         return jsonify({'erro': 'JSON inválido ou Content-Type incorreto'}), 400
 
-    dia = (d.get('dia_semana') or 'SEGUNDA').strip()
-    horario = (d.get('horario') or '').strip()
-    sala = (d.get('sala') or '').strip()
-    data_esp = (d.get('data_especifica') or '').strip()
+    dados_ag, erro = preparar_dados_agendamento(d)
+    if erro:
+        return jsonify({'erro': erro}), 400
 
-    if not horario or not sala:
-        return jsonify({'erro': 'Os campos horario e sala são obrigatórios'}), 400
-
-    if data_esp:
-        try:
-            datetime.strptime(data_esp, '%Y-%m-%d')
-        except ValueError:
-            return jsonify({'erro': 'data_especifica inválida. Use o formato AAAA-MM-DD (ex: 2026-08-15)'}), 400
-
-    conflito = checar_conflito(dia, horario, sala, excluir_id=aid)
+    conflito = checar_conflito(
+        dados_ag['dia'],
+        dados_ag['horario'],
+        dados_ag['sala'],
+        data_especifica=dados_ag['data_especifica'],
+        excluir_id=aid
+    )
     if conflito:
         ocu = conflito.get('estagiario') or conflito.get('categoria') or 'outro agendamento'
         return jsonify({
-            'erro': f'Conflito: {sala} já está ocupada às {horario} ({dia}) por: {ocu}',
+            'erro': (
+                f'Conflito: {dados_ag["sala"]} j? est? ocupada ?s {dados_ag["horario"]} '
+                f'({dados_ag["data_especifica"] or dados_ag["dia"]}) por: {ocu}'
+            ),
             'conflito': True,
             'conflito_id': conflito.get('id')
         }), 409
 
-    est = d.get('estagiario', '')
-    pac = d.get('paciente', '')
-    cat = d.get('categoria', '') or detect_cat(est, pac)
-    sem = d.get('semestre', 0) or detect_sem(est)
-
-    conn = get_db()
     try:
-        conn.execute(
-            'UPDATE agendamentos SET dia_semana=?,horario=?,sala=?,estagiario=?,paciente=?,categoria=?,semestre=?,'
-            'triagem=?,observacao=?,data_especifica=?,updated_at=CURRENT_TIMESTAMP WHERE id=?',
-            (
-                dia, horario, sala, est, pac, cat, sem,
-                d.get('triagem', 0), d.get('observacao', ''), data_esp, aid
+        conn = get_db()
+        try:
+            cur = conn.execute(
+                'UPDATE agendamentos SET dia_semana=?,horario=?,sala=?,estagiario=?,paciente=?,categoria=?,semestre=?,'
+                'triagem=?,observacao=?,data_especifica=?,updated_at=CURRENT_TIMESTAMP WHERE id=?',
+                (
+                    dados_ag['dia'], dados_ag['horario'], dados_ag['sala'],
+                    dados_ag['estagiario'], dados_ag['paciente'], dados_ag['categoria'],
+                    dados_ag['semestre'], dados_ag['triagem'], dados_ag['observacao'],
+                    dados_ag['data_especifica'], aid
+                )
             )
-        )
-        conn.commit()
-    finally:
-        conn.close()
+            if cur.rowcount == 0:
+                return jsonify({'erro': 'Agendamento nao encontrado'}), 404
+            conn.commit()
+        finally:
+            conn.close()
+    except sqlite3.IntegrityError:
+        return jsonify({'erro': 'Conflito: esse hor?rio j? foi ocupado por outro agendamento.'}), 409
 
-    registrar_log('EDITAR', f'Agendamento #{aid} editado — sala: {sala} {horario}')
+    registrar_log('EDITAR', f'Agendamento #{aid} editado — sala: {dados_ag["sala"]} {dados_ag["horario"]}')
     return jsonify({'message': 'Atualizado'})
 
 
@@ -787,10 +1093,16 @@ def delete_ag(aid):
     return jsonify({'message': 'Removido'})
 
 
+# ========================================
+# API DE RELATORIOS E ADMINISTRACAO
+# ========================================
+
 @app.route('/api/stats')
 @login_required
 def stats():
     dia = request.args.get('dia_semana', 'SEGUNDA')
+    if dia not in DIAS:
+        return jsonify({'erro': f'Dia inválido: {dia}'}), 400
     conn = get_db()
     try:
         total = conn.execute('SELECT COUNT(*) FROM agendamentos WHERE dia_semana=?', (dia,)).fetchone()[0]
@@ -807,7 +1119,7 @@ def stats():
 @app.route('/api/export')
 @login_required
 @requer_papel('coordenador', 'recepcao')
-def export_csv():
+def export_xlsx():
     conn = get_db()
     try:
         rows = conn.execute(
@@ -818,24 +1130,77 @@ def export_csv():
         ).fetchall()
     finally:
         conn.close()
-    out = io.StringIO()
-    w = csv.writer(out)
-    w.writerow(['ID', 'Dia', 'Horário', 'Sala', 'Estagiário (usuário)', 'Nome Completo', 'Paciente',
-                'Categoria', 'Semestre', 'Triagem', 'Data Esp.', 'Obs.'])
+
+    linhas = [[
+        'ID', 'Dia', 'Horario', 'Sala', 'Estagiario (usuario)', 'Nome Completo',
+        'Paciente', 'Categoria', 'Semestre', 'Triagem', 'Data Esp.', 'Obs.'
+    ]]
     for r in rows:
-        w.writerow([
+        linhas.append([
             r['id'], r['dia_semana'], r['horario'], r['sala'],
             r['estagiario'], r['nome_real'], r['paciente'],
-            r['categoria'], r['semestre'], 'Sim' if r['triagem'] else 'Não',
+            r['categoria'], r['semestre'], 'Sim' if r['triagem'] else 'Nao',
             r['data_especifica'], r['observacao']
         ])
-    out.seek(0)
-    registrar_log('EXPORTAR', 'CSV exportado')
+
+    def celula(valor):
+        valor = '' if valor is None else str(valor)
+        return f'<c t="inlineStr"><is><t>{escape(valor)}</t></is></c>'
+
+    linhas_xml = []
+    for idx, linha in enumerate(linhas, start=1):
+        linhas_xml.append(f'<row r="{idx}">{"".join(celula(valor) for valor in linha)}</row>')
+
+    sheet_xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        '<sheetData>' + ''.join(linhas_xml) + '</sheetData>'
+        '</worksheet>'
+    )
+    workbook_xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        '<sheets><sheet name="Agendamentos" sheetId="1" r:id="rId1"/></sheets>'
+        '</workbook>'
+    )
+    rels_xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+        '</Relationships>'
+    )
+    workbook_rels_xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+        '</Relationships>'
+    )
+    content_types_xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+        '<Default Extension="xml" ContentType="application/xml"/>'
+        '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+        '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+        '</Types>'
+    )
+
+    arquivo = io.BytesIO()
+    with zipfile.ZipFile(arquivo, 'w', zipfile.ZIP_DEFLATED) as xlsx:
+        xlsx.writestr('[Content_Types].xml', content_types_xml)
+        xlsx.writestr('_rels/.rels', rels_xml)
+        xlsx.writestr('xl/workbook.xml', workbook_xml)
+        xlsx.writestr('xl/_rels/workbook.xml.rels', workbook_rels_xml)
+        xlsx.writestr('xl/worksheets/sheet1.xml', sheet_xml)
+    arquivo.seek(0)
+
+    registrar_log('EXPORTAR', 'XLSX exportado')
     return send_file(
-        io.BytesIO(out.read().encode('utf-8-sig')),
-        mimetype='text/csv',
+        arquivo,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         as_attachment=True,
-        download_name=f'mapa_salas_{datetime.now().strftime("%Y%m%d_%H%M")}.csv'
+        download_name=f'mapa_salas_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx'
     )
 
 
@@ -887,12 +1252,8 @@ def get_logs():
 def limpar_logs():
     conn = get_db()
     try:
-        cur = conn.execute(
-            "DELETE FROM historico WHERE ts < datetime('now', '-' || ? || ' days')",
-            (LOG_RETENCAO_DIAS,)
-        )
+        removidos = limpar_logs_antigos(conn)
         conn.commit()
-        removidos = cur.rowcount
     finally:
         conn.close()
     registrar_log('LIMPAR_LOGS', f'{removidos} logs antigos removidos (retenção: {LOG_RETENCAO_DIAS} dias)')
@@ -951,29 +1312,49 @@ def import_csv():
             obs = (row.get('Obs.') or row.get('observacao') or '').strip()
             data_esp = (row.get('Data Esp.') or row.get('data_especifica') or '').strip()
 
-            if not dia or not horario or not sala:
-                erros.append(f'Linha {i}: dia, horário e sala são obrigatórios')
-                continue
-            if dia not in DIAS:
-                erros.append(f'Linha {i}: dia "{dia}" inválido')
+            dados_ag, erro = preparar_dados_agendamento({
+                'dia_semana': dia,
+                'horario': horario,
+                'sala': sala,
+                'estagiario': estagiario,
+                'paciente': paciente,
+                'categoria': categoria,
+                'semestre': semestre,
+                'triagem': triagem,
+                'observacao': obs,
+                'data_especifica': data_esp
+            })
+            if erro:
+                erros.append(f'Linha {i}: {erro}')
                 continue
 
-            conflito = checar_conflito(dia, horario, sala)
+            conflito = checar_conflito(
+                dados_ag['dia'],
+                dados_ag['horario'],
+                dados_ag['sala'],
+                data_especifica=dados_ag['data_especifica']
+            )
             if conflito:
                 conflitos.append({
-                    'linha': i, 'dia': dia, 'horario': horario, 'sala': sala,
+                    'linha': i,
+                    'dia': dados_ag['dia'],
+                    'horario': dados_ag['horario'],
+                    'sala': dados_ag['sala'],
                     'ocupado_por': conflito.get('estagiario') or conflito.get('categoria')
                 })
                 continue
 
-            cat = categoria or detect_cat(estagiario, paciente)
-            sem = semestre or detect_sem(estagiario)
             conn = get_db()
             try:
                 conn.execute(
                     'INSERT INTO agendamentos(dia_semana,horario,sala,estagiario,paciente,categoria,semestre,triagem,observacao,data_especifica)'
                     ' VALUES(?,?,?,?,?,?,?,?,?,?)',
-                    (dia, horario, sala, estagiario, paciente, cat, sem, triagem, obs, data_esp)
+                    (
+                        dados_ag['dia'], dados_ag['horario'], dados_ag['sala'],
+                        dados_ag['estagiario'], dados_ag['paciente'], dados_ag['categoria'],
+                        dados_ag['semestre'], dados_ag['triagem'], dados_ag['observacao'],
+                        dados_ag['data_especifica']
+                    )
                 )
                 conn.commit()
             finally:
@@ -1009,6 +1390,44 @@ def backup_db():
         download_name=f'backup_mapa_{datetime.now().strftime("%Y%m%d_%H%M")}.db'
     )
 
+
+def executar_manutencao(vacuum=False):
+    conn = get_db()
+    try:
+        integridade = conn.execute('PRAGMA integrity_check').fetchone()[0]
+        logs_removidos = limpar_logs_antigos(conn)
+        total_usuarios = conn.execute('SELECT COUNT(*) FROM usuarios').fetchone()[0]
+        usuarios_ativos = conn.execute('SELECT COUNT(*) FROM usuarios WHERE ativo=1').fetchone()[0]
+        total_agendamentos = conn.execute('SELECT COUNT(*) FROM agendamentos').fetchone()[0]
+        total_logs = conn.execute('SELECT COUNT(*) FROM historico').fetchone()[0]
+        conn.commit()
+        if vacuum:
+            conn.execute('VACUUM')
+        return {
+            'integridade': integridade,
+            'logs_removidos': logs_removidos,
+            'usuarios_total': total_usuarios,
+            'usuarios_ativos': usuarios_ativos,
+            'agendamentos_total': total_agendamentos,
+            'logs_total': total_logs,
+            'vacuum_executado': vacuum
+        }
+    finally:
+        conn.close()
+
+
+@app.cli.command('manutencao')
+@click.option('--vacuum', is_flag=True, help='Compacta o arquivo SQLite depois da limpeza.')
+def comando_manutencao(vacuum):
+    resultado = executar_manutencao(vacuum=vacuum)
+    click.echo('Manutencao concluida.')
+    for chave, valor in resultado.items():
+        click.echo(f'{chave}: {valor}')
+
+
+# ========================================
+# INICIALIZACAO DA APLICACAO
+# ========================================
 
 with app.app_context():
     init_db()

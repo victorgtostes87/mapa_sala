@@ -1,0 +1,35 @@
+:root{--nav-bg:#1e293b;--nav-bg2:#263348;--nav-border:#334155;--nav-text:#e2e8f0;--nav-muted:#94a3b8;--nav-accent:#3b82f6;--nav-danger:#dc2626;--nav-radius:8px}
+.app-nav{background:var(--nav-bg);border-bottom:1px solid var(--nav-border);padding:8px 16px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:120;flex-wrap:wrap}
+.app-nav-brand{display:inline-flex;align-items:center;gap:7px;color:#f8fafc;text-decoration:none;font-size:13px;font-weight:800;white-space:nowrap}
+.app-nav-brand span span{color:var(--nav-accent)}
+.app-nav-title{color:var(--nav-muted);font-size:12px;font-weight:700;border-left:1px solid var(--nav-border);padding-left:10px;white-space:nowrap}
+.app-nav-spacer{flex:1}
+.app-nav-user{display:flex;align-items:center;gap:6px;color:var(--nav-muted);font-size:11px;min-width:0}
+.app-nav-user-name{display:inline-flex;align-items:center;gap:5px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app-nav-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.app-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:var(--nav-radius);border:1px solid transparent;cursor:pointer;text-decoration:none;font-size:12px;font-weight:700;line-height:1;padding:7px 11px;min-height:30px;transition:background .15s,color .15s,border-color .15s}
+.app-btn-primary{background:var(--nav-accent);color:#fff}
+.app-btn-primary:hover{background:#2563eb}
+.app-btn-ghost{background:transparent;color:var(--nav-muted);border-color:var(--nav-border)}
+.app-btn-ghost:hover{background:var(--nav-bg2);color:var(--nav-text)}
+.app-btn-danger{background:transparent;color:#f87171;border-color:#7f1d1d}
+.app-btn-danger:hover{background:#7f1d1d;color:#fff}
+.app-btn i,.app-nav-brand i,.app-nav-user i{width:14px;height:14px}
+.role-badge{padding:2px 8px;border-radius:999px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
+.role-coordenador{background:#7c3aed;color:#fff}
+.role-recepcao{background:#0e7490;color:#fff}
+.role-professor{background:#1e3a5f;color:#bfdbfe}
+.role-aluno{background:#374151;color:#d1d5db}
+.app-dropdown{position:relative}
+.app-dropdown-menu{display:none;position:absolute;top:calc(100% + 6px);right:0;background:var(--nav-bg);border:1px solid var(--nav-border);border-radius:10px;min-width:190px;z-index:300;box-shadow:0 8px 24px rgba(0,0,0,.4);overflow:hidden}
+.app-dropdown-menu.open{display:block}
+.app-dropdown-menu a,.app-dropdown-menu button{display:flex;align-items:center;gap:8px;padding:10px 14px;color:var(--nav-text);text-decoration:none;font-size:12px;font-weight:700;background:transparent;border:none;width:100%;cursor:pointer}
+.app-dropdown-menu a:hover,.app-dropdown-menu button:hover{background:var(--nav-bg2)}
+.app-dropdown-menu i{width:14px;height:14px}
+@media (max-width:700px){
+  .app-nav{padding:7px 10px;gap:6px}
+  .app-nav-title{order:3;width:100%;border-left:0;padding-left:0}
+  .app-nav-spacer{display:none}
+  .app-nav-user-name{max-width:110px}
+  .app-btn{padding:6px 9px;font-size:11px}
+}

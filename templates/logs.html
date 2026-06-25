@@ -4,34 +4,42 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Logs do Sistema</title>
-
-  <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/logs.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
 </head>
 <body>
-<nav class="navbar">
-  <h1><i data-lucide="clipboard-list"></i> Logs do Sistema</h1>
-  <div class="navbar-spacer"></div>
-  <span style="font-size:12px;color:var(--text2)"><i data-lucide="user-round"></i> {{ usuario }}</span>
-  <span class="role-badge role-{{ papel }}">{{ papel }}</span>
-  <a href="/perfil" class="btn btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
-  <a href="/" class="btn btn-ghost"><i data-lucide="arrow-left"></i> Voltar</a>
-  <a href="/api/backup" style="display:inline-block;padding:8px 16px;background:#2563eb;color:#fff;border-radius:6px;text-decoration:none;font-size:0.85rem;margin-left:8px;">⬇ Backup do Banco</a>
+<nav class="app-nav">
+  <a class="app-nav-brand" href="/"><i data-lucide="layout-grid"></i><span>Mapa de <span>Salas</span></span></a>
+  <div class="app-nav-title">Logs do Sistema</div>
+  <div class="app-nav-spacer"></div>
+  <div class="app-nav-user">
+    <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
+    <span class="role-badge role-{{ papel }}">{{ papeis_label.get(papel, papel) }}</span>
+  </div>
+  <div class="app-nav-actions">
+    <a href="/" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Voltar</a>
+    <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
+    <a href="/api/backup" class="app-btn app-btn-primary"><i data-lucide="download"></i> Backup</a>
+    <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
+  </div>
 </nav>
+
 <div class="container">
   <div class="filters">
-    <input type="text" id="busca" placeholder="🔍 Filtrar por usuário, ação ou dados..." oninput="filtrar()">
+    <input type="text" id="busca" placeholder="Filtrar por usuario, acao ou dados..." oninput="filtrar()">
     <select id="filtroAcao" onchange="filtrar()">
-      <option value="">Todas as ações</option>
+      <option value="">Todas as acoes</option>
       <option>LOGIN</option><option>LOGOUT</option>
       <option>CRIAR</option><option>EDITAR</option><option>EXCLUIR</option>
       <option>CRIAR_USUARIO</option><option>EDITAR_USUARIO</option><option>EXCLUIR_USUARIO</option>
       <option>EXPORTAR</option>
     </select>
-    <button type="button" class="btn-danger" id="btnApagarLogs">Apagar logs dos últimos 15 dias</button>
+    <button type="button" class="btn-danger" id="btnApagarLogs">Apagar logs dos ultimos 15 dias</button>
   </div>
+
   <table>
-    <thead><tr><th>Data/Hora</th><th>Usuário</th><th>Ação</th><th>IP</th><th>Navegador</th><th>Detalhes</th></tr></thead>
+    <thead><tr><th>Data/Hora</th><th>Usuario</th><th>Acao</th><th>IP</th><th>Navegador</th><th>Detalhes</th></tr></thead>
     <tbody id="tbody"></tbody>
   </table>
   <div class="empty" id="empty" style="display:none">Nenhum log encontrado.</div>
@@ -40,7 +48,7 @@
     <div class="pag-info" id="pagInfo"></div>
     <div style="display:flex;align-items:center;gap:12px">
       <div style="display:flex;align-items:center;gap:6px">
-        <span style="font-size:12px;color:var(--text2)">Linhas por página:</span>
+        <span style="font-size:12px;color:var(--text2)">Linhas por pagina:</span>
         <select class="pag-size" id="pagSize" onchange="mudarTamanho()">
           <option value="25">25</option>
           <option value="50" selected>50</option>
@@ -52,6 +60,7 @@
     </div>
   </div>
 </div>
+
 <script>
 let todos    = [];
 let filtrado = [];
@@ -65,7 +74,7 @@ const CORES = {
 };
 
 function formatTs(ts){
-  if(!ts) return '—';
+  if(!ts) return '-';
   return ts.replace('T',' ').substring(0,16).replace('-','/').replace('-','/');
 }
 
@@ -104,10 +113,10 @@ function render(){
   tbody.innerHTML = fatia.map(r=>`
     <tr>
       <td class="ts">${formatTs(r.ts)}</td>
-      <td>${esc(r.usuario)||'—'}</td>
+      <td>${esc(r.usuario)||'-'}</td>
       <td><span class="badge-acao ${classeAcao(r.acao)}">${esc(r.acao)}</span></td>
-      <td class="ts">${esc(r.ip)||'—'}</td>
-      <td class="user-agent">${esc(r.user_agent)||'—'}</td>
+      <td class="ts">${esc(r.ip)||'-'}</td>
+      <td class="user-agent">${esc(r.user_agent)||'-'}</td>
       <td class="dados">${esc(r.dados)}</td>
     </tr>
   `).join('');
@@ -115,7 +124,7 @@ function render(){
   const de  = inicio + 1;
   const ate = Math.min(inicio + pp, filtrado.length);
   document.getElementById('pagInfo').innerHTML =
-    `Mostrando <strong>${de}–${ate}</strong> de <strong>${filtrado.length}</strong> registros`;
+    `Mostrando <strong>${de}-${ate}</strong> de <strong>${filtrado.length}</strong> registros`;
 
   renderControles(total);
 }
@@ -133,7 +142,7 @@ function renderControles(total){
 
   if(inicio > 1){
     html += `<button class="pag-btn" onclick="irPara(1)">1</button>`;
-    if(inicio > 2) html += `<span class="pag-sep">…</span>`;
+    if(inicio > 2) html += `<span class="pag-sep">...</span>`;
   }
 
   for(let i = inicio; i <= fim; i++){
@@ -141,7 +150,7 @@ function renderControles(total){
   }
 
   if(fim < total){
-    if(fim < total - 1) html += `<span class="pag-sep">…</span>`;
+    if(fim < total - 1) html += `<span class="pag-sep">...</span>`;
     html += `<button class="pag-btn" onclick="irPara(${total})">${total}</button>`;
   }
 
@@ -180,7 +189,7 @@ async function carregar(){
   try {
     const res = await fetch('/api/logs');
     const data = await res.json();
-    if (!res.ok) throw new Error(data.erro || 'Não foi possível carregar os logs.');
+    if (!res.ok) throw new Error(data.erro || 'Nao foi possivel carregar os logs.');
     todos = data.logs || [];
     filtrado = todos;
     render();
@@ -193,7 +202,7 @@ async function carregar(){
 }
 
 async function apagarLogsRecentes(){
-  if(!confirm('Apagar os logs dos últimos 15 dias? Esta ação não pode ser desfeita.')) return;
+  if(!confirm('Apagar os logs dos ultimos 15 dias? Esta acao nao pode ser desfeita.')) return;
 
   try {
     const res = await fetch('/api/admin/apagar-logs-recentes', {
@@ -201,7 +210,7 @@ async function apagarLogsRecentes(){
       headers: {'X-CSRFToken': {{ csrf_token() | tojson }}}
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.erro || 'Não foi possível apagar os logs.');
+    if (!res.ok) throw new Error(data.erro || 'Nao foi possivel apagar os logs.');
     alert(data.message || 'Logs apagados com sucesso.');
     carregar();
   } catch (err) {
@@ -213,6 +222,6 @@ document.getElementById('btnApagarLogs').addEventListener('click', apagarLogsRec
 carregar();
 </script>
 <script>lucide.createIcons();</script>
-<div style="margin:18px 0;text-align:center;color:#6b7280;font-size:12px">Versão {{ versao }}</div>
+<div style="margin:18px 0;text-align:center;color:#6b7280;font-size:12px">Versao {{ versao }}</div>
 </body>
 </html>

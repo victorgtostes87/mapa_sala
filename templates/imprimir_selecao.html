@@ -28,15 +28,22 @@ a.dia-btn:hover{background:#2563eb}
 a.back{display:inline-block;margin-top:20px;font-size:12px;color:#64748b;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px}
 a.back:hover{color:var(--text)}
 </style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
 </head>
 <body>
-<nav class="navbar">
-  <h1><i data-lucide="printer"></i> Lista de Pacientes</h1>
-  <div class="navbar-spacer"></div>
-  <span style="font-size:12px;color:var(--text2)"><i data-lucide="user-round"></i> {{ usuario }}</span>
-  <span class="role-badge role-{{ papel }}">{{ papel }}</span>
-  <a href="/perfil" class="btn btn-ghost btn-sm"><i data-lucide="user-round"></i> Perfil</a>
-  <a href="/" class="btn btn-ghost btn-sm"><i data-lucide="arrow-left"></i> Voltar</a>
+<nav class="app-nav">
+  <a class="app-nav-brand" href="/"><i data-lucide="layout-grid"></i><span>Mapa de <span>Salas</span></span></a>
+  <div class="app-nav-title">Lista de Pacientes</div>
+  <div class="app-nav-spacer"></div>
+  <div class="app-nav-user">
+    <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
+    <span class="role-badge role-{{ papel }}">{{ papeis_label.get(papel, papel) }}</span>
+  </div>
+  <div class="app-nav-actions">
+    <a href="/" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Voltar</a>
+    <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
+    <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
+  </div>
 </nav>
 
 <div class="wrap">

@@ -7,22 +7,28 @@
 
 <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
 </head>
 <body>
 
-<nav class="navbar">
-  <h1><i data-lucide="layout-grid"></i> Mapa de <span>Salas</span></h1>
-  <div class="navbar-spacer"></div>
-  <div class="user-info">
-    <span><i data-lucide="user-round"></i> {{ usuario }}</span>
-    <span class="role-badge role-{{ papel }}">{{ papel }}</span>
+<nav class="app-nav">
+  <a class="app-nav-brand" href="/"><i data-lucide="layout-grid"></i><span>Mapa de <span>Salas</span></span></a>
+  <div class="app-nav-title">Mapa semanal</div>
+  <div class="app-nav-spacer"></div>
+  <div class="app-nav-user">
+    <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
+    <span class="role-badge role-{{ papel }}">{{ papeis_label.get(papel, papel) }}</span>
   </div>
 
-  <div class="dropdown" id="menuDropdown">
-    <button class="btn btn-ghost btn-sm" onclick="toggleMenu(event)">
+  <div class="app-nav-actions">
+    {% if papel in ['coordenador', 'recepcao'] %}
+    <button class="app-btn app-btn-primary" onclick="openModal(null)"><i data-lucide="circle-plus"></i> Novo</button>
+    {% endif %}
+    <div class="app-dropdown" id="menuDropdown">
+    <button class="app-btn app-btn-ghost" onclick="toggleMenu(event)">
       <i data-lucide="menu"></i> Menu
     </button>
-    <div class="dropdown-menu" id="dropdownMenu">
+    <div class="app-dropdown-menu" id="dropdownMenu">
       {% if papel == 'coordenador' %}
       <a href="/usuarios"><i data-lucide="users"></i> Usuários</a>
       <a href="/logs"><i data-lucide="clipboard-list"></i> Logs</a>
@@ -34,12 +40,9 @@
       {% endif %}
       <a href="/perfil"><i data-lucide="user-round"></i> Perfil</a>
     </div>
+    </div>
+    <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
   </div>
-
-  {% if papel in ['coordenador', 'recepcao'] %}
-  <button class="btn btn-primary btn-xs" onclick="openModal(null)"><i data-lucide="circle-plus"></i> Novo</button>
-  {% endif %}
-  <a href="/logout" class="btn-logout"><i data-lucide="log-out"></i> Sair</a>
 </nav>
 
 <div class="tabs" id="dayTabs">

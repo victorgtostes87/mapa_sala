@@ -286,6 +286,37 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertEqual(row['status'], 'pendente')
         self.assertEqual(row['instrumento'], 'HTP')
 
+    def test_recepcao_ve_reservas_separadas_por_tipo(self):
+        data_uso = self._data_util_com_antecedencia()
+        conn = mapa.get_db()
+        try:
+            conn.execute(
+                """
+                INSERT INTO reservas(usuario_id, usuario, tipo, data_uso, horario_inicio, horario_fim, tipo_sala, sala_atribuida, finalidade)
+                VALUES(?,?,?,?,?,?,?,?,?)
+                """,
+                (self.aluno1_id, 'aluno1', 'sala', data_uso, '08:00', '09:00', 'comum', 'Consultório 1', 'Estudo')
+            )
+            conn.execute(
+                """
+                INSERT INTO reservas(usuario_id, usuario, tipo, data_uso, horario_inicio, instrumento, finalidade)
+                VALUES(?,?,?,?,?,?,?)
+                """,
+                (self.aluno1_id, 'aluno1', 'instrumento', data_uso, '10:00', 'HTP', 'Avaliação')
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        self._login('recepcao')
+        resp = self.client.get('/reservas')
+        html = resp.get_data(as_text=True)
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('Reservas de sala pendentes', html)
+        self.assertIn('Reservas de testes e instrumentos', html)
+        self.assertIn('HTP', html)
+
     def test_aprovar_reserva_de_sala_cria_agendamentos_no_mapa(self):
         data_uso = self._data_util_com_antecedencia()
         self._login('aluno1')
@@ -330,6 +361,56 @@ class MapaSalasTestCase(unittest.TestCase):
 
         self.assertEqual(reserva_atualizada['status'], 'aprovada')
         self.assertEqual(total_agendamentos, 2)
+
+    def test_aprovar_reserva_permite_escolher_sala_com_computador(self):
+        data_uso = self._data_util_com_antecedencia()
+        self._login('aluno1')
+        criar = self.client.post(
+            '/reservas/sala',
+            data={
+                'csrf_token': self.csrf,
+                'data_uso': data_uso,
+                'horario_inicio': '10:00',
+                'horario_fim': '11:00',
+                'tipo_sala': 'computador',
+                'finalidade': 'Usar computador',
+                'observacao': ''
+            }
+        )
+        self.assertEqual(criar.status_code, 302)
+
+        conn = mapa.get_db()
+        try:
+            reserva = conn.execute("SELECT * FROM reservas WHERE tipo='sala'").fetchone()
+        finally:
+            conn.close()
+        self.assertIn(reserva['sala_atribuida'], mapa.SALAS_COM_COMPUTADOR)
+
+        self.client.get('/logout')
+        self._login('recepcao')
+        aprovar = self.client.post(
+            f'/reservas/{reserva["id"]}/aprovar',
+            data={
+                'csrf_token': self.csrf,
+                'sala_atribuida': 'Consultório 7 (Divã)',
+                'resposta': 'Aprovado na sala 7'
+            }
+        )
+        self.assertEqual(aprovar.status_code, 302)
+
+        conn = mapa.get_db()
+        try:
+            reserva_atualizada = conn.execute('SELECT * FROM reservas WHERE id=?', (reserva['id'],)).fetchone()
+            ag = conn.execute(
+                'SELECT sala FROM agendamentos WHERE data_especifica=? AND usuario_id=?',
+                (data_uso, self.aluno1_id)
+            ).fetchone()
+        finally:
+            conn.close()
+
+        self.assertEqual(reserva_atualizada['status'], 'aprovada')
+        self.assertEqual(reserva_atualizada['sala_atribuida'], 'Consultório 7 (Divã)')
+        self.assertEqual(ag['sala'], 'Consultório 7 (Divã)')
 
     def test_agendamentos_tem_chave_estrangeira_para_usuarios(self):
         conn = mapa.get_db()

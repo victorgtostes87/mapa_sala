@@ -40,7 +40,7 @@ DB_PATH = os.environ.get(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 )
 
-VERSAO = '2026-06-26-v19'
+VERSAO = '2026-06-26-v21'
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -171,7 +171,10 @@ SALAS_RESERVAVEIS = [
     'Consultório 8', 'Ludoterapia', 'Multifuncional',
     'Sala de Grupo 1', 'Sala de Grupo 2'
 ]
-SALAS_COM_COMPUTADOR = ['Consultório 4', 'Multifuncional']
+SALAS_COM_COMPUTADOR = [
+    'Consultório 3', 'Consultório 4', 'Consultório 5',
+    'Consultório 6 (Divã)', 'Consultório 7 (Divã)'
+]
 DIAS = ['SEGUNDA', 'TERÇA', 'QUARTA', 'QUINTA', 'SEXTA']
 DIAS_PT = {
     'SEGUNDA': 'Segunda-feira', 'TERÇA': 'Terça-feira', 'QUARTA': 'Quarta-feira',
@@ -745,6 +748,24 @@ def encontrar_sala_disponivel(data_uso, horario_inicio, horario_fim, tipo_sala):
     return None, 'Não há sala disponível nesse período.'
 
 
+def sala_disponivel_para_reserva(data_uso, horario_inicio, horario_fim, sala):
+    if sala not in SALAS_RESERVAVEIS:
+        return False, 'Sala inválida para reserva.'
+
+    data_uso, erro_data = normalizar_data_especifica(data_uso)
+    if erro_data:
+        return False, erro_data
+    slots, erro_horario = horarios_do_intervalo(horario_inicio, horario_fim)
+    if erro_horario:
+        return False, erro_horario
+
+    dia = dia_semana_da_data(data_uso)
+    for slot in slots:
+        if checar_conflito(dia, slot, sala, data_especifica=data_uso):
+            return False, f'{sala} já está ocupada nesse período.'
+    return True, None
+
+
 def label_status_reserva(status):
     return {
         'pendente': 'Pendente',
@@ -1099,11 +1120,15 @@ def reservas():
         r['status_label'] = label_status_reserva(r.get('status'))
         r['tipo_label'] = 'Sala' if r.get('tipo') == 'sala' else 'Instrumento'
         r['tipo_sala_label'] = 'Sala com computador' if r.get('tipo_sala') == 'computador' else 'Sala comum'
+        r['salas_aprovacao'] = candidatos_sala_reserva(r.get('tipo_sala')) if r.get('tipo') == 'sala' else []
         try:
             r['data_label'] = datetime.strptime(r['data_uso'], '%Y-%m-%d').strftime('%d/%m/%Y')
         except (ValueError, TypeError):
             r['data_label'] = r.get('data_uso') or ''
         return r
+
+    minhas_reservas = [preparar_reserva(r) for r in rows]
+    pendentes = [preparar_reserva(r) for r in pendentes]
 
     return render_template(
         'reservas.html',
@@ -1111,8 +1136,12 @@ def reservas():
         papel=current_user.role,
         papel_label=PAPEIS_LABEL.get(current_user.role, current_user.role),
         horarios=HORARIOS,
-        minhas_reservas=[preparar_reserva(r) for r in rows],
-        pendentes=[preparar_reserva(r) for r in pendentes],
+        minhas_reservas=minhas_reservas,
+        pendentes=pendentes,
+        pendentes_sala=[r for r in pendentes if r.get('tipo') == 'sala'],
+        pendentes_instrumento=[r for r in pendentes if r.get('tipo') == 'instrumento'],
+        recentes_sala=[r for r in minhas_reservas if r.get('tipo') == 'sala'],
+        recentes_instrumento=[r for r in minhas_reservas if r.get('tipo') == 'instrumento'],
     )
 
 
@@ -1225,6 +1254,7 @@ def criar_reserva_instrumento():
 @requer_papel('coordenador', 'recepcao')
 def aprovar_reserva(rid):
     resposta = request.form.get('resposta', '').strip()
+    sala_escolhida = request.form.get('sala_atribuida', '').strip()
     conn = get_db()
     try:
         reserva = conn.execute("SELECT * FROM reservas WHERE id=?", (rid,)).fetchone()
@@ -1240,15 +1270,30 @@ def aprovar_reserva(rid):
                 flash('Não é possível aprovar: a solicitação já está com menos de 24h de antecedência.', 'error')
                 return redirect(url_for('reservas'))
 
-            sala_atribuida, erro_sala = encontrar_sala_disponivel(
-                reserva['data_uso'],
-                reserva['horario_inicio'],
-                reserva['horario_fim'],
-                reserva['tipo_sala']
-            )
-            if erro_sala:
-                flash(erro_sala, 'error')
-                return redirect(url_for('reservas'))
+            if sala_escolhida:
+                if sala_escolhida not in candidatos_sala_reserva(reserva['tipo_sala']):
+                    flash('A sala escolhida não combina com o tipo solicitado.', 'error')
+                    return redirect(url_for('reservas'))
+                disponivel, erro_sala = sala_disponivel_para_reserva(
+                    reserva['data_uso'],
+                    reserva['horario_inicio'],
+                    reserva['horario_fim'],
+                    sala_escolhida
+                )
+                if not disponivel:
+                    flash(erro_sala, 'error')
+                    return redirect(url_for('reservas'))
+                sala_atribuida = sala_escolhida
+            else:
+                sala_atribuida, erro_sala = encontrar_sala_disponivel(
+                    reserva['data_uso'],
+                    reserva['horario_inicio'],
+                    reserva['horario_fim'],
+                    reserva['tipo_sala']
+                )
+                if erro_sala:
+                    flash(erro_sala, 'error')
+                    return redirect(url_for('reservas'))
 
             dia = dia_semana_da_data(reserva['data_uso'])
             slots, _ = horarios_do_intervalo(reserva['horario_inicio'], reserva['horario_fim'])

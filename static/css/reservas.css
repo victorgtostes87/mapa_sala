@@ -20,6 +20,7 @@ textarea{min-height:74px;resize:vertical}input:focus,select:focus,textarea:focus
 .btn{border:0;border-radius:var(--radius);padding:9px 12px;cursor:pointer;text-decoration:none;font-size:12px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:all .15s;margin-top:14px}
 .btn i{width:15px;height:15px}.btn.primary{background:var(--accent);color:#fff}.btn.primary:hover{background:var(--accent2)}.btn.danger{background:var(--danger);color:#fff}.btn.danger:hover{background:#b91c1c}
 .section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:22px 0 10px}.section-head h2{display:block}
+.count-label{color:var(--text2);font-size:12px;font-weight:900}
 .request-list{display:grid;gap:10px}.request-list.compact{grid-template-columns:repeat(2,minmax(0,1fr))}
 .request-card{padding:15px}
 .request-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
@@ -31,9 +32,17 @@ textarea{min-height:74px;resize:vertical}input:focus,select:focus,textarea:focus
 .request-meta div{display:inline-flex;align-items:center;gap:6px}.request-meta i{width:14px;height:14px;color:#93c5fd}
 .request-card p{color:var(--text2);line-height:1.45;margin-top:6px}.request-card strong{color:var(--text)}
 .approval-area{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
-.approval-area form{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}.approval-area .btn{margin-top:0}
+.approval-area form{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}.approval-area label{grid-column:1/-1;margin-top:0}.approval-area select{grid-column:1/-1}.approval-area .btn{margin-top:0}
 .empty-state{padding:32px 18px;text-align:center;color:var(--text2)}
+.compact-empty{padding:24px 18px}
 .empty-state i{width:40px;height:40px;color:#93c5fd;margin-bottom:10px}.empty-state h2{display:block;margin-bottom:6px}
+.instrument-list{display:grid;gap:8px}
+.instrument-row{display:grid;grid-template-columns:1fr minmax(280px,360px);gap:14px;align-items:start;background:var(--surface);border:1px solid #0e7490;border-radius:var(--radius);padding:14px}
+.instrument-main h3{font-size:17px;margin:6px 0;color:#f8fafc}
+.instrument-main p{color:var(--text2);line-height:1.45;margin-top:6px}.instrument-main strong{color:var(--text)}
+.instrument-actions{display:grid;gap:8px;background:rgba(15,23,42,.45);border:1px solid var(--border);border-radius:var(--radius);padding:10px}
+.instrument-actions form{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}
+.instrument-actions .btn{margin-top:0}
 @media (max-width:780px){
   .reservas-page{padding:12px 10px 28px}
   .hero{align-items:flex-start;flex-direction:column;padding:18px}
@@ -45,4 +54,7 @@ textarea{min-height:74px;resize:vertical}input:focus,select:focus,textarea:focus
   .approval-area{grid-template-columns:1fr}
   .approval-area form{grid-template-columns:1fr}
   .approval-area .btn{width:100%}
+  .instrument-row{grid-template-columns:1fr}
+  .instrument-actions form{grid-template-columns:1fr}
+  .instrument-actions .btn{width:100%}
 }

@@ -253,7 +253,7 @@ class MapaSalasTestCase(unittest.TestCase):
         conn = mapa.get_db()
         try:
             mapa.inserir_agendamento(conn, {
-                'dia': 'SEGUNDA',
+                'dia': 'QUARTA',
                 'horario': '11:00',
                 'sala': 'Consultório 5',
                 'estagiario': 'aluno1',

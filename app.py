@@ -68,7 +68,7 @@ def gerar_csrf_token():
 
 @app.context_processor
 def injetar_csrf_token():
-    return {'csrf_token': gerar_csrf_token, 'versao': VERSAO}
+    return {'csrf_token': gerar_csrf_token, 'versao': VERSAO, 'papeis_label': PAPEIS_LABEL}
 
 
 @app.before_request
@@ -206,6 +206,11 @@ def normalizar_data_especifica(data_especifica):
 def dia_semana_da_data(data_especifica):
     data_obj = datetime.strptime(data_especifica, '%Y-%m-%d')
     return DIAS[data_obj.weekday()]
+
+
+def numero_semana_sqlite(dia):
+    # SQLite usa domingo=0, segunda=1 ... sexta=5.
+    return str(DIAS.index(dia) + 1)
 
 
 def validar_valores_agendamento(dia, horario, sala, categoria=''):
@@ -630,10 +635,13 @@ def checar_conflito(dia, horario, sala, data_especifica='', excluir_id=None):
             params.extend([data_especifica, dia])
         else:
             q += (
-                ' AND dia_semana=? '
-                'AND (data_especifica IS NULL OR data_especifica = \'\' OR data_especifica >= ?)'
+                ' AND ('
+                '(dia_semana=? AND (data_especifica IS NULL OR data_especifica = \'\')) '
+                'OR (data_especifica IS NOT NULL AND data_especifica != \'\' '
+                'AND data_especifica >= ? AND strftime(\'%w\', data_especifica)=?)'
+                ')'
             )
-            params.extend([dia, data_hoje_iso()])
+            params.extend([dia, data_hoje_iso(), numero_semana_sqlite(dia)])
 
         if eid:
             q += ' AND CAST(id AS INTEGER)!=?'
@@ -1185,10 +1193,13 @@ def list_ag():
         p = [dia_busca, data_ref]
     else:
         q = (
-            'SELECT * FROM agendamentos WHERE dia_semana=? '
-            'AND (data_especifica IS NULL OR data_especifica = \'\' OR data_especifica >= ?)'
+            'SELECT * FROM agendamentos WHERE ('
+            '(dia_semana=? AND (data_especifica IS NULL OR data_especifica = \'\')) '
+            'OR (data_especifica IS NOT NULL AND data_especifica != \'\' '
+            'AND data_especifica >= ? AND strftime(\'%w\', data_especifica)=?)'
+            ')'
         )
-        p = [dia_busca, data_hoje_iso()]
+        p = [dia_busca, data_hoje_iso(), numero_semana_sqlite(dia_busca)]
     if horario:
         q += ' AND horario=?'
         p.append(horario)
@@ -1360,9 +1371,11 @@ def stats():
     if dia not in DIAS:
         return jsonify({'erro': f'Dia inválido: {dia}'}), 400
     filtro_visao = (
-        "dia_semana=? AND (data_especifica IS NULL OR data_especifica = '' OR data_especifica >= ?)"
+        "((dia_semana=? AND (data_especifica IS NULL OR data_especifica = '')) "
+        "OR (data_especifica IS NOT NULL AND data_especifica != '' "
+        "AND data_especifica >= ? AND strftime('%w', data_especifica)=?))"
     )
-    params = (dia, data_hoje_iso())
+    params = (dia, data_hoje_iso(), numero_semana_sqlite(dia))
     conn = get_db()
     try:
         total = conn.execute(f'SELECT COUNT(*) FROM agendamentos WHERE {filtro_visao}', params).fetchone()[0]

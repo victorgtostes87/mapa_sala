@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reservas</title>
+  <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/reservas.css') }}">
+</head>
+<body>
+  <nav class="app-nav">
+    <a class="app-nav-brand" href="/"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
+    <div class="app-nav-title">Reservas</div>
+    <div class="app-nav-spacer"></div>
+    <div class="app-nav-user">
+      <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
+      <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
+    </div>
+    <div class="app-nav-actions">
+      <a href="/" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Voltar</a>
+      <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
+      <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
+    </div>
+  </nav>
+
+  <main class="reservas-page">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for cat, msg in messages %}
+          <div class="flash {{ 'success' if cat == 'success' else 'error' }}">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Salas e instrumentos</p>
+        <h1>Reservas</h1>
+        <p>Solicitações devem ser feitas com no mínimo 24h de antecedência.</p>
+      </div>
+      {% if papel in ['coordenador', 'recepcao'] %}
+      <div class="pending-pill"><i data-lucide="bell"></i>{{ pendentes|length }} pendente(s)</div>
+      {% endif %}
+    </section>
+
+    {% if papel == 'aluno' %}
+    <section class="form-grid">
+      <form class="card" method="post" action="/reservas/sala">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <h2><i data-lucide="door-open"></i> Reservar sala</h2>
+        <p class="muted">Escolha o tipo de sala, data e intervalo. O sistema verifica se existe sala disponível.</p>
+
+        <label>Tipo de sala</label>
+        <select name="tipo_sala" required>
+          <option value="comum">Sala comum</option>
+          <option value="computador">Sala com computador</option>
+        </select>
+
+        <div class="two-cols">
+          <div>
+            <label>Data</label>
+            <input type="date" name="data_uso" required>
+          </div>
+          <div>
+            <label>Início</label>
+            <select name="horario_inicio" required>
+              {% for h in horarios %}<option value="{{ h }}">{{ h }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <label>Fim</label>
+        <select name="horario_fim" required>
+          {% for h in horarios %}<option value="{{ h }}">{{ h }}</option>{% endfor %}
+        </select>
+
+        <label>Finalidade</label>
+        <input name="finalidade" placeholder="Ex: estudo, prontuário, atendimento pontual" required>
+
+        <label>Observação</label>
+        <textarea name="observacao" placeholder="Detalhe algo importante para a recepção, se precisar."></textarea>
+
+        <button class="btn primary" type="submit"><i data-lucide="send"></i> Enviar solicitação</button>
+      </form>
+
+      <form class="card" method="post" action="/reservas/instrumento">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <h2><i data-lucide="clipboard-list"></i> Reservar teste/instrumento</h2>
+        <p class="muted">Funciona como o caderno da recepção, só que registrado no sistema.</p>
+
+        <label>Teste ou instrumento</label>
+        <input name="instrumento" placeholder="Ex: HTP, WISC, Bender, palográfico..." required>
+
+        <div class="two-cols">
+          <div>
+            <label>Data de retirada/uso</label>
+            <input type="date" name="data_uso" required>
+          </div>
+          <div>
+            <label>Horário</label>
+            <select name="horario_inicio" required>
+              {% for h in horarios %}<option value="{{ h }}">{{ h }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <label>Finalidade</label>
+        <input name="finalidade" placeholder="Ex: avaliação, triagem, estudo supervisionado">
+
+        <label>Observação</label>
+        <textarea name="observacao" placeholder="Quantidade, professor responsável ou outra informação útil."></textarea>
+
+        <button class="btn primary" type="submit"><i data-lucide="send"></i> Enviar solicitação</button>
+      </form>
+    </section>
+
+    <section class="section-head">
+      <div>
+        <p class="eyebrow">Histórico</p>
+        <h2>Minhas solicitações</h2>
+      </div>
+    </section>
+    {% else %}
+    <section class="section-head">
+      <div>
+        <p class="eyebrow">Recepção e coordenação</p>
+        <h2>Solicitações pendentes</h2>
+      </div>
+    </section>
+    {% endif %}
+
+    {% set lista = pendentes if papel in ['coordenador', 'recepcao'] else minhas_reservas %}
+    {% if lista %}
+    <section class="request-list">
+      {% for r in lista %}
+      <article class="request-card {{ r.status }}">
+        <div class="request-top">
+          <div>
+            <span class="type">{{ r.tipo_label }}</span>
+            <h3>
+              {% if r.tipo == 'sala' %}
+                {{ r.tipo_sala_label }}
+              {% else %}
+                {{ r.instrumento }}
+              {% endif %}
+            </h3>
+          </div>
+          <span class="status {{ r.status }}">{{ r.status_label }}</span>
+        </div>
+        <div class="request-meta">
+          <div><i data-lucide="user"></i>{{ r.usuario }}</div>
+          <div><i data-lucide="calendar"></i>{{ r.data_label }}</div>
+          <div><i data-lucide="clock"></i>{{ r.horario_inicio }}{% if r.horario_fim %} às {{ r.horario_fim }}{% endif %}</div>
+          {% if r.tipo == 'sala' and r.sala_atribuida %}
+          <div><i data-lucide="map-pin"></i>Sugestão: {{ r.sala_atribuida }}</div>
+          {% endif %}
+        </div>
+        {% if r.finalidade %}<p><strong>Finalidade:</strong> {{ r.finalidade }}</p>{% endif %}
+        {% if r.observacao %}<p><strong>Obs.:</strong> {{ r.observacao }}</p>{% endif %}
+        {% if r.resposta %}<p><strong>Resposta:</strong> {{ r.resposta }}</p>{% endif %}
+
+        {% if papel in ['coordenador', 'recepcao'] and r.status == 'pendente' %}
+        <div class="approval-area">
+          <form method="post" action="/reservas/{{ r.id }}/aprovar">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input name="resposta" placeholder="Mensagem opcional para o aluno">
+            <button class="btn primary" type="submit"><i data-lucide="check"></i> Aprovar</button>
+          </form>
+          <form method="post" action="/reservas/{{ r.id }}/recusar">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input name="resposta" placeholder="Motivo da recusa, se houver">
+            <button class="btn danger" type="submit"><i data-lucide="x"></i> Recusar</button>
+          </form>
+        </div>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </section>
+    {% else %}
+    <section class="empty-state">
+      <i data-lucide="inbox"></i>
+      <h2>Nenhuma solicitação por aqui</h2>
+      <p>{% if papel == 'aluno' %}Quando você enviar uma reserva, ela aparecerá nesta lista.{% else %}Quando um aluno solicitar sala ou instrumento, aparecerá aqui.{% endif %}</p>
+    </section>
+    {% endif %}
+
+    {% if papel in ['coordenador', 'recepcao'] and minhas_reservas %}
+    <section class="section-head">
+      <div>
+        <p class="eyebrow">Últimas análises</p>
+        <h2>Solicitações recentes</h2>
+      </div>
+    </section>
+    <section class="request-list compact">
+      {% for r in minhas_reservas %}
+      <article class="request-card {{ r.status }}">
+        <div class="request-top">
+          <div>
+            <span class="type">{{ r.tipo_label }}</span>
+            <h3>{% if r.tipo == 'sala' %}{{ r.tipo_sala_label }}{% else %}{{ r.instrumento }}{% endif %}</h3>
+          </div>
+          <span class="status {{ r.status }}">{{ r.status_label }}</span>
+        </div>
+        <div class="request-meta">
+          <div><i data-lucide="user"></i>{{ r.usuario }}</div>
+          <div><i data-lucide="calendar"></i>{{ r.data_label }}</div>
+          <div><i data-lucide="clock"></i>{{ r.horario_inicio }}{% if r.horario_fim %} às {{ r.horario_fim }}{% endif %}</div>
+        </div>
+      </article>
+      {% endfor %}
+    </section>
+    {% endif %}
+  </main>
+
+  <script>lucide.createIcons();</script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+:root{--bg:#0f172a;--surface:#1e293b;--surface2:#263348;--border:#334155;--text:#e2e8f0;--text2:#94a3b8;--accent:#3b82f6;--accent2:#2563eb;--danger:#dc2626;--radius:8px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;min-height:100vh}
+.reservas-page{max-width:1160px;margin:0 auto;padding:22px 20px 36px}
+.hero{display:flex;align-items:center;justify-content:space-between;gap:16px;background:linear-gradient(135deg,#17233a,#111827);border:1px solid var(--border);border-radius:var(--radius);padding:22px;margin-bottom:16px}
+.eyebrow{color:#93c5fd;text-transform:uppercase;letter-spacing:.7px;font-size:11px;font-weight:800;margin-bottom:6px}
+h1{font-size:24px;color:#f8fafc}h2{font-size:17px;color:#f8fafc;display:flex;align-items:center;gap:8px}h3{font-size:15px;color:#f8fafc}
+.hero p,.muted{color:var(--text2);line-height:1.45;margin-top:6px}
+.pending-pill{display:inline-flex;align-items:center;gap:8px;background:#1e3a8a;border:1px solid #2563eb;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:900;color:#dbeafe;white-space:nowrap}
+.pending-pill i,h2 i{width:16px;height:16px}
+.flash{border-radius:var(--radius);padding:10px 12px;margin-bottom:12px;font-weight:700}
+.flash.success{background:#052e16;border:1px solid #15803d;color:#bbf7d0}.flash.error{background:#431407;border:1px solid #ef4444;color:#fecaca}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.card,.request-card,.empty-state{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
+.card{padding:18px}.card .muted{margin-bottom:14px}
+label{display:block;color:var(--text2);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;margin:12px 0 5px}
+input,select,textarea{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:9px 11px;font-size:13px;outline:none}
+textarea{min-height:74px;resize:vertical}input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+.two-cols{display:grid;grid-template-columns:1fr 120px;gap:10px}
+.btn{border:0;border-radius:var(--radius);padding:9px 12px;cursor:pointer;text-decoration:none;font-size:12px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:all .15s;margin-top:14px}
+.btn i{width:15px;height:15px}.btn.primary{background:var(--accent);color:#fff}.btn.primary:hover{background:var(--accent2)}.btn.danger{background:var(--danger);color:#fff}.btn.danger:hover{background:#b91c1c}
+.section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:22px 0 10px}.section-head h2{display:block}
+.request-list{display:grid;gap:10px}.request-list.compact{grid-template-columns:repeat(2,minmax(0,1fr))}
+.request-card{padding:15px}
+.request-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
+.type{display:inline-block;color:#93c5fd;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.status{display:inline-flex;border-radius:999px;padding:4px 8px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.3px;color:#fff;white-space:nowrap}
+.status.pendente{background:#d97706}.status.aprovada{background:#15803d}.status.recusada{background:#991b1b}
+.request-card.pendente{border-color:#d97706}.request-card.aprovada{border-color:#15803d}.request-card.recusada{border-color:#991b1b}
+.request-meta{display:flex;gap:8px 14px;flex-wrap:wrap;color:var(--text2);font-size:12px;margin-bottom:10px}
+.request-meta div{display:inline-flex;align-items:center;gap:6px}.request-meta i{width:14px;height:14px;color:#93c5fd}
+.request-card p{color:var(--text2);line-height:1.45;margin-top:6px}.request-card strong{color:var(--text)}
+.approval-area{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.approval-area form{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}.approval-area .btn{margin-top:0}
+.empty-state{padding:32px 18px;text-align:center;color:var(--text2)}
+.empty-state i{width:40px;height:40px;color:#93c5fd;margin-bottom:10px}.empty-state h2{display:block;margin-bottom:6px}
+@media (max-width:780px){
+  .reservas-page{padding:12px 10px 28px}
+  .hero{align-items:flex-start;flex-direction:column;padding:18px}
+  h1{font-size:22px}
+  .form-grid,.request-list.compact{grid-template-columns:1fr}
+  .two-cols{grid-template-columns:1fr}
+  .section-head{align-items:flex-start;flex-direction:column;gap:4px}
+  .request-top{flex-direction:column}
+  .approval-area{grid-template-columns:1fr}
+  .approval-area form{grid-template-columns:1fr}
+  .approval-area .btn{width:100%}
+}

@@ -20,6 +20,7 @@ class MapaSalasTestCase(unittest.TestCase):
 
         conn = mapa.get_db()
         try:
+            conn.execute('DELETE FROM reservas')
             conn.execute('DELETE FROM agendamentos')
             conn.execute('DELETE FROM historico')
             conn.execute('DELETE FROM usuarios')
@@ -71,6 +72,12 @@ class MapaSalasTestCase(unittest.TestCase):
     def _proxima_data_util(self, weekday):
         data = datetime.now().date()
         while data.weekday() != weekday:
+            data += timedelta(days=1)
+        return data.strftime('%Y-%m-%d')
+
+    def _data_util_com_antecedencia(self):
+        data = datetime.now().date() + timedelta(days=3)
+        while data.weekday() >= 5:
             data += timedelta(days=1)
         return data.strftime('%Y-%m-%d')
 
@@ -243,6 +250,78 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn('Horário aberto sem paciente', html)
         self.assertIn('Professor liberou para paciente', html)
+
+    def test_aluno_solicita_reserva_de_instrumento(self):
+        data_uso = self._data_util_com_antecedencia()
+        self._login('aluno1')
+
+        resp = self.client.post(
+            '/reservas/instrumento',
+            data={
+                'csrf_token': self.csrf,
+                'data_uso': data_uso,
+                'horario_inicio': '08:00',
+                'instrumento': 'HTP',
+                'finalidade': 'Avaliação psicológica',
+                'observacao': 'Uso em supervisão'
+            }
+        )
+
+        self.assertEqual(resp.status_code, 302)
+        conn = mapa.get_db()
+        try:
+            row = conn.execute("SELECT * FROM reservas WHERE tipo='instrumento'").fetchone()
+        finally:
+            conn.close()
+
+        self.assertIsNotNone(row)
+        self.assertEqual(row['status'], 'pendente')
+        self.assertEqual(row['instrumento'], 'HTP')
+
+    def test_aprovar_reserva_de_sala_cria_agendamentos_no_mapa(self):
+        data_uso = self._data_util_com_antecedencia()
+        self._login('aluno1')
+        criar = self.client.post(
+            '/reservas/sala',
+            data={
+                'csrf_token': self.csrf,
+                'data_uso': data_uso,
+                'horario_inicio': '14:00',
+                'horario_fim': '16:00',
+                'tipo_sala': 'comum',
+                'finalidade': 'Estudo de prontuário',
+                'observacao': ''
+            }
+        )
+        self.assertEqual(criar.status_code, 302)
+
+        conn = mapa.get_db()
+        try:
+            reserva = conn.execute("SELECT * FROM reservas WHERE tipo='sala'").fetchone()
+        finally:
+            conn.close()
+        self.assertIsNotNone(reserva)
+
+        self.client.get('/logout')
+        self._login('recepcao')
+        aprovar = self.client.post(
+            f'/reservas/{reserva["id"]}/aprovar',
+            data={'csrf_token': self.csrf, 'resposta': 'Aprovado'}
+        )
+        self.assertEqual(aprovar.status_code, 302)
+
+        conn = mapa.get_db()
+        try:
+            reserva_atualizada = conn.execute('SELECT * FROM reservas WHERE id=?', (reserva['id'],)).fetchone()
+            total_agendamentos = conn.execute(
+                'SELECT COUNT(*) AS total FROM agendamentos WHERE data_especifica=? AND usuario_id=?',
+                (data_uso, self.aluno1_id)
+            ).fetchone()['total']
+        finally:
+            conn.close()
+
+        self.assertEqual(reserva_atualizada['status'], 'aprovada')
+        self.assertEqual(total_agendamentos, 2)
 
     def test_agendamentos_tem_chave_estrangeira_para_usuarios(self):
         conn = mapa.get_db()

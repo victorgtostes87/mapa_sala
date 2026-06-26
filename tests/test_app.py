@@ -143,6 +143,78 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertIn('Paciente Do Aluno', html)
         self.assertNotIn('Paciente De Outro Aluno', html)
 
+    def test_tela_aluno_separa_fixos_de_pacientes_marcados(self):
+        data_segunda = self._proxima_data_util(0)
+        conn = mapa.get_db()
+        try:
+            mapa.inserir_agendamento(conn, {
+                'dia': 'SEGUNDA',
+                'horario': '14:00',
+                'sala': 'Consultório 1',
+                'estagiario': 'aluno1',
+                'paciente': 'Paciente Fixo',
+                'categoria': 'ESTAGIÁRIO 10°',
+                'semestre': 10,
+                'triagem': 0,
+                'observacao': '',
+                'data_especifica': '',
+                'usuario_id': None
+            })
+            mapa.inserir_agendamento(conn, {
+                'dia': 'SEGUNDA',
+                'horario': '15:00',
+                'sala': 'Consultório 2',
+                'estagiario': 'aluno1',
+                'paciente': '',
+                'categoria': 'ESTAGIÁRIO 10°',
+                'semestre': 10,
+                'triagem': 1,
+                'observacao': '',
+                'data_especifica': '',
+                'usuario_id': None
+            })
+            mapa.inserir_agendamento(conn, {
+                'dia': 'SEGUNDA',
+                'horario': '15:00',
+                'sala': 'Consultório 2',
+                'estagiario': 'aluno1',
+                'paciente': 'Triagem Marcada',
+                'categoria': 'ESTAGIÁRIO 10°',
+                'semestre': 10,
+                'triagem': 1,
+                'observacao': '',
+                'data_especifica': data_segunda,
+                'usuario_id': None
+            })
+            mapa.inserir_agendamento(conn, {
+                'dia': 'SEGUNDA',
+                'horario': '16:00',
+                'sala': 'Consultório 3',
+                'estagiario': 'aluno1',
+                'paciente': '',
+                'categoria': 'ESTAGIÁRIO 10°',
+                'semestre': 10,
+                'triagem': 1,
+                'observacao': '',
+                'data_especifica': '',
+                'usuario_id': None
+            })
+            conn.commit()
+        finally:
+            conn.close()
+
+        self._login('aluno1')
+        resp = self.client.get('/meus-agendamentos')
+        html = resp.get_data(as_text=True)
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('Atendimentos com paciente', html)
+        self.assertIn('Horários fixos reservados', html)
+        self.assertIn('Paciente Fixo', html)
+        self.assertIn('Triagem Marcada', html)
+        self.assertIn('Triagem sem paciente marcado', html)
+        self.assertIn('Consultório 3', html)
+
     def test_agendamentos_tem_chave_estrangeira_para_usuarios(self):
         conn = mapa.get_db()
         try:

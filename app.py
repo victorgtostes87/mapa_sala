@@ -40,7 +40,7 @@ DB_PATH = os.environ.get(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 )
 
-VERSAO = '2026-06-26-v16'
+VERSAO = '2026-06-26-v17'
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -875,34 +875,77 @@ def meus_agendamentos():
         conn.close()
 
     agendamentos = []
-    total_fixos = 0
-    total_pontuais = 0
-    total_triagens = 0
+    atendimentos_paciente = []
+    horarios_fixos = []
+    pacientes_pontuais_por_horario = {}
+
     for row in rows:
         ag = dict(row)
         ag['dia_label'] = DIAS_PT.get(ag['dia_semana'], ag['dia_semana'].title())
         ag['tipo'] = 'Pontual' if ag.get('data_especifica') else 'Fixo semanal'
         ag['tipo_slug'] = 'pontual' if ag.get('data_especifica') else 'fixo'
+        ag['tem_paciente'] = bool((ag.get('paciente') or '').strip())
+        ag['eh_fixo'] = not bool(ag.get('data_especifica'))
+        ag['eh_triagem'] = bool(int(ag.get('triagem') or 0))
         ag['data_label'] = ''
         if ag.get('data_especifica'):
             try:
                 ag['data_label'] = datetime.strptime(ag['data_especifica'], '%Y-%m-%d').strftime('%d/%m/%Y')
             except ValueError:
                 ag['data_label'] = ag['data_especifica']
-            total_pontuais += 1
-        else:
-            total_fixos += 1
-        if int(ag.get('triagem') or 0):
-            total_triagens += 1
+
+        if ag['tem_paciente']:
+            atendimentos_paciente.append(ag)
+            if ag.get('data_especifica'):
+                chave = (ag['dia_semana'], ag['horario'], ag['sala'])
+                pacientes_pontuais_por_horario.setdefault(chave, []).append(ag)
         agendamentos.append(ag)
+
+    for ag in agendamentos:
+        if not ag['eh_fixo']:
+            continue
+
+        chave = (ag['dia_semana'], ag['horario'], ag['sala'])
+        pacientes_pontuais = pacientes_pontuais_por_horario.get(chave, [])
+        ag['paciente_pontual_label'] = ''
+        if pacientes_pontuais:
+            primeiro = pacientes_pontuais[0]
+            ag['paciente_pontual_label'] = (
+                f"{primeiro.get('paciente', '')} em {primeiro.get('data_label') or primeiro.get('data_especifica')}"
+            )
+
+        if ag['tem_paciente']:
+            ag['status_fixo'] = 'Paciente fixo semanal'
+            ag['status_slug'] = 'com-paciente'
+            ag['status_descricao'] = 'Este horário já tem paciente vinculado toda semana.'
+        elif pacientes_pontuais:
+            ag['status_fixo'] = 'Paciente pontual marcado'
+            ag['status_slug'] = 'com-paciente'
+            ag['status_descricao'] = 'Existe paciente marcado em uma data específica para este horário.'
+        elif ag['eh_triagem']:
+            ag['status_fixo'] = 'Triagem sem paciente marcado'
+            ag['status_slug'] = 'aguardando'
+            ag['status_descricao'] = 'Horário reservado para triagem, mas ainda sem paciente vinculado.'
+        else:
+            ag['status_fixo'] = 'Reservado sem paciente'
+            ag['status_slug'] = 'livre'
+            ag['status_descricao'] = 'Horário fixo reservado, mas sem paciente marcado.'
+
+        horarios_fixos.append(ag)
 
     return render_template(
         'meus_agendamentos.html',
         agendamentos=agendamentos,
+        atendimentos_paciente=atendimentos_paciente,
+        horarios_fixos=horarios_fixos,
         total=len(agendamentos),
-        total_fixos=total_fixos,
-        total_pontuais=total_pontuais,
-        total_triagens=total_triagens,
+        total_fixos=len(horarios_fixos),
+        total_atendimentos=len(atendimentos_paciente),
+        total_pontuais=sum(1 for ag in atendimentos_paciente if ag.get('data_especifica')),
+        total_triagens_livres=sum(
+            1 for ag in horarios_fixos
+            if ag.get('eh_triagem') and not ag.get('tem_paciente') and not ag.get('paciente_pontual_label')
+        ),
         usuario=current_user.username,
         papel=current_user.role,
         papel_label=PAPEIS_LABEL.get(current_user.role, current_user.role)

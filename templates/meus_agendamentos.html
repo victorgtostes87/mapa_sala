@@ -27,40 +27,46 @@
     <section class="hero">
       <div>
         <p class="eyebrow">Área do aluno</p>
-        <h1>Seus horários de atendimento</h1>
-        <p class="muted">Aqui aparecem somente os agendamentos vinculados ao seu usuário.</p>
+        <h1>Seu mapa pessoal</h1>
+        <p class="muted">Veja separado o que é horário reservado e o que já tem paciente marcado.</p>
       </div>
       <div class="hero-actions">
-        <button class="filter-btn active" data-filter="todos">Todos</button>
-        <button class="filter-btn" data-filter="fixo">Fixos</button>
-        <button class="filter-btn" data-filter="pontual">Pontuais</button>
-        <button class="filter-btn" data-filter="triagem">Triagem</button>
+        <a href="#pacientes" class="filter-btn active">Pacientes</a>
+        <a href="#fixos" class="filter-btn">Fixos reservados</a>
       </div>
     </section>
 
     <section class="summary">
       <div class="summary-card">
-        <span>Total</span>
-        <strong>{{ total }}</strong>
+        <span>Com paciente</span>
+        <strong>{{ total_atendimentos }}</strong>
       </div>
       <div class="summary-card">
-        <span>Fixos semanais</span>
+        <span>Fixos reservados</span>
         <strong>{{ total_fixos }}</strong>
       </div>
       <div class="summary-card">
-        <span>Pontuais futuros</span>
+        <span>Pacientes pontuais</span>
         <strong>{{ total_pontuais }}</strong>
       </div>
       <div class="summary-card">
-        <span>Triagens</span>
-        <strong>{{ total_triagens }}</strong>
+        <span>Triagens livres</span>
+        <strong>{{ total_triagens_livres }}</strong>
       </div>
     </section>
 
-    {% if agendamentos %}
-    <section class="appointments" id="appointments">
-      {% for ag in agendamentos %}
-      <article class="appointment-card" data-tipo="{{ ag.tipo_slug }}" data-triagem="{{ 1 if ag.triagem else 0 }}">
+    <section class="section-head" id="pacientes">
+      <div>
+        <p class="eyebrow">Agenda real</p>
+        <h2>Atendimentos com paciente</h2>
+      </div>
+      <span>{{ total_atendimentos }} marcado(s)</span>
+    </section>
+
+    {% if atendimentos_paciente %}
+    <section class="appointments">
+      {% for ag in atendimentos_paciente %}
+      <article class="appointment-card patient-card">
         <div class="time-block">
           <strong>{{ ag.horario }}</strong>
           <span>{{ ag.dia_label }}</span>
@@ -74,15 +80,14 @@
             <div class="badges">
               <span class="badge {{ ag.tipo_slug }}">{{ ag.tipo }}</span>
               {% if ag.triagem %}<span class="badge triagem">Triagem</span>{% endif %}
-              {% if ag.ocupa_sala %}<span class="badge ocupa">Ocupa sala</span>{% endif %}
             </div>
           </div>
           <div class="details">
-            {% if ag.paciente %}
             <div><i data-lucide="user"></i><span>Paciente: <strong>{{ ag.paciente }}</strong></span></div>
-            {% endif %}
             {% if ag.data_label %}
             <div><i data-lucide="calendar-check"></i><span>Data específica: <strong>{{ ag.data_label }}</strong></span></div>
+            {% else %}
+            <div><i data-lucide="repeat"></i><span>Atendimento fixo semanal</span></div>
             {% endif %}
             {% if ag.observacao %}
             <div><i data-lucide="sticky-note"></i><span>Obs.: {{ ag.observacao }}</span></div>
@@ -93,29 +98,62 @@
       {% endfor %}
     </section>
     {% else %}
-    <section class="empty-state">
+    <section class="empty-state compact">
       <i data-lucide="calendar-x"></i>
-      <h2>Nenhum agendamento encontrado</h2>
-      <p>Quando a recepção ou coordenação vincular um horário ao seu usuário, ele aparecerá aqui.</p>
+      <h2>Nenhum paciente marcado</h2>
+      <p>Você pode ter horários fixos reservados abaixo, mas ainda sem paciente vinculado.</p>
+    </section>
+    {% endif %}
+
+    <section class="section-head" id="fixos">
+      <div>
+        <p class="eyebrow">Reserva semanal</p>
+        <h2>Horários fixos reservados</h2>
+      </div>
+      <span>{{ total_fixos }} reservado(s)</span>
+    </section>
+
+    {% if horarios_fixos %}
+    <section class="fixed-grid">
+      {% for ag in horarios_fixos %}
+      <article class="fixed-card {{ ag.status_slug }}">
+        <div class="fixed-time">
+          <strong>{{ ag.horario }}</strong>
+          <span>{{ ag.dia_label }}</span>
+        </div>
+        <div class="fixed-body">
+          <div class="fixed-title">
+            <h3>{{ ag.sala }}</h3>
+            <span class="status-pill {{ ag.status_slug }}">{{ ag.status_fixo }}</span>
+          </div>
+          <p>{{ ag.status_descricao }}</p>
+          <div class="details">
+            <div><i data-lucide="tag"></i><span>{{ ag.categoria or 'Sem categoria' }}</span></div>
+            {% if ag.paciente %}
+            <div><i data-lucide="user"></i><span>Paciente: <strong>{{ ag.paciente }}</strong></span></div>
+            {% elif ag.paciente_pontual_label %}
+            <div><i data-lucide="calendar-check"></i><span>{{ ag.paciente_pontual_label }}</span></div>
+            {% endif %}
+            {% if ag.triagem %}
+            <div><i data-lucide="clipboard-check"></i><span>Horário de triagem</span></div>
+            {% endif %}
+            {% if ag.observacao %}
+            <div><i data-lucide="sticky-note"></i><span>Obs.: {{ ag.observacao }}</span></div>
+            {% endif %}
+          </div>
+        </div>
+      </article>
+      {% endfor %}
+    </section>
+    {% else %}
+    <section class="empty-state compact">
+      <i data-lucide="calendar-days"></i>
+      <h2>Nenhum horário fixo reservado</h2>
+      <p>Quando a coordenação ou recepção reservar seus horários semanais, eles aparecerão aqui.</p>
     </section>
     {% endif %}
   </main>
 
-  <script>
-    document.querySelectorAll('.filter-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const filtro = btn.dataset.filter;
-        document.querySelectorAll('.filter-btn').forEach((b) => b.classList.remove('active'));
-        btn.classList.add('active');
-        document.querySelectorAll('.appointment-card').forEach((card) => {
-          const mostrar = filtro === 'todos'
-            || card.dataset.tipo === filtro
-            || (filtro === 'triagem' && card.dataset.triagem === '1');
-          card.style.display = mostrar ? '' : 'none';
-        });
-      });
-    });
-    lucide.createIcons();
-  </script>
+  <script>lucide.createIcons();</script>
 </body>
 </html>

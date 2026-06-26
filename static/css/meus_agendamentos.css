@@ -35,7 +35,7 @@ h1{font-size:24px;line-height:1.15;color:#f8fafc}
 .details strong{color:var(--text)}
 .fixed-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .fixed-card{display:grid;grid-template-columns:92px 1fr;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
-.fixed-card.com-paciente{border-color:#15803d}.fixed-card.aguardando{border-color:#d97706}.fixed-card.livre{border-color:#475569}
+.fixed-card.com-paciente{border-color:#15803d}.fixed-card.aguardando{border-color:#d97706}.fixed-card.aberto{border-color:#65a30d}.fixed-card.livre{border-color:#475569}
 .fixed-time{background:#17233a;border-right:1px solid var(--border);padding:14px 12px;display:flex;flex-direction:column;justify-content:center;gap:4px}
 .fixed-time strong{font-size:20px;color:#f8fafc}.fixed-time span{font-size:11px;color:#93c5fd;font-weight:800}
 .fixed-body{padding:13px 14px}
@@ -43,7 +43,7 @@ h1{font-size:24px;line-height:1.15;color:#f8fafc}
 .fixed-title h3{font-size:15px;color:#f8fafc}
 .fixed-body p{color:var(--text2);font-size:12px;line-height:1.45;margin-bottom:10px}
 .status-pill{display:inline-flex;align-items:center;border-radius:999px;padding:3px 8px;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;color:#fff;background:#475569}
-.status-pill.com-paciente{background:#15803d}.status-pill.aguardando{background:#d97706}.status-pill.livre{background:#475569}
+.status-pill.com-paciente{background:#15803d}.status-pill.aguardando{background:#d97706}.status-pill.aberto{background:#65a30d}.status-pill.livre{background:#475569}
 .empty-state{margin-top:16px;background:var(--surface);border:1px dashed var(--border);border-radius:var(--radius);padding:38px 20px;text-align:center;color:var(--text2)}
 .empty-state.compact{margin-top:0;padding:24px 18px}
 .empty-state i{width:40px;height:40px;color:#93c5fd;margin-bottom:12px}

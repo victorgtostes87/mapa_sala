@@ -209,11 +209,40 @@ class MapaSalasTestCase(unittest.TestCase):
 
         self.assertEqual(resp.status_code, 200)
         self.assertIn('Atendimentos com paciente', html)
-        self.assertIn('Horários fixos reservados', html)
+        self.assertIn('Horários fixos sem paciente', html)
         self.assertIn('Paciente Fixo', html)
         self.assertIn('Triagem Marcada', html)
         self.assertIn('Triagem sem paciente marcado', html)
         self.assertIn('Consultório 3', html)
+        self.assertEqual(html.count('Triagem sem paciente marcado'), 1)
+
+    def test_tela_aluno_mostra_horario_aberto_sem_paciente(self):
+        conn = mapa.get_db()
+        try:
+            mapa.inserir_agendamento(conn, {
+                'dia': 'SEGUNDA',
+                'horario': '17:00',
+                'sala': 'Consultório 4',
+                'estagiario': 'aluno1',
+                'paciente': '',
+                'categoria': 'MARCAR',
+                'semestre': 10,
+                'triagem': 0,
+                'observacao': 'Professor liberou para paciente',
+                'data_especifica': '',
+                'usuario_id': None
+            })
+            conn.commit()
+        finally:
+            conn.close()
+
+        self._login('aluno1')
+        resp = self.client.get('/meus-agendamentos')
+        html = resp.get_data(as_text=True)
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('Horário aberto sem paciente', html)
+        self.assertIn('Professor liberou para paciente', html)
 
     def test_agendamentos_tem_chave_estrangeira_para_usuarios(self):
         conn = mapa.get_db()

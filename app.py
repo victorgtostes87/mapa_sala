@@ -40,7 +40,7 @@ DB_PATH = os.environ.get(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 )
 
-VERSAO = '2026-06-26-v17'
+VERSAO = '2026-06-26-v18'
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -914,18 +914,18 @@ def meus_agendamentos():
                 f"{primeiro.get('paciente', '')} em {primeiro.get('data_label') or primeiro.get('data_especifica')}"
             )
 
-        if ag['tem_paciente']:
-            ag['status_fixo'] = 'Paciente fixo semanal'
-            ag['status_slug'] = 'com-paciente'
-            ag['status_descricao'] = 'Este horário já tem paciente vinculado toda semana.'
-        elif pacientes_pontuais:
-            ag['status_fixo'] = 'Paciente pontual marcado'
-            ag['status_slug'] = 'com-paciente'
-            ag['status_descricao'] = 'Existe paciente marcado em uma data específica para este horário.'
-        elif ag['eh_triagem']:
+        if ag['tem_paciente'] or pacientes_pontuais:
+            continue
+
+        categoria_upper = (ag.get('categoria') or '').upper()
+        if ag['eh_triagem']:
             ag['status_fixo'] = 'Triagem sem paciente marcado'
             ag['status_slug'] = 'aguardando'
             ag['status_descricao'] = 'Horário reservado para triagem, mas ainda sem paciente vinculado.'
+        elif categoria_upper == 'MARCAR':
+            ag['status_fixo'] = 'Horário aberto sem paciente'
+            ag['status_slug'] = 'aberto'
+            ag['status_descricao'] = 'Horário liberado para paciente, mas a recepção ainda não marcou ninguém.'
         else:
             ag['status_fixo'] = 'Reservado sem paciente'
             ag['status_slug'] = 'livre'

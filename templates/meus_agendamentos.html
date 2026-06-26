@@ -28,11 +28,11 @@
       <div>
         <p class="eyebrow">Área do aluno</p>
         <h1>Seu mapa pessoal</h1>
-        <p class="muted">Veja separado o que é horário reservado e o que já tem paciente marcado.</p>
+        <p class="muted">Veja seus pacientes marcados e os horários fixos que ainda estão sem paciente.</p>
       </div>
       <div class="hero-actions">
         <a href="#pacientes" class="filter-btn active">Pacientes</a>
-        <a href="#fixos" class="filter-btn">Fixos reservados</a>
+        <a href="#fixos" class="filter-btn">Sem paciente</a>
       </div>
     </section>
 
@@ -42,7 +42,7 @@
         <strong>{{ total_atendimentos }}</strong>
       </div>
       <div class="summary-card">
-        <span>Fixos reservados</span>
+        <span>Fixos sem paciente</span>
         <strong>{{ total_fixos }}</strong>
       </div>
       <div class="summary-card">
@@ -101,16 +101,16 @@
     <section class="empty-state compact">
       <i data-lucide="calendar-x"></i>
       <h2>Nenhum paciente marcado</h2>
-      <p>Você pode ter horários fixos reservados abaixo, mas ainda sem paciente vinculado.</p>
+      <p>Se existir horário fixo seu ainda sem paciente, ele aparecerá abaixo.</p>
     </section>
     {% endif %}
 
     <section class="section-head" id="fixos">
       <div>
         <p class="eyebrow">Reserva semanal</p>
-        <h2>Horários fixos reservados</h2>
+        <h2>Horários fixos sem paciente</h2>
       </div>
-      <span>{{ total_fixos }} reservado(s)</span>
+      <span>{{ total_fixos }} aberto(s)</span>
     </section>
 
     {% if horarios_fixos %}
@@ -148,8 +148,8 @@
     {% else %}
     <section class="empty-state compact">
       <i data-lucide="calendar-days"></i>
-      <h2>Nenhum horário fixo reservado</h2>
-      <p>Quando a coordenação ou recepção reservar seus horários semanais, eles aparecerão aqui.</p>
+      <h2>Nenhum horário fixo sem paciente</h2>
+      <p>Isso significa que seus horários fixos já têm paciente marcado ou ainda não foram liberados para você.</p>
     </section>
     {% endif %}
   </main>

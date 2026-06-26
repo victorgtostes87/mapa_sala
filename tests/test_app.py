@@ -18,11 +18,12 @@ class MapaSalasTestCase(unittest.TestCase):
         self.client = mapa.app.test_client()
         self.csrf = 'csrf-de-teste'
 
+        mapa.init_db()
         conn = mapa.get_db()
         try:
-            conn.execute('DELETE FROM reservas')
             conn.execute('DELETE FROM agendamentos')
             conn.execute('DELETE FROM historico')
+            conn.execute('DELETE FROM reservas')
             conn.execute('DELETE FROM usuarios')
             self.coord_id = self._criar_usuario(conn, 'coordenador', 'coordenador')
             self.recepcao_id = self._criar_usuario(conn, 'recepcao', 'recepcao')

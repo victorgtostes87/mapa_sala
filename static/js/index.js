@@ -21,9 +21,39 @@ const CAT_CLASS = {
 };
 
 function selectDay(dia, el) {
+  const dataFiltro = document.getElementById('filterData');
+  const dataIndex = weekdayIndexFromIso(dataFiltro ? dataFiltro.value : '');
+  const diaIndex = DIAS.indexOf(dia);
+  if (dataFiltro && dataFiltro.value && dataIndex !== diaIndex) {
+    dataFiltro.value = '';
+  }
   currentDay = dia;
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
+  renderGrid();
+}
+function weekdayIndexFromIso(dataIso) {
+  if (!dataIso) return null;
+  const parts = dataIso.split('-').map(Number);
+  if (parts.length !== 3 || parts.some(Number.isNaN)) return null;
+  const data = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+  const diaSemana = data.getUTCDay();
+  if (diaSemana < 1 || diaSemana > 5) return null;
+  return diaSemana - 1;
+}
+function setActiveDayByIndex(index) {
+  if (index === null || index < 0 || index >= DIAS.length) return;
+  currentDay = DIAS[index];
+  document.querySelectorAll('.tab').forEach((tab, i) => {
+    tab.classList.toggle('active', i === index);
+  });
+}
+function syncDayWithDate(dataIso) {
+  const index = weekdayIndexFromIso(dataIso);
+  if (index !== null) setActiveDayByIndex(index);
+}
+function onDateFilterChange() {
+  syncDayWithDate(document.getElementById('filterData').value);
   renderGrid();
 }
 async function loadData() {
@@ -108,16 +138,15 @@ function renderAgendamentoCell(ag, cellTemOcupacao=false){
   const badgeHtml = ag.triagem ? '<span class="badge">triagem</span>' : '';
   const dataHtml  = ag.data_especifica ? '<span class="badge">'+esc(ag.data_especifica)+'</span>' : '';
   const ocupa = parseInt(ag.ocupa_sala) === 1;
-  const ocupacaoHtml = ocupa ? '<span class="badge badge-ocupa">ocupa sala</span>' : '<span class="badge badge-livre">sala livre</span>';
   const obsHtml = ag.observacao ? '<div class="obs">'+esc(ag.observacao)+'</div>' : '';
   const editBtn   = PODE_EDITAR ? `<button class="edit-btn" onclick="event.stopPropagation();openModal(${ag.id})">✏️</button>` : '';
   const usarBtn = PODE_EDITAR && !ocupa && !cellTemOcupacao ? `<button class="use-room-btn" onclick="event.stopPropagation();openUsoPontual('${escAttr(ag.horario)}','${escAttr(ag.sala)}')">+ Usar sala</button>` : '';
-  return `<div class="cell ${cls} ${ocupa ? 'cell-ocupa' : 'cell-livre-info'}" onclick="openModal(${ag.id})">
+  return `<div class="cell ${cls}" onclick="openModal(${ag.id})">
     ${editBtn}
     <div class="intern">${esc(ag.estagiario)}</div>
     ${ag.paciente ? '<div class="patient">'+esc(ag.paciente)+'</div>' : ''}
     ${obsHtml}
-    <div style="display:flex;gap:3px;flex-wrap:wrap">${badgeHtml}${dataHtml}${ocupacaoHtml}</div>
+    <div style="display:flex;gap:3px;flex-wrap:wrap">${badgeHtml}${dataHtml}</div>
     ${usarBtn}
   </div>`;
 }
@@ -309,7 +338,12 @@ async function saveAg(){
     showToast('Não foi possível salvar agora. Verifique a conexão e tente novamente.','error');
     return;
   }
-  if(res.ok){ showToast('✅ Salvo!','success'); closeModal(); renderGrid(); }
+  if(res.ok){
+    showToast('✅ Salvo!','success');
+    closeModal();
+    if(body.data_especifica) syncDayWithDate(body.data_especifica);
+    renderGrid();
+  }
   else if(res.status===409){
     document.getElementById('conflictMsg').textContent=data.erro||'Conflito de sala.';
     document.getElementById('conflictBox').classList.add('show');
@@ -344,12 +378,67 @@ function deleteAg(){
 }
 function fecharConfirm(){ document.getElementById('confirmOverlay').classList.remove('open'); }
 function exportCSV(){ window.location='/api/export'; }
+function openImportModal(){
+  const menu = document.getElementById('dropdownMenu');
+  if(menu) menu.classList.remove('open');
+  document.getElementById('importResult').style.display = 'none';
+  document.getElementById('importResult').textContent = '';
+  document.getElementById('importForm').reset();
+  document.getElementById('importOverlay').classList.add('open');
+}
+function closeImportModal(){
+  document.getElementById('importOverlay').classList.remove('open');
+}
+async function submitImportExcel(e){
+  e.preventDefault();
+  const btn = document.getElementById('importBtn');
+  const result = document.getElementById('importResult');
+  const file = document.getElementById('importFile').files[0];
+  if(!file){
+    showToast('Selecione um arquivo para importar.', 'warn');
+    return;
+  }
+  const form = new FormData();
+  form.append('file', file);
+  if(document.getElementById('importSubstituir').checked){
+    if(!confirm('Substituir todo o mapa atual antes de importar este Excel?')) return;
+    form.append('substituir', '1');
+  }
+  btn.disabled = true;
+  btn.style.opacity = '0.6';
+  result.style.display = 'block';
+  result.textContent = 'Importando arquivo...';
+  try {
+    const res = await fetch('/api/import', {
+      method: 'POST',
+      headers: {'X-CSRFToken': CSRF_TOKEN},
+      body: form
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.erro || 'Não foi possível importar o arquivo.');
+    const conflitos = (data.conflitos || []).length;
+    const erros = (data.erros || []).length;
+    result.innerHTML =
+      `<strong>${data.inseridos || 0}</strong> agendamento(s) importado(s).<br>` +
+      `<strong>${conflitos}</strong> conflito(s). <strong>${erros}</strong> erro(s).` +
+      (data.ignorados ? `<br>${data.ignorados} célula(s) vazia(s) ou marcadores internos ignorados.` : '');
+    showToast('Importação concluída.', 'success');
+    renderGrid();
+  } catch(err) {
+    result.textContent = err.message || 'Falha ao importar.';
+    showToast(result.textContent, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.style.opacity = '';
+  }
+}
 function showToast(msg,type='success'){
   const t=document.getElementById('toast');
   t.textContent=msg; t.className='toast show '+type;
   setTimeout(()=>t.className='toast',3000);
 }
 renderGrid();
+document.getElementById('importForm')?.addEventListener('submit', submitImportExcel);
 
 function toggleMenu(e){
   e.stopPropagation();

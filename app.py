@@ -4,6 +4,7 @@ import os
 import re
 import secrets
 import sqlite3
+import unicodedata
 from datetime import datetime
 from functools import wraps
 import click
@@ -1548,6 +1549,258 @@ def busca_global():
     return jsonify([dict(r) for r in rows])
 
 
+def chave_sem_acento(valor):
+    valor = unicodedata.normalize('NFKD', str(valor or ''))
+    valor = ''.join(ch for ch in valor if not unicodedata.combining(ch))
+    return re.sub(r'[^a-z0-9]+', '', valor.lower())
+
+
+def normalizar_sala_excel(valor):
+    mapa = {chave_sem_acento(sala): sala for sala in SALAS}
+    chave = chave_sem_acento(valor)
+    if chave in mapa:
+        return mapa[chave]
+    aliases = {
+        'consultorio1': 'Consultório 1',
+        'consultorio2': 'Consultório 2',
+        'consultorio3': 'Consultório 3',
+        'consultorio4': 'Consultório 4',
+        'consultorio5': 'Consultório 5',
+        'consultorio6diva': 'Consultório 6 (Divã)',
+        'consultorio7diva': 'Consultório 7 (Divã)',
+        'consultorio8': 'Consultório 8',
+        'sounace': 'SOU / NACE',
+        'saladegrupo1': 'Sala de Grupo 1',
+        'saladegrupo2': 'Sala de Grupo 2',
+        'supervisao': 'Supervisão',
+        'coordenacao': 'Coordenação',
+    }
+    return aliases.get(chave)
+
+
+def texto_celula_excel(valor):
+    if valor is None:
+        return ''
+    texto = str(valor).replace('\r', '\n')
+    partes = [p.strip() for p in texto.split('\n') if p and p.strip()]
+    return ' - '.join(partes).strip()
+
+
+def horario_excel(valor):
+    if valor is None or valor == '':
+        return ''
+    if hasattr(valor, 'strftime'):
+        return valor.strftime('%H:%M')
+    try:
+        numero = float(valor)
+        minutos = int(round(numero * 24 * 60))
+        return f'{minutos // 60:02d}:{minutos % 60:02d}'
+    except (TypeError, ValueError):
+        texto = str(valor).strip()
+        m = re.search(r'(\d{1,2})[:h](\d{2})', texto)
+        if m:
+            return f'{int(m.group(1)):02d}:{int(m.group(2)):02d}'
+        return texto
+
+
+def extrair_data_pontual_excel(texto, ano=None):
+    ano = ano or datetime.now().year
+    if not re.search(r'\b(s[óo]|somente|apenas|dia)\b', texto, flags=re.I):
+        return ''
+    m = re.search(r'(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?', texto)
+    if not m:
+        return ''
+    dia = int(m.group(1))
+    mes = int(m.group(2))
+    ano_encontrado = int(m.group(3)) if m.group(3) else ano
+    if ano_encontrado < 100:
+        ano_encontrado += 2000
+    try:
+        return datetime(ano_encontrado, mes, dia).strftime('%Y-%m-%d')
+    except ValueError:
+        return ''
+
+
+def limpar_marcadores_excel(texto):
+    texto = re.sub(r'\(?\btriagem\b\)?', '', texto, flags=re.I)
+    texto = re.sub(r'\b(s[óo]|somente|apenas)\s+(dia\s+)?\d{1,2}/\d{1,2}(/\d{2,4})?', '', texto, flags=re.I)
+    texto = re.sub(r'\bdia\s+\d{1,2}/\d{1,2}(/\d{2,4})?', '', texto, flags=re.I)
+    return re.sub(r'\s+', ' ', texto).strip(' -')
+
+
+def categoria_por_texto_excel(texto):
+    up = texto.upper()
+    if 'NÃO MARCAR' in up or 'NAO MARCAR' in up:
+        return 'NÃO MARCAR'
+    if 'MARCAR' in up:
+        return 'MARCAR'
+    if 'SUPERVIS' in up or up.startswith('PROF.'):
+        return 'SUPERVISÃO'
+    if 'NACE' in up:
+        return 'NACE'
+    if re.search(r'\bSOU\b', up):
+        return 'SOU'
+    if 'PRONT' in up or 'ESTUDAR' in up:
+        return 'PRONTUÁRIO/ESTUDAR'
+    if 'NUTRI' in up:
+        return 'NUTRIÇÃO'
+    if 'PSICODIAGN' in up:
+        return 'PSICODIAGNÓSTICO'
+    if 'PSIQUIATR' in up:
+        return 'PSIQUIATRIA'
+    if 'AMBULAT' in up or 'NEUROPSICOLOGIA' in up:
+        return 'AMBULATÓRIO NEUROPSICOLOGIA'
+    if 'PLANT' in up:
+        return 'PLANTÃO PSICOLÓGICO'
+    if re.search(r'\b10\s*[°º]', texto):
+        return 'ESTAGIÁRIO 10°'
+    if re.search(r'\b9\s*[°º]', texto):
+        return 'ESTAGIÁRIO 9°'
+    return 'OUTRO'
+
+
+def montar_agendamento_excel(dia, horario, sala, texto_principal, texto_secundario, ano=None):
+    textos = [t for t in (texto_principal, texto_secundario) if t]
+    if not textos:
+        return None, 'Célula vazia'
+    texto_total = ' - '.join(textos)
+    if chave_sem_acento(texto_total) in ('tt', 't'):
+        return None, 'Marcador interno ignorado'
+
+    triagem = 1 if re.search(r'\btriagem\b', texto_total, flags=re.I) else 0
+    data_especifica = extrair_data_pontual_excel(texto_total, ano)
+    categoria = categoria_por_texto_excel(texto_total)
+    estagiario = ''
+    paciente = ''
+    observacao = ''
+
+    if categoria.startswith('ESTAGIÁRIO'):
+        estagiario = limpar_marcadores_excel(texto_principal)
+        paciente = limpar_marcadores_excel(texto_secundario)
+        if paciente.upper() in ('MARCAR', 'MARCAR TRIAGEM', 'NÃO MARCAR', 'NAO MARCAR'):
+            observacao = paciente
+            paciente = ''
+    elif categoria in ('MARCAR', 'NÃO MARCAR'):
+        estagiario = limpar_marcadores_excel(texto_principal)
+        observacao = limpar_marcadores_excel(texto_total)
+        if categoria == 'MARCAR':
+            estagiario = ''
+    else:
+        estagiario = limpar_marcadores_excel(texto_principal)
+        observacao = limpar_marcadores_excel(texto_total)
+
+    if not estagiario and categoria == 'OUTRO':
+        estagiario = limpar_marcadores_excel(texto_principal) or 'Importado do Excel'
+
+    dados_ag, erro = preparar_dados_agendamento({
+        'dia_semana': dia,
+        'horario': horario,
+        'sala': sala,
+        'estagiario': estagiario,
+        'paciente': paciente,
+        'categoria': categoria,
+        'triagem': triagem,
+        'observacao': observacao,
+        'data_especifica': data_especifica,
+    })
+    return dados_ag, erro
+
+
+def importar_xlsx_mapa(file_storage, substituir=False):
+    try:
+        from openpyxl import load_workbook
+    except ImportError:
+        return None, {'erro': 'Importação XLSX indisponível. Instale as dependências com: pip install -r requirements.txt'}, 500
+
+    file_storage.stream.seek(0)
+    wb = load_workbook(file_storage.stream, data_only=True, read_only=True)
+    abas_dias = {chave_sem_acento(dia): dia for dia in DIAS}
+    inseridos = 0
+    conflitos = []
+    erros = []
+    ignorados = 0
+    ano = datetime.now().year
+
+    conn = get_db()
+    try:
+        if substituir:
+            conn.execute('DELETE FROM agendamentos')
+
+        for nome_aba in wb.sheetnames:
+            dia = abas_dias.get(chave_sem_acento(nome_aba))
+            if not dia:
+                continue
+            ws = wb[nome_aba]
+            salas_colunas = {}
+            for col in range(2, ws.max_column + 1):
+                sala = normalizar_sala_excel(ws.cell(row=1, column=col).value)
+                if sala:
+                    salas_colunas[col] = sala
+
+            row = 2
+            while row <= ws.max_row:
+                horario = horario_excel(ws.cell(row=row, column=1).value)
+                if horario not in HORARIOS:
+                    row += 1
+                    continue
+
+                for col, sala in salas_colunas.items():
+                    texto_principal = texto_celula_excel(ws.cell(row=row, column=col).value)
+                    texto_secundario = texto_celula_excel(ws.cell(row=row + 1, column=col).value) if row + 1 <= ws.max_row else ''
+                    if not texto_principal and not texto_secundario:
+                        continue
+
+                    dados_ag, erro = montar_agendamento_excel(dia, horario, sala, texto_principal, texto_secundario, ano)
+                    if erro:
+                        ignorados += 1
+                        continue
+
+                    conflito = None if substituir or not dados_ag['ocupa_sala'] else checar_conflito(
+                        dados_ag['dia'],
+                        dados_ag['horario'],
+                        dados_ag['sala'],
+                        data_especifica=dados_ag['data_especifica']
+                    )
+                    if conflito:
+                        conflitos.append({
+                            'aba': nome_aba,
+                            'horario': dados_ag['horario'],
+                            'sala': dados_ag['sala'],
+                            'ocupado_por': conflito.get('estagiario') or conflito.get('categoria')
+                        })
+                        continue
+
+                    try:
+                        inserir_agendamento(conn, dados_ag)
+                        inseridos += 1
+                    except sqlite3.IntegrityError as exc:
+                        conflitos.append({
+                            'aba': nome_aba,
+                            'horario': dados_ag['horario'],
+                            'sala': dados_ag['sala'],
+                            'ocupado_por': str(exc)
+                        })
+                    except Exception as exc:
+                        erros.append(f'{nome_aba} {horario} {sala}: {exc}')
+
+                row += 2
+
+        conn.commit()
+    finally:
+        conn.close()
+        wb.close()
+
+    registrar_log('IMPORTAR_XLSX', f'{inseridos} agendamentos importados do Excel, {len(conflitos)} conflitos, {len(erros)} erros')
+    return {
+        'inseridos': inseridos,
+        'conflitos': conflitos[:50],
+        'erros': erros[:50],
+        'ignorados': ignorados,
+        'substituiu': bool(substituir),
+        'message': f'{inseridos} agendamento(s) importado(s) do Excel.'
+    }, None, 200
+
+
 @app.route('/api/import', methods=['POST'])
 @login_required
 @requer_papel('coordenador', 'recepcao')
@@ -1556,8 +1809,15 @@ def import_csv():
     if 'file' not in request.files:
         return jsonify({'erro': 'Nenhum arquivo enviado'}), 400
     f = request.files['file']
-    if not f.filename.endswith('.csv'):
-        return jsonify({'erro': 'Apenas arquivos .csv são aceitos'}), 400
+    filename = (f.filename or '').lower()
+    substituir = request.form.get('substituir') in ('1', 'true', 'sim', 'on')
+    if filename.endswith('.xlsx'):
+        resultado, erro, status = importar_xlsx_mapa(f, substituir=substituir)
+        if erro:
+            return jsonify(erro), status
+        return jsonify(resultado), status
+    if not filename.endswith('.csv'):
+        return jsonify({'erro': 'Apenas arquivos .csv ou .xlsx são aceitos'}), 400
 
     stream = io.StringIO(f.read().decode('utf-8-sig'))
     reader = csv.DictReader(stream)

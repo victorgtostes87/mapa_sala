@@ -11,7 +11,7 @@
 </head>
 <body>
   <nav class="app-nav">
-    <a class="app-nav-brand" href="/"><i data-lucide="layout-grid"></i><span>Mapa de <span>Salas</span></span></a>
+    <a class="app-nav-brand" href="/"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
     <div class="app-nav-title">Trocar senha</div>
     <div class="app-nav-spacer"></div>
     <div class="app-nav-user">
@@ -25,7 +25,7 @@
   </nav>
   <div class="container">
     <h1>Trocar Senha</h1>
-    <div class="sub">Olá, {{ usuario }}</div>
+    <div class="sub">OlÃ¡, {{ usuario }}</div>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -42,7 +42,7 @@
 
       <label for="nova_senha">Nova senha</label>
       <input type="password" id="nova_senha" name="nova_senha" minlength="8" required>
-      <div class="hint">Mínimo 8 caracteres.</div>
+      <div class="hint">MÃ­nimo 8 caracteres.</div>
 
       <label for="confirmar_senha">Confirmar nova senha</label>
       <input type="password" id="confirmar_senha" name="confirmar_senha" minlength="8" required>
@@ -53,7 +53,7 @@
       </div>
     </form>
   </div>
-<div style="margin:18px 0;text-align:center;color:#6b7280;font-size:12px">Versão {{ versao }}</div>
+<div style="margin:18px 0;text-align:center;color:#6b7280;font-size:12px">VersÃ£o {{ versao }}</div>
 <script>lucide.createIcons();</script>
 </body>
 </html>

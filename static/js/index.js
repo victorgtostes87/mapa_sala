@@ -378,6 +378,14 @@ function deleteAg(){
 }
 function fecharConfirm(){ document.getElementById('confirmOverlay').classList.remove('open'); }
 function exportCSV(){ window.location='/api/export'; }
+function openAboutModal(){
+  const menu = document.getElementById('dropdownMenu');
+  if(menu) menu.classList.remove('open');
+  document.getElementById('aboutOverlay').classList.add('open');
+}
+function closeAboutModal(){
+  document.getElementById('aboutOverlay').classList.remove('open');
+}
 function openImportModal(){
   const menu = document.getElementById('dropdownMenu');
   if(menu) menu.classList.remove('open');

@@ -32,7 +32,7 @@ a.back:hover{color:var(--text)}
 </head>
 <body>
 <nav class="app-nav">
-  <a class="app-nav-brand" href="/"><i data-lucide="layout-grid"></i><span>Mapa de <span>Salas</span></span></a>
+  <a class="app-nav-brand" href="/"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
   <div class="app-nav-title">Lista de Pacientes</div>
   <div class="app-nav-spacer"></div>
   <div class="app-nav-user">
@@ -49,7 +49,7 @@ a.back:hover{color:var(--text)}
 <div class="wrap">
   <div class="card">
     <h2><i data-lucide="printer"></i> Lista de Pacientes</h2>
-    <p>Selecione o dia para abrir a lista para impressão / PDF</p>
+    <p>Selecione o dia para abrir a lista para impressÃ£o / PDF</p>
     <div class="dias">
       {% for d in dias %}
       <a class="dia-btn" href="/imprimir/{{ d }}" target="_blank">{{ dias_pt[d] }}</a>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mapa de Sala - Policlínica Psicologia UVV</title>
+<title>Mapa de Sala - PoliclÃ­nica Psicologia UVV</title>
 
 <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
@@ -12,7 +12,8 @@
 <body>
 
 <nav class="app-nav">
-  <a class="app-nav-brand" href="/"><img class="app-nav-logo" src="{{ url_for('static', filename='img/mapa-sala-logo.png') }}" alt=""><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
+  <a class="app-nav-brand" href="/"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
+  <img class="uvv-top-logo" src="{{ url_for('static', filename='img/uvv-logo.png') }}" alt="UVV">
   <div class="app-nav-spacer"></div>
   <div class="app-nav-user">
     <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
@@ -29,7 +30,7 @@
     </button>
     <div class="app-dropdown-menu" id="dropdownMenu">
       {% if papel == 'coordenador' %}
-      <a href="/usuarios"><i data-lucide="users"></i> Usuários</a>
+      <a href="/usuarios"><i data-lucide="users"></i> UsuÃ¡rios</a>
       <a href="/logs"><i data-lucide="clipboard-list"></i> Logs</a>
       <button onclick="openImportModal()"><i data-lucide="upload"></i> Importar Excel</button>
       <button onclick="exportCSV()"><i data-lucide="download"></i> Exportar</button>
@@ -40,6 +41,7 @@
       <a href="/imprimir" target="_blank"><i data-lucide="printer"></i> Imprimir</a>
       {% endif %}
       <a href="/perfil"><i data-lucide="user-round"></i> Perfil</a>
+      <button onclick="openAboutModal()"><i data-lucide="info"></i> Sobre</button>
     </div>
     </div>
     <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
@@ -53,23 +55,23 @@
 </div>
 
 <div class="stats-bar">
-  <div class="stat-card"><div class="label">Total</div><div class="value" id="stTotal">—</div></div>
-  <div class="stat-card"><div class="label">Livres</div><div class="value" id="stLivre">—</div></div>
-  <div class="stat-card"><div class="label">Estagiários</div><div class="value" id="stEst">—</div></div>
+  <div class="stat-card"><div class="label">Total</div><div class="value" id="stTotal">â€”</div></div>
+  <div class="stat-card"><div class="label">Livres</div><div class="value" id="stLivre">â€”</div></div>
+  <div class="stat-card"><div class="label">EstagiÃ¡rios</div><div class="value" id="stEst">â€”</div></div>
 </div>
 
 <div class="filters">
-  <input type="text" id="searchInput" placeholder="🔍  Buscar paciente, estagiário..." oninput="debounceRender()">
-  <input type="date" id="filterData" onchange="onDateFilterChange()" title="Consultar uma data específica">
+  <input type="text" id="searchInput" placeholder="ðŸ”  Buscar paciente, estagiÃ¡rio..." oninput="debounceRender()">
+  <input type="date" id="filterData" onchange="onDateFilterChange()" title="Consultar uma data especÃ­fica">
   <span class="date-filter-badge" id="dateFilterBadge" style="display:none"></span>
-  <select id="filterHorario" onchange="renderGrid()"><option value="">Todos horários</option>
+  <select id="filterHorario" onchange="renderGrid()"><option value="">Todos horÃ¡rios</option>
     {% for h in horarios %}<option>{{h}}</option>{% endfor %}</select>
   <select id="filterSala" onchange="renderGrid()"><option value="">Todas salas</option>
     {% for s in salas %}<option>{{s}}</option>{% endfor %}</select>
   <select id="filterCat" onchange="renderGrid()"><option value="">Todas categorias</option>
     {% for c in categorias %}<option>{{c}}</option>{% endfor %}</select>
   <select id="filterOcupacao" onchange="renderGrid()">
-    <option value="">Todas ocupações</option>
+    <option value="">Todas ocupaÃ§Ãµes</option>
     <option value="1">Somente salas ocupadas</option>
     <option value="0">Somente registros informativos</option>
   </select>
@@ -87,24 +89,23 @@
 
 <div class="legbar" id="legBar">
   <span class="legbar-title" id="legTitle">Legenda</span>
-  <span class="version-tag">v {{ versao }}</span>
   <div class="legbar-items" id="legItems">
-    <div class="leg-i"><div class="leg-d" style="background:#1d4ed8"></div>Estag. 10°</div>
-    <div class="leg-i"><div class="leg-d" style="background:#1e40af"></div>10° Triagem</div>
-    <div class="leg-i"><div class="leg-d" style="background:#15803d"></div>Estag. 9°</div>
-    <div class="leg-i"><div class="leg-d" style="background:#166534"></div>9° Triagem</div>
-    <div class="leg-i"><div class="leg-d" style="background:#6d28d9"></div>Supervisão</div>
+    <div class="leg-i"><div class="leg-d" style="background:#1d4ed8"></div>Estag. 10Â°</div>
+    <div class="leg-i"><div class="leg-d" style="background:#1e40af"></div>10Â° Triagem</div>
+    <div class="leg-i"><div class="leg-d" style="background:#15803d"></div>Estag. 9Â°</div>
+    <div class="leg-i"><div class="leg-d" style="background:#166534"></div>9Â° Triagem</div>
+    <div class="leg-i"><div class="leg-d" style="background:#6d28d9"></div>SupervisÃ£o</div>
     <div class="leg-i"><div class="leg-d" style="background:#c2410c"></div>NACE</div>
     <div class="leg-i"><div class="leg-d" style="background:#0e7490"></div>SOU</div>
     <div class="leg-i"><div class="leg-d" style="background:#4d7c0f"></div>Marcar</div>
-    <div class="leg-i"><div class="leg-d" style="background:#991b1b"></div>Não Marcar</div>
+    <div class="leg-i"><div class="leg-d" style="background:#991b1b"></div>NÃ£o Marcar</div>
     <div class="leg-i"><div class="leg-d" style="background:#374151"></div>Psicodiag.</div>
     <div class="leg-i"><div class="leg-d" style="background:#1e3a5f"></div>Psiquiatria</div>
     <div class="leg-i"><div class="leg-d" style="background:#78350f"></div>Amb. Neurop.</div>
-    <div class="leg-i"><div class="leg-d" style="background:#9d174d"></div>Plantão</div>
-    <div class="leg-i"><div class="leg-d" style="background:#92400e"></div>Prontuário</div>
+    <div class="leg-i"><div class="leg-d" style="background:#9d174d"></div>PlantÃ£o</div>
+    <div class="leg-i"><div class="leg-d" style="background:#92400e"></div>ProntuÃ¡rio</div>
   </div>
-  <button class="legbar-btn" id="legBtn" onclick="(function(){var i=document.getElementById('legItems');var t=document.getElementById('legTitle');var b=document.getElementById('legBtn');if(i.style.display==='none'){i.style.display='flex';t.style.display='';b.textContent='−';}else{i.style.display='none';t.style.display='none';b.textContent='▲ Legenda';}})()" title="Minimizar">−</button>
+  <button class="legbar-btn" id="legBtn" onclick="(function(){var i=document.getElementById('legItems');var t=document.getElementById('legTitle');var b=document.getElementById('legBtn');if(i.style.display==='none'){i.style.display='flex';t.style.display='';b.textContent='âˆ’';}else{i.style.display='none';t.style.display='none';b.textContent='â–² Legenda';}})()" title="Minimizar">âˆ’</button>
 </div>
 
 <!-- Modal -->
@@ -118,20 +119,20 @@
     </div>
     <div id="editView">
       <div class="conflict-box" id="conflictBox">
-        <strong>🚫 Sala já está ocupada!</strong>
+        <strong>ðŸš« Sala jÃ¡ estÃ¡ ocupada!</strong>
         <span id="conflictMsg"></span>
-        <div style="margin-top:8px;font-size:11px;color:#fca5a5">Escolha outro horário ou outra sala antes de salvar.</div>
+        <div style="margin-top:8px;font-size:11px;color:#fca5a5">Escolha outro horÃ¡rio ou outra sala antes de salvar.</div>
       </div>
       <div class="form-grid">
         <div class="form-row"><label>Dia *</label>
           <select id="fDia" onchange="verificarConflito()">{% for d in dias %}<option>{{d}}</option>{% endfor %}</select></div>
-        <div class="form-row"><label>Horário *</label>
+        <div class="form-row"><label>HorÃ¡rio *</label>
           <select id="fHorario" onchange="verificarConflito()">{% for h in horarios %}<option>{{h}}</option>{% endfor %}</select></div>
       </div>
       <div class="form-row"><label>Sala *</label>
         <select id="fSala" onchange="verificarConflito()">{% for s in salas %}<option>{{s}}</option>{% endfor %}</select></div>
-      <div class="form-row"><label>Estagiário / Conteúdo</label>
-        <div class="ac-wrap"><input type="text" id="fEstagiario" placeholder="Digite o nome do estagiário..." autocomplete="off" oninput="atualizarOcupacaoPreview()">
+      <div class="form-row"><label>EstagiÃ¡rio / ConteÃºdo</label>
+        <div class="ac-wrap"><input type="text" id="fEstagiario" placeholder="Digite o nome do estagiÃ¡rio..." autocomplete="off" oninput="atualizarOcupacaoPreview()">
         <div id="estSuggestions" class="ac-box"></div></div></div>
       <div class="form-row"><label>Paciente</label>
         <input type="text" id="fPaciente" placeholder="Nome do paciente" oninput="atualizarOcupacaoPreview();verificarConflito()"></div>
@@ -140,19 +141,19 @@
           <select id="fCategoria" onchange="atualizarOcupacaoPreview();verificarConflito()"><option value="">Auto-detectar</option>
             {% for c in categorias %}<option>{{c}}</option>{% endfor %}</select></div>
         <div class="form-row"><label>Triagem?</label>
-          <select id="fTriagem" onchange="atualizarOcupacaoPreview();verificarConflito()"><option value="0">Não</option><option value="1">Sim</option></select></div>
+          <select id="fTriagem" onchange="atualizarOcupacaoPreview();verificarConflito()"><option value="0">NÃ£o</option><option value="1">Sim</option></select></div>
       </div>
-      <div class="form-row"><label>Data específica <span style="font-size:10px;color:var(--text2);font-weight:400;text-transform:none">(opcional — só para agendamentos pontuais)</span></label>
+      <div class="form-row"><label>Data especÃ­fica <span style="font-size:10px;color:var(--text2);font-weight:400;text-transform:none">(opcional â€” sÃ³ para agendamentos pontuais)</span></label>
         <input type="date" id="fData" onchange="atualizarOcupacaoPreview();verificarConflito()"></div>
-      <div class="form-row"><label>Observação</label>
-        <textarea id="fObs" placeholder="Ex: estudar, lançar prontuário, professor não liberou, uso interno..." oninput="atualizarOcupacaoPreview();verificarConflito()"></textarea></div>
+      <div class="form-row"><label>ObservaÃ§Ã£o</label>
+        <textarea id="fObs" placeholder="Ex: estudar, lanÃ§ar prontuÃ¡rio, professor nÃ£o liberou, uso interno..." oninput="atualizarOcupacaoPreview();verificarConflito()"></textarea></div>
       <div class="form-row"><label>Ocupa sala?</label>
         <select id="fOcupaSala" onchange="atualizarOcupacaoPreview();verificarConflito()">
-          <option value="">Automático</option>
+          <option value="">AutomÃ¡tico</option>
           <option value="1">Sim, ocupa sala</option>
-          <option value="0">Não, é só informação do mapa</option>
+          <option value="0">NÃ£o, Ã© sÃ³ informaÃ§Ã£o do mapa</option>
         </select>
-        <div class="occupancy-hint" id="ocupaHint">O sistema calcula isso para mostrar se a sala está realmente livre.</div>
+        <div class="occupancy-hint" id="ocupaHint">O sistema calcula isso para mostrar se a sala estÃ¡ realmente livre.</div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-danger btn-sm" id="deleteBtn" onclick="deleteAg()" style="display:none;margin-right:auto"><i data-lucide="trash-2"></i> Remover</button>
@@ -170,7 +171,7 @@
       </div>
       <div>
         <div style="font-size:15px;font-weight:700;color:#f8fafc">Remover agendamento</div>
-        <div style="font-size:12px;color:var(--text2);margin-top:2px">Esta ação não pode ser desfeita.</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px">Esta aÃ§Ã£o nÃ£o pode ser desfeita.</div>
       </div>
     </div>
     <div id="confirmDetail" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;font-size:12px;color:var(--text2);margin-bottom:18px;line-height:1.7"></div>
@@ -182,11 +183,32 @@
 </div>
 <div class="toast" id="toast"></div>
 
+<div class="modal-overlay" id="aboutOverlay">
+  <div class="modal about-modal">
+    <div class="about-head">
+      <div>
+        <h2>Sobre o sistema</h2>
+        <p>Mapa de Sala - Policlínica Psicologia UVV</p>
+      </div>
+      <img src="{{ url_for('static', filename='img/uvv-logo.png') }}" alt="UVV">
+    </div>
+    <div class="about-grid">
+      <div><strong>Objetivo</strong><span>Organizar o uso das salas da clínica e reduzir conflitos de horário.</span></div>
+      <div><strong>Usuários</strong><span>Coordenação, recepção, professores e alunos/estagiários.</span></div>
+      <div><strong>Recursos</strong><span>Agendamentos, conflitos, triagem, logs, impressão, exportação e importação Excel.</span></div>
+      <div><strong>Versão</strong><span>{{ versao }}</span></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-primary" onclick="closeAboutModal()"><i data-lucide="check"></i> Entendi</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="importOverlay">
   <div class="modal">
     <h2>Importar mapa do Excel</h2>
     <p style="color:var(--text2);font-size:12px;line-height:1.5;margin-bottom:14px">
-      Use um arquivo .xlsx no modelo do mapa antigo. O sistema lê apenas as abas de segunda a sexta e ignora a aba TRIAGEM.
+      Use um arquivo .xlsx no modelo do mapa antigo. O sistema lÃª apenas as abas de segunda a sexta e ignora a aba TRIAGEM.
     </p>
     <form id="importForm">
       <div class="form-row">
@@ -198,7 +220,7 @@
         Substituir o mapa atual antes de importar
       </label>
       <div style="font-size:11px;color:var(--text2);line-height:1.45;margin-top:8px">
-        Se essa opção ficar desmarcada, o sistema tenta adicionar os dados e avisa quando encontrar conflitos.
+        Se essa opÃ§Ã£o ficar desmarcada, o sistema tenta adicionar os dados e avisa quando encontrar conflitos.
       </div>
       <div id="importResult" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-top:14px;font-size:12px;color:var(--text2);line-height:1.6"></div>
       <div class="modal-footer">

@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Meus Agendamentos</title>
+  <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/meus_agendamentos.css') }}">
+</head>
+<body>
+  <nav class="app-nav">
+    <a class="app-nav-brand" href="/"><i data-lucide="calendar-days"></i><span>Meus Agendamentos</span></a>
+    <div class="app-nav-title">Mapa de Sala - Policlínica Psicologia UVV</div>
+    <div class="app-nav-spacer"></div>
+    <div class="app-nav-user">
+      <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
+      <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
+    </div>
+    <div class="app-nav-actions">
+      <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
+      <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
+    </div>
+  </nav>
+
+  <main class="student-page">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Área do aluno</p>
+        <h1>Seus horários de atendimento</h1>
+        <p class="muted">Aqui aparecem somente os agendamentos vinculados ao seu usuário.</p>
+      </div>
+      <div class="hero-actions">
+        <button class="filter-btn active" data-filter="todos">Todos</button>
+        <button class="filter-btn" data-filter="fixo">Fixos</button>
+        <button class="filter-btn" data-filter="pontual">Pontuais</button>
+        <button class="filter-btn" data-filter="triagem">Triagem</button>
+      </div>
+    </section>
+
+    <section class="summary">
+      <div class="summary-card">
+        <span>Total</span>
+        <strong>{{ total }}</strong>
+      </div>
+      <div class="summary-card">
+        <span>Fixos semanais</span>
+        <strong>{{ total_fixos }}</strong>
+      </div>
+      <div class="summary-card">
+        <span>Pontuais futuros</span>
+        <strong>{{ total_pontuais }}</strong>
+      </div>
+      <div class="summary-card">
+        <span>Triagens</span>
+        <strong>{{ total_triagens }}</strong>
+      </div>
+    </section>
+
+    {% if agendamentos %}
+    <section class="appointments" id="appointments">
+      {% for ag in agendamentos %}
+      <article class="appointment-card" data-tipo="{{ ag.tipo_slug }}" data-triagem="{{ 1 if ag.triagem else 0 }}">
+        <div class="time-block">
+          <strong>{{ ag.horario }}</strong>
+          <span>{{ ag.dia_label }}</span>
+        </div>
+        <div class="appointment-main">
+          <div class="card-top">
+            <div>
+              <h2>{{ ag.sala }}</h2>
+              <p>{{ ag.categoria or 'Sem categoria' }}</p>
+            </div>
+            <div class="badges">
+              <span class="badge {{ ag.tipo_slug }}">{{ ag.tipo }}</span>
+              {% if ag.triagem %}<span class="badge triagem">Triagem</span>{% endif %}
+              {% if ag.ocupa_sala %}<span class="badge ocupa">Ocupa sala</span>{% endif %}
+            </div>
+          </div>
+          <div class="details">
+            {% if ag.paciente %}
+            <div><i data-lucide="user"></i><span>Paciente: <strong>{{ ag.paciente }}</strong></span></div>
+            {% endif %}
+            {% if ag.data_label %}
+            <div><i data-lucide="calendar-check"></i><span>Data específica: <strong>{{ ag.data_label }}</strong></span></div>
+            {% endif %}
+            {% if ag.observacao %}
+            <div><i data-lucide="sticky-note"></i><span>Obs.: {{ ag.observacao }}</span></div>
+            {% endif %}
+          </div>
+        </div>
+      </article>
+      {% endfor %}
+    </section>
+    {% else %}
+    <section class="empty-state">
+      <i data-lucide="calendar-x"></i>
+      <h2>Nenhum agendamento encontrado</h2>
+      <p>Quando a recepção ou coordenação vincular um horário ao seu usuário, ele aparecerá aqui.</p>
+    </section>
+    {% endif %}
+  </main>
+
+  <script>
+    document.querySelectorAll('.filter-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const filtro = btn.dataset.filter;
+        document.querySelectorAll('.filter-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('.appointment-card').forEach((card) => {
+          const mostrar = filtro === 'todos'
+            || card.dataset.tipo === filtro
+            || (filtro === 'triagem' && card.dataset.triagem === '1');
+          card.style.display = mostrar ? '' : 'none';
+        });
+      });
+    });
+    lucide.createIcons();
+  </script>
+</body>
+</html>

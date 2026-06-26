@@ -40,7 +40,7 @@ DB_PATH = os.environ.get(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 )
 
-VERSAO = '2026-06-22-v15'
+VERSAO = '2026-06-26-v16'
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -827,6 +827,8 @@ def logout():
 @app.route('/')
 @login_required
 def index():
+    if current_user.role == 'aluno':
+        return redirect(url_for('meus_agendamentos'))
     return render_template(
         'index.html',
         salas=SALAS,
@@ -835,6 +837,75 @@ def index():
         dias=DIAS,
         usuario=current_user.username,
         papel=current_user.role
+    )
+
+
+@app.route('/meus-agendamentos')
+@login_required
+@requer_papel_page('aluno')
+def meus_agendamentos():
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            """
+            SELECT *
+            FROM agendamentos
+            WHERE (usuario_id = ? OR (usuario_id IS NULL AND estagiario = ?))
+              AND (
+                data_especifica IS NULL
+                OR data_especifica = ''
+                OR data_especifica >= ?
+              )
+            ORDER BY
+              CASE dia_semana
+                WHEN 'SEGUNDA' THEN 1
+                WHEN 'TERÇA' THEN 2
+                WHEN 'QUARTA' THEN 3
+                WHEN 'QUINTA' THEN 4
+                WHEN 'SEXTA' THEN 5
+                ELSE 6
+              END,
+              horario,
+              sala,
+              data_especifica
+            """,
+            (current_user.id, current_user.username, data_hoje_iso())
+        ).fetchall()
+    finally:
+        conn.close()
+
+    agendamentos = []
+    total_fixos = 0
+    total_pontuais = 0
+    total_triagens = 0
+    for row in rows:
+        ag = dict(row)
+        ag['dia_label'] = DIAS_PT.get(ag['dia_semana'], ag['dia_semana'].title())
+        ag['tipo'] = 'Pontual' if ag.get('data_especifica') else 'Fixo semanal'
+        ag['tipo_slug'] = 'pontual' if ag.get('data_especifica') else 'fixo'
+        ag['data_label'] = ''
+        if ag.get('data_especifica'):
+            try:
+                ag['data_label'] = datetime.strptime(ag['data_especifica'], '%Y-%m-%d').strftime('%d/%m/%Y')
+            except ValueError:
+                ag['data_label'] = ag['data_especifica']
+            total_pontuais += 1
+        else:
+            total_fixos += 1
+        if int(ag.get('triagem') or 0):
+            total_triagens += 1
+        agendamentos.append(ag)
+
+    return render_template(
+        'meus_agendamentos.html',
+        agendamentos=agendamentos,
+        total=len(agendamentos),
+        total_fixos=total_fixos,
+        total_pontuais=total_pontuais,
+        total_triagens=total_triagens,
+        usuario=current_user.username,
+        papel=current_user.role,
+        papel_label=PAPEIS_LABEL.get(current_user.role, current_user.role)
     )
 
 

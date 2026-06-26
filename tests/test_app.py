@@ -96,6 +96,53 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.get_json()), 1)
 
+    def test_aluno_entra_na_tela_de_meus_agendamentos(self):
+        resp = self._login('aluno1')
+
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn('/meus-agendamentos', resp.headers['Location'])
+
+    def test_tela_meus_agendamentos_mostra_somente_do_aluno(self):
+        conn = mapa.get_db()
+        try:
+            mapa.inserir_agendamento(conn, {
+                'dia': 'SEGUNDA',
+                'horario': '08:00',
+                'sala': 'Consultório 1',
+                'estagiario': 'aluno1',
+                'paciente': 'Paciente Do Aluno',
+                'categoria': 'ESTAGIÁRIO 9°',
+                'semestre': 9,
+                'triagem': 0,
+                'observacao': '',
+                'data_especifica': '',
+                'usuario_id': None
+            })
+            mapa.inserir_agendamento(conn, {
+                'dia': 'SEGUNDA',
+                'horario': '09:00',
+                'sala': 'Consultório 2',
+                'estagiario': 'aluno2',
+                'paciente': 'Paciente De Outro Aluno',
+                'categoria': 'ESTAGIÁRIO 9°',
+                'semestre': 9,
+                'triagem': 0,
+                'observacao': '',
+                'data_especifica': '',
+                'usuario_id': None
+            })
+            conn.commit()
+        finally:
+            conn.close()
+
+        self._login('aluno1')
+        resp = self.client.get('/meus-agendamentos')
+        html = resp.get_data(as_text=True)
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('Paciente Do Aluno', html)
+        self.assertNotIn('Paciente De Outro Aluno', html)
+
     def test_agendamentos_tem_chave_estrangeira_para_usuarios(self):
         conn = mapa.get_db()
         try:

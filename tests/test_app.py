@@ -21,9 +21,16 @@ class MapaSalasTestCase(unittest.TestCase):
         mapa.init_db()
         conn = mapa.get_db()
         try:
+            tabelas = {
+                row['name']
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
             conn.execute('DELETE FROM agendamentos')
             conn.execute('DELETE FROM historico')
-            conn.execute('DELETE FROM reservas')
+            if 'reservas' in tabelas:
+                conn.execute('DELETE FROM reservas')
             conn.execute('DELETE FROM usuarios')
             self.coord_id = self._criar_usuario(conn, 'coordenador', 'coordenador')
             self.recepcao_id = self._criar_usuario(conn, 'recepcao', 'recepcao')

@@ -5,7 +5,7 @@ import re
 import secrets
 import sqlite3
 import unicodedata
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 import click
 from flask import Flask, render_template, render_template_string, jsonify, request, send_file, redirect, url_for, flash, session
@@ -40,7 +40,7 @@ DB_PATH = os.environ.get(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 )
 
-VERSAO = '2026-06-26-v18'
+VERSAO = '2026-06-26-v19'
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -69,7 +69,12 @@ def gerar_csrf_token():
 
 @app.context_processor
 def injetar_csrf_token():
-    return {'csrf_token': gerar_csrf_token, 'versao': VERSAO, 'papeis_label': PAPEIS_LABEL}
+    return {
+        'csrf_token': gerar_csrf_token,
+        'versao': VERSAO,
+        'papeis_label': PAPEIS_LABEL,
+        'reservas_pendentes_count': contar_reservas_pendentes()
+    }
 
 
 @app.before_request
@@ -160,6 +165,13 @@ SALAS = [
 
 HORARIOS = ['07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00',
             '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00']
+SALAS_RESERVAVEIS = [
+    'Consultório 1', 'Consultório 2', 'Consultório 3', 'Consultório 4',
+    'Consultório 5', 'Consultório 6 (Divã)', 'Consultório 7 (Divã)',
+    'Consultório 8', 'Ludoterapia', 'Multifuncional',
+    'Sala de Grupo 1', 'Sala de Grupo 2'
+]
+SALAS_COM_COMPUTADOR = ['Consultório 4', 'Multifuncional']
 DIAS = ['SEGUNDA', 'TERÇA', 'QUARTA', 'QUINTA', 'SEXTA']
 DIAS_PT = {
     'SEGUNDA': 'Segunda-feira', 'TERÇA': 'Terça-feira', 'QUARTA': 'Quarta-feira',
@@ -558,6 +570,28 @@ def init_db():
             "ativo INTEGER DEFAULT 1,"
             "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
             ");"
+            "CREATE TABLE IF NOT EXISTS reservas ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "usuario_id INTEGER DEFAULT NULL REFERENCES usuarios(id) ON DELETE SET NULL,"
+            "usuario TEXT DEFAULT '',"
+            "tipo TEXT NOT NULL,"
+            "status TEXT DEFAULT 'pendente',"
+            "data_uso TEXT NOT NULL,"
+            "horario_inicio TEXT DEFAULT '',"
+            "horario_fim TEXT DEFAULT '',"
+            "tipo_sala TEXT DEFAULT '',"
+            "sala_atribuida TEXT DEFAULT '',"
+            "instrumento TEXT DEFAULT '',"
+            "finalidade TEXT DEFAULT '',"
+            "observacao TEXT DEFAULT '',"
+            "resposta TEXT DEFAULT '',"
+            "agendamento_ids TEXT DEFAULT '',"
+            "analisado_por TEXT DEFAULT '',"
+            "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
+            "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+            ");"
+            "CREATE INDEX IF NOT EXISTS idx_reservas_status ON reservas(status);"
+            "CREATE INDEX IF NOT EXISTS idx_reservas_usuario ON reservas(usuario_id);"
         )
         existe = conn.execute("SELECT id FROM usuarios WHERE username='coordenador'").fetchone()
         if not existe:
@@ -652,6 +686,71 @@ def checar_conflito(dia, horario, sala, data_especifica='', excluir_id=None):
     finally:
         conn.close()
     return dict(r) if r else None
+
+
+def contar_reservas_pendentes():
+    if not current_user.is_authenticated or current_user.role not in ('coordenador', 'recepcao'):
+        return 0
+    try:
+        conn = get_db()
+        try:
+            row = conn.execute(
+                "SELECT COUNT(*) AS total FROM reservas WHERE status='pendente'"
+            ).fetchone()
+        finally:
+            conn.close()
+        return row['total'] if row else 0
+    except sqlite3.Error:
+        return 0
+
+
+def validar_antecedencia_minima(data_uso, horario_inicio):
+    try:
+        inicio = datetime.strptime(f'{data_uso} {horario_inicio}', '%Y-%m-%d %H:%M')
+    except ValueError:
+        return None, 'Data ou horário inválido.'
+    if inicio < datetime.now() + timedelta(hours=24):
+        return None, 'Reservas precisam ser feitas com no mínimo 24h de antecedência.'
+    return inicio, None
+
+
+def horarios_do_intervalo(horario_inicio, horario_fim):
+    if horario_inicio not in HORARIOS or horario_fim not in HORARIOS:
+        return None, 'Horário inválido.'
+    ini = HORARIOS.index(horario_inicio)
+    fim = HORARIOS.index(horario_fim)
+    if fim <= ini:
+        return None, 'O horário final deve ser depois do horário inicial.'
+    return HORARIOS[ini:fim], None
+
+
+def candidatos_sala_reserva(tipo_sala):
+    if tipo_sala == 'computador':
+        return [s for s in SALAS_COM_COMPUTADOR if s in SALAS]
+    return [s for s in SALAS_RESERVAVEIS if s not in SALAS_COM_COMPUTADOR]
+
+
+def encontrar_sala_disponivel(data_uso, horario_inicio, horario_fim, tipo_sala):
+    data_uso, erro_data = normalizar_data_especifica(data_uso)
+    if erro_data:
+        return None, erro_data
+    slots, erro_horario = horarios_do_intervalo(horario_inicio, horario_fim)
+    if erro_horario:
+        return None, erro_horario
+
+    dia = dia_semana_da_data(data_uso)
+    for sala in candidatos_sala_reserva(tipo_sala):
+        if all(not checar_conflito(dia, slot, sala, data_especifica=data_uso) for slot in slots):
+            return sala, None
+    return None, 'Não há sala disponível nesse período.'
+
+
+def label_status_reserva(status):
+    return {
+        'pendente': 'Pendente',
+        'aprovada': 'Aprovada',
+        'recusada': 'Recusada'
+    }.get(status, status)
 
 
 # ========================================
@@ -950,6 +1049,276 @@ def meus_agendamentos():
         papel=current_user.role,
         papel_label=PAPEIS_LABEL.get(current_user.role, current_user.role)
     )
+
+
+@app.route('/reservas')
+@login_required
+def reservas():
+    conn = get_db()
+    try:
+        if current_user.role == 'aluno':
+            rows = conn.execute(
+                """
+                SELECT *
+                FROM reservas
+                WHERE usuario_id=?
+                ORDER BY
+                  CASE status WHEN 'pendente' THEN 1 WHEN 'aprovada' THEN 2 ELSE 3 END,
+                  data_uso,
+                  horario_inicio
+                """,
+                (current_user.id,)
+            ).fetchall()
+            pendentes = []
+        elif current_user.role in ('coordenador', 'recepcao'):
+            pendentes = conn.execute(
+                """
+                SELECT *
+                FROM reservas
+                WHERE status='pendente'
+                ORDER BY created_at, data_uso, horario_inicio
+                """
+            ).fetchall()
+            rows = conn.execute(
+                """
+                SELECT *
+                FROM reservas
+                WHERE status!='pendente'
+                ORDER BY updated_at DESC
+                LIMIT 50
+                """
+            ).fetchall()
+        else:
+            flash('Acesso negado.', 'error')
+            return redirect(url_for('index'))
+    finally:
+        conn.close()
+
+    def preparar_reserva(row):
+        r = dict(row)
+        r['status_label'] = label_status_reserva(r.get('status'))
+        r['tipo_label'] = 'Sala' if r.get('tipo') == 'sala' else 'Instrumento'
+        r['tipo_sala_label'] = 'Sala com computador' if r.get('tipo_sala') == 'computador' else 'Sala comum'
+        try:
+            r['data_label'] = datetime.strptime(r['data_uso'], '%Y-%m-%d').strftime('%d/%m/%Y')
+        except (ValueError, TypeError):
+            r['data_label'] = r.get('data_uso') or ''
+        return r
+
+    return render_template(
+        'reservas.html',
+        usuario=current_user.username,
+        papel=current_user.role,
+        papel_label=PAPEIS_LABEL.get(current_user.role, current_user.role),
+        horarios=HORARIOS,
+        minhas_reservas=[preparar_reserva(r) for r in rows],
+        pendentes=[preparar_reserva(r) for r in pendentes],
+    )
+
+
+@app.route('/reservas/sala', methods=['POST'])
+@login_required
+@requer_papel('aluno')
+def criar_reserva_sala():
+    data_uso = request.form.get('data_uso', '').strip()
+    horario_inicio = request.form.get('horario_inicio', '').strip()
+    horario_fim = request.form.get('horario_fim', '').strip()
+    tipo_sala = request.form.get('tipo_sala', 'comum').strip()
+    finalidade = request.form.get('finalidade', '').strip()
+    observacao = request.form.get('observacao', '').strip()
+
+    if tipo_sala not in ('comum', 'computador'):
+        flash('Tipo de sala inválido.', 'error')
+        return redirect(url_for('reservas'))
+    if not finalidade:
+        flash('Informe a finalidade da reserva de sala.', 'error')
+        return redirect(url_for('reservas'))
+
+    data_uso, erro_data = normalizar_data_especifica(data_uso)
+    if erro_data:
+        flash(erro_data, 'error')
+        return redirect(url_for('reservas'))
+    _, erro_antecedencia = validar_antecedencia_minima(data_uso, horario_inicio)
+    if erro_antecedencia:
+        flash(erro_antecedencia, 'error')
+        return redirect(url_for('reservas'))
+    _, erro_intervalo = horarios_do_intervalo(horario_inicio, horario_fim)
+    if erro_intervalo:
+        flash(erro_intervalo, 'error')
+        return redirect(url_for('reservas'))
+
+    sala_sugerida, erro_sala = encontrar_sala_disponivel(data_uso, horario_inicio, horario_fim, tipo_sala)
+    if erro_sala:
+        flash(erro_sala, 'error')
+        return redirect(url_for('reservas'))
+
+    conn = get_db()
+    try:
+        conn.execute(
+            """
+            INSERT INTO reservas(
+              usuario_id, usuario, tipo, data_uso, horario_inicio, horario_fim,
+              tipo_sala, sala_atribuida, finalidade, observacao
+            ) VALUES(?,?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                current_user.id, current_user.username, 'sala', data_uso, horario_inicio,
+                horario_fim, tipo_sala, sala_sugerida, finalidade, observacao
+            )
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    registrar_log('SOLICITAR_RESERVA_SALA', f'{current_user.username} solicitou {tipo_sala} em {data_uso} {horario_inicio}-{horario_fim}')
+    flash('Solicitação enviada para a recepção/coordenação.', 'success')
+    return redirect(url_for('reservas'))
+
+
+@app.route('/reservas/instrumento', methods=['POST'])
+@login_required
+@requer_papel('aluno')
+def criar_reserva_instrumento():
+    data_uso = request.form.get('data_uso', '').strip()
+    horario_inicio = request.form.get('horario_inicio', '').strip()
+    instrumento = request.form.get('instrumento', '').strip()
+    finalidade = request.form.get('finalidade', '').strip()
+    observacao = request.form.get('observacao', '').strip()
+
+    if not instrumento:
+        flash('Informe qual teste ou instrumento você precisa reservar.', 'error')
+        return redirect(url_for('reservas'))
+    data_uso, erro_data = normalizar_data_especifica(data_uso)
+    if erro_data:
+        flash(erro_data, 'error')
+        return redirect(url_for('reservas'))
+    _, erro_antecedencia = validar_antecedencia_minima(data_uso, horario_inicio)
+    if erro_antecedencia:
+        flash(erro_antecedencia, 'error')
+        return redirect(url_for('reservas'))
+
+    conn = get_db()
+    try:
+        conn.execute(
+            """
+            INSERT INTO reservas(
+              usuario_id, usuario, tipo, data_uso, horario_inicio,
+              instrumento, finalidade, observacao
+            ) VALUES(?,?,?,?,?,?,?,?)
+            """,
+            (
+                current_user.id, current_user.username, 'instrumento', data_uso,
+                horario_inicio, instrumento, finalidade, observacao
+            )
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    registrar_log('SOLICITAR_RESERVA_INSTRUMENTO', f'{current_user.username} solicitou {instrumento} em {data_uso} {horario_inicio}')
+    flash('Solicitação de instrumento enviada.', 'success')
+    return redirect(url_for('reservas'))
+
+
+@app.route('/reservas/<int:rid>/aprovar', methods=['POST'])
+@login_required
+@requer_papel('coordenador', 'recepcao')
+def aprovar_reserva(rid):
+    resposta = request.form.get('resposta', '').strip()
+    conn = get_db()
+    try:
+        reserva = conn.execute("SELECT * FROM reservas WHERE id=?", (rid,)).fetchone()
+        if not reserva or reserva['status'] != 'pendente':
+            flash('Solicitação não encontrada ou já analisada.', 'error')
+            return redirect(url_for('reservas'))
+
+        agendamento_ids = ''
+        sala_atribuida = reserva['sala_atribuida'] or ''
+        if reserva['tipo'] == 'sala':
+            _, erro_antecedencia = validar_antecedencia_minima(reserva['data_uso'], reserva['horario_inicio'])
+            if erro_antecedencia:
+                flash('Não é possível aprovar: a solicitação já está com menos de 24h de antecedência.', 'error')
+                return redirect(url_for('reservas'))
+
+            sala_atribuida, erro_sala = encontrar_sala_disponivel(
+                reserva['data_uso'],
+                reserva['horario_inicio'],
+                reserva['horario_fim'],
+                reserva['tipo_sala']
+            )
+            if erro_sala:
+                flash(erro_sala, 'error')
+                return redirect(url_for('reservas'))
+
+            dia = dia_semana_da_data(reserva['data_uso'])
+            slots, _ = horarios_do_intervalo(reserva['horario_inicio'], reserva['horario_fim'])
+            novos_ids = []
+            for slot in slots:
+                nid = inserir_agendamento(conn, {
+                    'dia': dia,
+                    'horario': slot,
+                    'sala': sala_atribuida,
+                    'estagiario': reserva['usuario'],
+                    'paciente': '',
+                    'categoria': 'PRONTUÁRIO/ESTUDAR',
+                    'semestre': detect_sem(reserva['usuario']),
+                    'triagem': 0,
+                    'observacao': f'Reserva aprovada: {reserva["finalidade"]}',
+                    'data_especifica': reserva['data_uso'],
+                    'usuario_id': reserva['usuario_id'],
+                    'ocupa_sala': 1
+                })
+                novos_ids.append(str(nid))
+            agendamento_ids = ','.join(novos_ids)
+
+        conn.execute(
+            """
+            UPDATE reservas
+            SET status='aprovada', resposta=?, sala_atribuida=?, agendamento_ids=?,
+                analisado_por=?, updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            (resposta, sala_atribuida, agendamento_ids, current_user.username, rid)
+        )
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.rollback()
+        flash('Não foi possível aprovar: a sala ficou ocupada por outro agendamento.', 'error')
+        return redirect(url_for('reservas'))
+    finally:
+        conn.close()
+
+    registrar_log('APROVAR_RESERVA', f'Reserva #{rid} aprovada por {current_user.username}')
+    flash('Reserva aprovada.', 'success')
+    return redirect(url_for('reservas'))
+
+
+@app.route('/reservas/<int:rid>/recusar', methods=['POST'])
+@login_required
+@requer_papel('coordenador', 'recepcao')
+def recusar_reserva(rid):
+    resposta = request.form.get('resposta', '').strip()
+    conn = get_db()
+    try:
+        reserva = conn.execute("SELECT * FROM reservas WHERE id=?", (rid,)).fetchone()
+        if not reserva or reserva['status'] != 'pendente':
+            flash('Solicitação não encontrada ou já analisada.', 'error')
+            return redirect(url_for('reservas'))
+        conn.execute(
+            """
+            UPDATE reservas
+            SET status='recusada', resposta=?, analisado_por=?, updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            (resposta, current_user.username, rid)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    registrar_log('RECUSAR_RESERVA', f'Reserva #{rid} recusada por {current_user.username}')
+    flash('Reserva recusada.', 'success')
+    return redirect(url_for('reservas'))
 
 
 @app.route('/perfil', methods=['GET', 'POST'])

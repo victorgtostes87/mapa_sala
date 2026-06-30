@@ -52,17 +52,39 @@ textarea{min-height:74px;resize:vertical}input:focus,select:focus,textarea:focus
 .status-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .status-actions form{display:block}
 @media (max-width:780px){
-  .reservas-page{padding:12px 10px 28px}
-  .hero{align-items:flex-start;flex-direction:column;padding:18px}
+  body{font-size:14px}
+  .reservas-page{padding:10px 10px 28px}
+  .hero{align-items:flex-start;flex-direction:column;padding:16px;margin-bottom:12px}
   h1{font-size:22px}
+  h2{font-size:16px}
   .form-grid,.request-list.compact{grid-template-columns:1fr}
+  .card{padding:15px}
+  input,select,textarea{font-size:16px;min-height:44px;padding:10px 11px}
+  textarea{min-height:92px}
+  label{font-size:10px;margin-top:11px}
   .two-cols{grid-template-columns:1fr}
   .section-head{align-items:flex-start;flex-direction:column;gap:4px}
+  .section-head h2{line-height:1.25}
   .request-top{flex-direction:column}
+  .request-card{padding:14px}
+  .request-meta{display:grid;grid-template-columns:1fr;gap:7px}
+  .pending-pill{width:100%;justify-content:center}
+  .btn{width:100%;min-height:42px;margin-top:10px}
   .approval-area{grid-template-columns:1fr}
   .approval-area form{grid-template-columns:1fr}
   .approval-area .btn{width:100%}
+  .instrument-list.notebook{padding:8px}
   .instrument-row{grid-template-columns:1fr}
+  .instrument-main h3{font-size:18px;line-height:1.2}
   .instrument-actions form{grid-template-columns:1fr}
   .instrument-actions .btn{width:100%}
+  .status-actions{display:grid;grid-template-columns:1fr;gap:7px}
+  .status-actions .btn.small{min-height:40px}
+}
+
+@media (max-width:420px){
+  .reservas-page{padding-left:8px;padding-right:8px}
+  .hero{padding:14px}
+  .card,.request-card,.instrument-row{border-radius:7px}
+  .empty-state{padding:24px 14px}
 }

@@ -31,6 +31,7 @@
     <div class="app-dropdown-menu" id="dropdownMenu">
       {% if papel == 'coordenador' %}
       <a href="/painel"><i data-lucide="layout-dashboard"></i> Painel</a>
+      <a href="/afazeres"><i data-lucide="list-checks"></i> Afazeres</a>
       <a href="/reservas"><i data-lucide="bell"></i> Reservas {% if reservas_pendentes_count %}<span class="nav-badge">{{ reservas_pendentes_count }}</span>{% endif %}</a>
       <a href="/usuarios"><i data-lucide="users"></i> Usuários</a>
       <a href="/logs"><i data-lucide="clipboard-list"></i> Logs</a>
@@ -39,6 +40,7 @@
       <a href="/imprimir" target="_blank"><i data-lucide="printer"></i> Imprimir</a>
       {% elif papel == 'recepcao' %}
       <a href="/painel"><i data-lucide="layout-dashboard"></i> Painel</a>
+      <a href="/afazeres"><i data-lucide="list-checks"></i> Afazeres</a>
       <a href="/reservas"><i data-lucide="bell"></i> Reservas {% if reservas_pendentes_count %}<span class="nav-badge">{{ reservas_pendentes_count }}</span>{% endif %}</a>
       <button onclick="openImportModal()"><i data-lucide="upload"></i> Importar Excel</button>
       <button onclick="exportCSV()"><i data-lucide="download"></i> Exportar</button>

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Afazeres da Recepção</title>
+  <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/painel_recepcao.css') }}">
+</head>
+<body>
+  <nav class="app-nav">
+    <a class="app-nav-brand" href="/afazeres"><i data-lucide="list-checks"></i><span>Afazeres</span></a>
+    <div class="app-nav-title">Lista compartilhada da recepção</div>
+    <div class="app-nav-spacer"></div>
+    <div class="app-nav-user">
+      <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
+      <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
+    </div>
+    <div class="app-nav-actions">
+      <a href="/painel" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Painel</a>
+      <a href="/mapa" class="app-btn app-btn-primary"><i data-lucide="layout-grid"></i> Mapa</a>
+      <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
+    </div>
+  </nav>
+
+  <main class="dashboard-page">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for cat, msg in messages %}
+          <div class="flash {{ 'success' if cat == 'success' else 'error' }}">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Post-its virtuais</p>
+        <h1>Afazeres da recepção</h1>
+        <p class="muted">Uma lista compartilhada para recados do turno. Quando concluir, marque como feito e o item some.</p>
+      </div>
+    </section>
+
+    <section class="todos-layout">
+      <form class="todo-create" method="post" action="/painel/tarefas">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>Novo afazer</label>
+        <input name="titulo" placeholder="Ex: ligar para aluno sobre teste" required>
+        <textarea name="detalhe" placeholder="Detalhe opcional"></textarea>
+        <button type="submit"><i data-lucide="plus"></i> Adicionar afazer</button>
+      </form>
+
+      <section class="todo-board">
+        {% if tarefas %}
+          {% for t in tarefas %}
+          <article class="todo-note">
+            <form method="post" action="/painel/tarefas/{{ t.id }}/concluir">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" title="Concluir e apagar"><i data-lucide="check"></i></button>
+            </form>
+            <div>
+              <h2>{{ t.titulo }}</h2>
+              {% if t.detalhe %}<p>{{ t.detalhe }}</p>{% endif %}
+              <span>Criado por {{ t.criado_por or 'recepção' }}</span>
+            </div>
+          </article>
+          {% endfor %}
+        {% else %}
+        <div class="empty big-empty positive">
+          <i data-lucide="badge-check"></i>
+          <span>Nenhum afazer anotado. A lista está limpa para o turno.</span>
+        </div>
+        {% endif %}
+      </section>
+    </section>
+  </main>
+
+  <script>lucide.createIcons();</script>
+</body>
+</html>

@@ -5,7 +5,7 @@ import re
 import secrets
 import sqlite3
 import unicodedata
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 import click
 from flask import Flask, render_template, render_template_string, jsonify, request, send_file, redirect, url_for, flash, session
@@ -42,7 +42,7 @@ DB_PATH = os.environ.get(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 )
 
-VERSAO = '2026-06-30-v24'
+VERSAO = '2026-06-30-v25'
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -597,6 +597,13 @@ def init_db():
             ");"
             "CREATE INDEX IF NOT EXISTS idx_reservas_status ON reservas(status);"
             "CREATE INDEX IF NOT EXISTS idx_reservas_usuario ON reservas(usuario_id);"
+            "CREATE TABLE IF NOT EXISTS tarefas_painel ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "titulo TEXT NOT NULL,"
+            "detalhe TEXT DEFAULT '',"
+            "criado_por TEXT DEFAULT '',"
+            "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+            ");"
         )
         existe = conn.execute("SELECT id FROM usuarios WHERE username='coordenador'").fetchone()
         if not existe:
@@ -987,6 +994,50 @@ def painel_recepcao():
             """,
             (hoje,)
         ).fetchall()
+        tarefas_manuais = conn.execute(
+            """
+            SELECT *
+            FROM tarefas_painel
+            ORDER BY created_at DESC
+            LIMIT 12
+            """
+        ).fetchall()
+        horarios_abertos_rows = conn.execute(
+            """
+            SELECT *
+            FROM agendamentos
+            WHERE (data_especifica IS NULL OR data_especifica='')
+              AND TRIM(COALESCE(paciente, ''))=''
+              AND (
+                categoria='MARCAR'
+                OR triagem=1
+              )
+            ORDER BY
+              CASE dia_semana
+                WHEN 'SEGUNDA' THEN 1
+                WHEN 'TERÇA' THEN 2
+                WHEN 'QUARTA' THEN 3
+                WHEN 'QUINTA' THEN 4
+                WHEN 'SEXTA' THEN 5
+                ELSE 6
+              END,
+              horario,
+              sala
+            LIMIT 8
+            """
+        ).fetchall()
+        total_horarios_abertos = conn.execute(
+            """
+            SELECT COUNT(*) AS total
+            FROM agendamentos
+            WHERE (data_especifica IS NULL OR data_especifica='')
+              AND TRIM(COALESCE(paciente, ''))=''
+              AND (
+                categoria='MARCAR'
+                OR triagem=1
+              )
+            """
+        ).fetchone()['total']
 
         if dia_hoje:
             ag_hoje = conn.execute(
@@ -1026,6 +1077,33 @@ def painel_recepcao():
             r['data_label'] = r.get('data_uso') or ''
         return r
 
+    checklist_auto = []
+    if pendentes_sala:
+        checklist_auto.append({
+            'titulo': 'Responder reservas de sala',
+            'detalhe': f'{len(pendentes_sala)} solicitação(ões) aguardando aprovação.',
+            'url': url_for('reservas')
+        })
+    if pendentes_instrumento:
+        checklist_auto.append({
+            'titulo': 'Responder pedidos de instrumentos',
+            'detalhe': f'{len(pendentes_instrumento)} pedido(s) aguardando aprovação.',
+            'url': url_for('reservas')
+        })
+    instrumentos_retirados = [r for r in instrumentos_ativos if r['status'] == 'retirado']
+    if instrumentos_retirados:
+        checklist_auto.append({
+            'titulo': 'Conferir instrumentos retirados',
+            'detalhe': f'{len(instrumentos_retirados)} instrumento(s) ainda não devolvido(s).',
+            'url': url_for('reservas')
+        })
+    if total_horarios_abertos:
+        checklist_auto.append({
+            'titulo': 'Ver horários abertos sem paciente',
+            'detalhe': f'{total_horarios_abertos} horário(s) para marcar paciente ou triagem.',
+            'url': url_for('horarios_abertos')
+        })
+
     return render_template(
         'painel_recepcao.html',
         usuario=current_user.username,
@@ -1037,6 +1115,235 @@ def painel_recepcao():
         pendentes_instrumento=[preparar_linha_reserva(r) for r in pendentes_instrumento],
         instrumentos_ativos=[preparar_linha_reserva(r) for r in instrumentos_ativos],
         agendamentos_hoje=[dict(r) for r in ag_hoje],
+        tarefas_manuais=[dict(r) for r in tarefas_manuais],
+        checklist_auto=checklist_auto,
+        horarios_abertos_preview=[dict(r) for r in horarios_abertos_rows],
+        total_horarios_abertos=total_horarios_abertos,
+    )
+
+
+@app.route('/painel/tarefas', methods=['POST'])
+@login_required
+@requer_papel_page('coordenador', 'recepcao')
+def criar_tarefa_painel():
+    titulo = request.form.get('titulo', '').strip()
+    detalhe = request.form.get('detalhe', '').strip()
+    if not titulo:
+        flash('Informe a tarefa antes de adicionar.', 'error')
+        return redirect(url_for('painel_recepcao'))
+
+    conn = get_db()
+    try:
+        conn.execute(
+            "INSERT INTO tarefas_painel(titulo, detalhe, criado_por) VALUES(?,?,?)",
+            (titulo, detalhe, current_user.username)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    registrar_log('CRIAR_TAREFA_PAINEL', f'{current_user.username} criou tarefa: {titulo}')
+    flash('Tarefa adicionada aos afazeres.', 'success')
+    return redirect(url_for('afazeres_recepcao'))
+
+
+@app.route('/painel/tarefas/<int:tid>/concluir', methods=['POST'])
+@login_required
+@requer_papel_page('coordenador', 'recepcao')
+def concluir_tarefa_painel(tid):
+    tarefa = None
+    conn = get_db()
+    try:
+        tarefa = conn.execute('SELECT * FROM tarefas_painel WHERE id=?', (tid,)).fetchone()
+        if tarefa:
+            conn.execute('DELETE FROM tarefas_painel WHERE id=?', (tid,))
+            conn.commit()
+    finally:
+        conn.close()
+
+    if tarefa:
+        registrar_log('CONCLUIR_TAREFA_PAINEL', f'{current_user.username} concluiu tarefa: {tarefa["titulo"]}')
+        flash('Tarefa concluída e removida dos afazeres.', 'success')
+    else:
+        flash('Tarefa não encontrada.', 'error')
+    return redirect(url_for('afazeres_recepcao'))
+
+
+@app.route('/afazeres')
+@login_required
+@requer_papel_page('coordenador', 'recepcao')
+def afazeres_recepcao():
+    conn = get_db()
+    try:
+        tarefas = conn.execute(
+            """
+            SELECT *
+            FROM tarefas_painel
+            ORDER BY created_at DESC
+            """
+        ).fetchall()
+    finally:
+        conn.close()
+
+    return render_template(
+        'afazeres.html',
+        usuario=current_user.username,
+        papel=current_user.role,
+        papel_label=PAPEIS_LABEL.get(current_user.role, current_user.role),
+        tarefas=[dict(t) for t in tarefas],
+    )
+
+
+@app.route('/horarios-abertos')
+@login_required
+@requer_papel_page('coordenador', 'recepcao')
+def horarios_abertos():
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            """
+            SELECT *
+            FROM agendamentos
+            WHERE (data_especifica IS NULL OR data_especifica='')
+              AND TRIM(COALESCE(paciente, ''))=''
+              AND (
+                categoria='MARCAR'
+                OR triagem=1
+              )
+            ORDER BY
+              CASE dia_semana
+                WHEN 'SEGUNDA' THEN 1
+                WHEN 'TERÇA' THEN 2
+                WHEN 'QUARTA' THEN 3
+                WHEN 'QUINTA' THEN 4
+                WHEN 'SEXTA' THEN 5
+                ELSE 6
+              END,
+              horario,
+              sala
+            """
+        ).fetchall()
+    finally:
+        conn.close()
+
+    horarios_por_dia = []
+    for dia in DIAS:
+        itens = []
+        for row in rows:
+            ag = dict(row)
+            if ag['dia_semana'] != dia:
+                continue
+            ag['dia_label'] = DIAS_PT.get(dia, dia.title())
+            ag['tipo_abertura'] = 'Triagem livre' if int(ag.get('triagem') or 0) else 'Aberto para paciente'
+            ag['aviso'] = (
+                'Horário reservado para triagem, mas ainda sem paciente marcado.'
+                if int(ag.get('triagem') or 0)
+                else 'Horário aberto para a recepção marcar paciente.'
+            )
+            itens.append(ag)
+        horarios_por_dia.append({'dia': dia, 'label': DIAS_PT.get(dia, dia.title()), 'itens': itens})
+
+    return render_template(
+        'horarios_abertos.html',
+        usuario=current_user.username,
+        papel=current_user.role,
+        papel_label=PAPEIS_LABEL.get(current_user.role, current_user.role),
+        horarios_por_dia=horarios_por_dia,
+        total=sum(len(d['itens']) for d in horarios_por_dia)
+    )
+
+
+@app.route('/relatorio-semanal')
+@login_required
+@requer_papel_page('coordenador', 'recepcao')
+def relatorio_semanal():
+    hoje_dt = datetime.now().date()
+    inicio_dt = hoje_dt - timedelta(days=hoje_dt.weekday())
+    fim_dt = inicio_dt + timedelta(days=6)
+    inicio = inicio_dt.strftime('%Y-%m-%d')
+    fim = fim_dt.strftime('%Y-%m-%d')
+
+    conn = get_db()
+    try:
+        total_ocupados = conn.execute(
+            """
+            SELECT COUNT(*) AS total
+            FROM agendamentos
+            WHERE ocupa_sala=1
+              AND (
+                (data_especifica BETWEEN ? AND ?)
+                OR (data_especifica IS NULL OR data_especifica='')
+              )
+            """,
+            (inicio, fim)
+        ).fetchone()['total']
+        pontuais = conn.execute(
+            """
+            SELECT COUNT(*) AS total
+            FROM agendamentos
+            WHERE ocupa_sala=1
+              AND data_especifica BETWEEN ? AND ?
+            """,
+            (inicio, fim)
+        ).fetchone()['total']
+        abertos = conn.execute(
+            """
+            SELECT COUNT(*) AS total
+            FROM agendamentos
+            WHERE (data_especifica IS NULL OR data_especifica='')
+              AND TRIM(COALESCE(paciente, ''))=''
+              AND (categoria='MARCAR' OR triagem=1)
+            """
+        ).fetchone()['total']
+        reservas_sala = conn.execute(
+            """
+            SELECT status, COUNT(*) AS total
+            FROM reservas
+            WHERE tipo='sala' AND data_uso BETWEEN ? AND ?
+            GROUP BY status
+            """,
+            (inicio, fim)
+        ).fetchall()
+        reservas_instrumento = conn.execute(
+            """
+            SELECT status, COUNT(*) AS total
+            FROM reservas
+            WHERE tipo='instrumento' AND data_uso BETWEEN ? AND ?
+            GROUP BY status
+            """,
+            (inicio, fim)
+        ).fetchall()
+        por_dia = conn.execute(
+            """
+            SELECT dia_semana, COUNT(*) AS total
+            FROM agendamentos
+            WHERE ocupa_sala=1
+            GROUP BY dia_semana
+            """
+        ).fetchall()
+    finally:
+        conn.close()
+
+    def preparar_status(rows):
+        return [{'status': label_status_reserva(r['status']), 'total': r['total']} for r in rows]
+
+    dias_relatorio = []
+    mapa_dias = {r['dia_semana']: r['total'] for r in por_dia}
+    for dia in DIAS:
+        dias_relatorio.append({'label': DIAS_PT.get(dia, dia.title()), 'total': mapa_dias.get(dia, 0)})
+
+    return render_template(
+        'relatorio_semanal.html',
+        usuario=current_user.username,
+        papel=current_user.role,
+        papel_label=PAPEIS_LABEL.get(current_user.role, current_user.role),
+        periodo=f'{inicio_dt.strftime("%d/%m/%Y")} a {fim_dt.strftime("%d/%m/%Y")}',
+        total_ocupados=total_ocupados,
+        pontuais=pontuais,
+        abertos=abertos,
+        reservas_sala=preparar_status(reservas_sala),
+        reservas_instrumento=preparar_status(reservas_instrumento),
+        dias_relatorio=dias_relatorio
     )
 
 

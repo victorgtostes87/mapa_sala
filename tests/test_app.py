@@ -31,6 +31,8 @@ class MapaSalasTestCase(unittest.TestCase):
             conn.execute('DELETE FROM historico')
             if 'reservas' in tabelas:
                 conn.execute('DELETE FROM reservas')
+            if 'tarefas_painel' in tabelas:
+                conn.execute('DELETE FROM tarefas_painel')
             conn.execute('DELETE FROM usuarios')
             self.coord_id = self._criar_usuario(conn, 'coordenador', 'coordenador')
             self.recepcao_id = self._criar_usuario(conn, 'recepcao', 'recepcao')
@@ -129,6 +131,126 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertEqual(painel.status_code, 200)
         self.assertIn('Resumo da recepção', html)
         self.assertIn('Testes e instrumentos', html)
+
+    def test_recepcao_cria_e_conclui_afazer_compartilhado(self):
+        self._login('recepcao')
+
+        criar = self.client.post(
+            '/painel/tarefas',
+            data={
+                'csrf_token': self.csrf,
+                'titulo': 'Separar teste HTP',
+                'detalhe': 'Aluno retira às 14h'
+            }
+        )
+        self.assertEqual(criar.status_code, 302)
+
+        conn = mapa.get_db()
+        try:
+            tarefa = conn.execute('SELECT * FROM tarefas_painel').fetchone()
+        finally:
+            conn.close()
+
+        self.assertIsNotNone(tarefa)
+
+        tela = self.client.get('/afazeres')
+        html = tela.get_data(as_text=True)
+
+        self.assertEqual(tela.status_code, 200)
+        self.assertIn('Afazeres da recepção', html)
+        self.assertIn('Separar teste HTP', html)
+
+        concluir = self.client.post(
+            f'/painel/tarefas/{tarefa["id"]}/concluir',
+            data={'csrf_token': self.csrf}
+        )
+        self.assertEqual(concluir.status_code, 302)
+
+        conn = mapa.get_db()
+        try:
+            total = conn.execute('SELECT COUNT(*) AS total FROM tarefas_painel').fetchone()['total']
+        finally:
+            conn.close()
+
+        self.assertEqual(total, 0)
+
+    def test_horarios_abertos_lista_marcar_e_triagem_sem_paciente(self):
+        conn = mapa.get_db()
+        try:
+            mapa.inserir_agendamento(conn, {
+                'dia': 'SEGUNDA',
+                'horario': '15:00',
+                'sala': 'Consultório 2',
+                'estagiario': 'aluno1',
+                'paciente': '',
+                'categoria': 'MARCAR',
+                'semestre': 10,
+                'triagem': 0,
+                'observacao': '',
+                'data_especifica': '',
+                'usuario_id': None
+            })
+            mapa.inserir_agendamento(conn, {
+                'dia': 'TERÇA',
+                'horario': '16:00',
+                'sala': 'Consultório 3',
+                'estagiario': 'aluno2',
+                'paciente': '',
+                'categoria': 'ESTAGIÁRIO 10°',
+                'semestre': 10,
+                'triagem': 1,
+                'observacao': '',
+                'data_especifica': '',
+                'usuario_id': None
+            })
+            conn.commit()
+        finally:
+            conn.close()
+
+        self._login('recepcao')
+        resp = self.client.get('/horarios-abertos')
+        html = resp.get_data(as_text=True)
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('Horários abertos sem paciente', html)
+        self.assertIn('Aberto para paciente', html)
+        self.assertIn('Triagem livre', html)
+
+    def test_relatorio_semanal_mostra_resumo(self):
+        data_uso = self._data_util_com_antecedencia()
+        conn = mapa.get_db()
+        try:
+            mapa.inserir_agendamento(conn, {
+                'dia': 'SEGUNDA',
+                'horario': '08:00',
+                'sala': 'Consultório 1',
+                'estagiario': 'aluno1',
+                'paciente': 'Paciente',
+                'categoria': 'ESTAGIÁRIO 9°',
+                'semestre': 9,
+                'triagem': 0,
+                'observacao': '',
+                'data_especifica': '',
+                'usuario_id': None
+            })
+            conn.execute(
+                """
+                INSERT INTO reservas(usuario_id, usuario, tipo, data_uso, horario_inicio, instrumento, finalidade)
+                VALUES(?,?,?,?,?,?,?)
+                """,
+                (self.aluno1_id, 'aluno1', 'instrumento', data_uso, '10:00', 'HTP', 'Avaliação')
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        self._login('recepcao')
+        resp = self.client.get('/relatorio-semanal')
+        html = resp.get_data(as_text=True)
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('Relatório semanal simples', html)
+        self.assertIn('Instrumentos', html)
 
     def test_tela_meus_agendamentos_mostra_somente_do_aluno(self):
         conn = mapa.get_db()
@@ -236,8 +358,10 @@ class MapaSalasTestCase(unittest.TestCase):
         html = resp.get_data(as_text=True)
 
         self.assertEqual(resp.status_code, 200)
-        self.assertIn('Atendimentos com paciente', html)
-        self.assertIn('Horários fixos sem paciente', html)
+        self.assertIn('Tenho paciente marcado', html)
+        self.assertIn('Tenho horário aberto sem paciente', html)
+        self.assertIn('Você tem triagem livre ainda sem paciente marcado.', html)
+        self.assertIn('Fixos sem paciente', html)
         self.assertIn('Paciente Fixo', html)
         self.assertIn('Triagem Marcada', html)
         self.assertIn('Triagem sem paciente marcado', html)

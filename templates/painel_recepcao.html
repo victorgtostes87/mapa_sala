@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-br">
 <head>
   <meta charset="utf-8">
@@ -19,6 +19,7 @@
     </div>
     <div class="app-nav-actions">
       <a href="/mapa" class="app-btn app-btn-primary"><i data-lucide="layout-grid"></i> Mapa</a>
+      <a href="/afazeres" class="app-btn app-btn-ghost"><i data-lucide="list-checks"></i> Afazeres</a>
       <a href="/reservas" class="app-btn app-btn-ghost"><i data-lucide="bell"></i> Reservas</a>
       <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
       <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
@@ -52,9 +53,50 @@
         <span>Agendamentos hoje</span>
         <strong>{{ agendamentos_hoje|length }}</strong>
       </a>
+      <a class="summary-card info" href="/horarios-abertos">
+        <span>Horários abertos</span>
+        <strong>{{ total_horarios_abertos }}</strong>
+      </a>
+      <a class="summary-card warn" href="/afazeres">
+        <span>Afazeres</span>
+        <strong>{{ tarefas_manuais|length }}</strong>
+      </a>
     </section>
 
     <section class="panel-grid">
+      <article class="panel wide checklist-panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Rotina do turno</p>
+            <h2>Pendências e afazeres</h2>
+          </div>
+          <a href="/afazeres">Abrir afazeres</a>
+        </div>
+
+        <div class="checklist-layout compact">
+          <div>
+            {% if checklist_auto %}
+            <div class="checklist">
+              {% for t in checklist_auto %}
+              <a class="check-row auto" href="{{ t.url }}">
+                <i data-lucide="circle-alert"></i>
+                <span><strong>{{ t.titulo }}</strong><em>{{ t.detalhe }}</em></span>
+              </a>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty positive"><i data-lucide="badge-check"></i><span>Nenhuma pendência automática no momento.</span></div>
+            {% endif %}
+          </div>
+
+          <a class="todo-shortcut" href="/afazeres">
+            <i data-lucide="list-checks"></i>
+            <strong>{{ tarefas_manuais|length }} afazer(es) anotado(s)</strong>
+            <span>Abrir lista compartilhada da recepção</span>
+          </a>
+        </div>
+      </article>
+
       <article class="panel">
         <div class="panel-head">
           <div>
@@ -74,7 +116,7 @@
           {% endfor %}
         </div>
         {% else %}
-        <div class="empty"><i data-lucide="check-circle-2"></i><span>Nenhuma reserva de sala pendente.</span></div>
+        <div class="empty positive"><i data-lucide="check-circle-2"></i><span>Nenhuma reserva de sala pendente. Não há nada para aprovar agora.</span></div>
         {% endif %}
       </article>
 
@@ -104,7 +146,30 @@
           {% endfor %}
         </div>
         {% else %}
-        <div class="empty"><i data-lucide="clipboard-check"></i><span>Nenhum instrumento em aberto.</span></div>
+        <div class="empty positive"><i data-lucide="clipboard-check"></i><span>Nenhum instrumento em aberto. O caderno está limpo.</span></div>
+        {% endif %}
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Marcação</p>
+            <h2>Horários abertos para paciente</h2>
+          </div>
+          <a href="/horarios-abertos">Ver lista</a>
+        </div>
+        {% if horarios_abertos_preview %}
+        <div class="task-list">
+          {% for ag in horarios_abertos_preview %}
+          <div class="task-row status-aberto">
+            <strong>{{ ag.estagiario }}</strong>
+            <span>{{ ag.dia_semana }} · {{ ag.horario }} · {{ ag.sala }}</span>
+            <em>{% if ag.triagem %}Triagem livre{% else %}Aberto para paciente{% endif %}</em>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty positive"><i data-lucide="calendar-check"></i><span>Nenhum horário aberto sem paciente no momento.</span></div>
         {% endif %}
       </article>
 
@@ -127,7 +192,7 @@
           {% endfor %}
         </div>
         {% else %}
-        <div class="empty"><i data-lucide="calendar-x"></i><span>Nenhum agendamento ocupando sala hoje.</span></div>
+        <div class="empty positive"><i data-lucide="calendar-x"></i><span>Nenhum agendamento ocupando sala hoje. O mapa do dia está livre.</span></div>
         {% endif %}
       </article>
     </section>

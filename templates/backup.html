@@ -18,8 +18,8 @@
       <span class="role-badge role-{{ papel }}">{{ (papeis_label|default({})).get(papel, papel) }}</span>
     </div>
     <div class="app-nav-actions">
-      <a href="{{ url_for('logs_page') }}" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Logs</a>
-      <a href="{{ url_for('index') }}" class="app-btn app-btn-ghost"><i data-lucide="layout-grid"></i> Mapa</a>
+      <a href="{{ url_for('logs_page') }}" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Voltar</a>
+      <a href="{{ url_for('perfil') }}" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
       <a href="{{ url_for('logout') }}" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
     </div>
   </nav>
@@ -27,12 +27,12 @@
     <section class="card">
       <h1>Backup do banco de dados</h1>
       <p>
-        Este arquivo contÃ©m informaÃ§Ãµes sensÃ­veis do sistema, incluindo dados de agendamentos,
-        usuÃ¡rios e hashes de senha. Baixe apenas quando realmente precisar e guarde em local seguro.
+        Este arquivo contém informações sensíveis do sistema, incluindo dados de agendamentos,
+        usuários e hashes de senha. Baixe apenas quando realmente precisar e guarde em local seguro.
       </p>
 
       <div class="warning">
-        Depois de baixar, nÃ£o envie este arquivo por grupos de mensagem e nÃ£o deixe salvo em computadores compartilhados.
+        Depois de baixar, não envie este arquivo por grupos de mensagem e não deixe salvo em computadores compartilhados.
       </div>
 
       <div class="actions">
@@ -40,7 +40,7 @@
         <a class="btn btn-secondary" href="{{ url_for('logs_page') }}">Voltar para logs</a>
       </div>
     </section>
-    <div class="version-footer">VersÃ£o {{ versao }}</div>
+    <div class="version-footer">Versão {{ versao }}</div>
   </main>
   <script>lucide.createIcons();</script>
 </body>

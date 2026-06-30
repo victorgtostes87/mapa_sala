@@ -18,9 +18,8 @@
     <span class="role-badge role-{{ papel }}">{{ (papeis_label|default({})).get(papel, papel) }}</span>
   </div>
   <div class="app-nav-actions">
-    <a href="/" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Voltar</a>
+    <a href="/painel" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Voltar</a>
     <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
-    <a href="/api/backup" class="app-btn app-btn-primary"><i data-lucide="download"></i> Backup</a>
     <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
   </div>
 </nav>
@@ -35,6 +34,7 @@
       <option>CRIAR_USUARIO</option><option>EDITAR_USUARIO</option><option>EXCLUIR_USUARIO</option>
       <option>EXPORTAR</option>
     </select>
+    <a href="/api/backup" class="btn-secondary">Backup</a>
     <button type="button" class="btn-danger" id="btnApagarLogs">Apagar logs dos ultimos 15 dias</button>
   </div>
 

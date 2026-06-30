@@ -18,14 +18,13 @@
       <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
     </div>
     <div class="app-nav-actions">
-      <a href="{{ url_for('perfil') }}" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
-      <a href="{{ url_for('index') }}" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Voltar</a>
+      <a href="{{ url_for('perfil') }}" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Voltar</a>
       <a href="{{ url_for('logout') }}" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
     </div>
   </nav>
   <div class="container">
     <h1>Trocar Senha</h1>
-    <div class="sub">OlÃ¡, {{ usuario }}</div>
+    <div class="sub">Olá, {{ usuario }}</div>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -42,7 +41,7 @@
 
       <label for="nova_senha">Nova senha</label>
       <input type="password" id="nova_senha" name="nova_senha" minlength="8" required>
-      <div class="hint">MÃ­nimo 8 caracteres.</div>
+      <div class="hint">Mínimo 8 caracteres.</div>
 
       <label for="confirmar_senha">Confirmar nova senha</label>
       <input type="password" id="confirmar_senha" name="confirmar_senha" minlength="8" required>
@@ -53,7 +52,7 @@
       </div>
     </form>
   </div>
-<div style="margin:18px 0;text-align:center;color:#6b7280;font-size:12px">VersÃ£o {{ versao }}</div>
+<div style="margin:18px 0;text-align:center;color:#6b7280;font-size:12px">Versão {{ versao }}</div>
 <script>lucide.createIcons();</script>
 </body>
 </html>

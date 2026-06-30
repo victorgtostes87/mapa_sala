@@ -6,6 +6,8 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;fo
 .navbar-spacer{flex:1}
 .btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:var(--radius);border:none;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;text-decoration:none}
 .btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}.btn-ghost:hover{background:#263348;color:var(--text)}
+.btn-secondary{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:var(--radius);border:1px solid var(--border);cursor:pointer;font-size:12px;font-weight:700;transition:all .15s;text-decoration:none;background:var(--surface);color:var(--text)}
+.btn-secondary:hover{background:#263348;border-color:var(--accent)}
 .btn-danger{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:var(--radius);border:none;cursor:pointer;font-size:12px;font-weight:700;transition:all .15s;text-decoration:none;background:#dc2626;color:#fff}
 .btn-danger:hover{background:#b91c1c}
 .container{max-width:960px;margin:24px auto;padding:0 20px}

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>UsuÃ¡rios</title>
+  <title>Usuários</title>
   <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/usuarios.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
@@ -11,34 +11,34 @@
 <body>
   <nav class="app-nav">
     <a class="app-nav-brand" href="/"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
-    <div class="app-nav-title">UsuÃ¡rios</div>
+    <div class="app-nav-title">Usuários</div>
     <div class="app-nav-spacer"></div>
     <div class="app-nav-user">
       <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
       <span class="role-badge role-{{ papel }}">{{ (papeis_label|default({})).get(papel, papel) }}</span>
-    </div>
-    <div class="app-nav-actions">
-      <a href="{{ url_for('index') }}" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Voltar</a>
-      <a href="{{ url_for('perfil') }}" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
-      <a href="{{ url_for('logout') }}" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
-    </div>
+  </div>
+  <div class="app-nav-actions">
+    <a href="{{ url_for('painel_recepcao') }}" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Voltar</a>
+    <a href="{{ url_for('perfil') }}" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
+    <a href="{{ url_for('logout') }}" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
+  </div>
   </nav>
   <div class="container">
     <div class="card">
       <div class="header-row">
-        <h1 style="margin:0;">ðŸ‘¥ Gerenciar UsuÃ¡rios</h1>
-        <button type="button" class="btn btn-primary" id="btnNovoUsuario">ï¼‹ Novo usuÃ¡rio</button>
+        <h1 style="margin:0;display:flex;align-items:center;gap:8px"><i data-lucide="users"></i> Gerenciar Usuários</h1>
+        <button type="button" class="btn btn-primary" id="btnNovoUsuario"><i data-lucide="plus"></i> Novo usuário</button>
       </div>
 
       <table>
         <thead>
           <tr>
-            <th>UsuÃ¡rio</th>
+            <th>Usuário</th>
             <th>E-mail</th>
             <th>Papel</th>
             <th>Status</th>
             <th>Criado em</th>
-            <th>AÃ§Ãµes</th>
+            <th>Ações</th>
           </tr>
         </thead>
         <tbody>
@@ -66,7 +66,7 @@
             {% endfor %}
           {% else %}
             <tr>
-              <td colspan="6">Nenhum usuÃ¡rio cadastrado.</td>
+              <td colspan="6">Nenhum usuário cadastrado.</td>
             </tr>
           {% endif %}
         </tbody>
@@ -76,18 +76,18 @@
 
   <div class="modal-backdrop" id="modalUsuario">
     <div class="modal">
-      <h2 style="margin-top:0;" id="tituloModalUsuario">Novo UsuÃ¡rio</h2>
+      <h2 style="margin-top:0;" id="tituloModalUsuario">Novo Usuário</h2>
 
       <div class="error-box" id="erroUsuario"></div>
 
       <form id="formNovoUsuario">
         <input type="hidden" id="userId" name="userId">
-        <label for="username">UsuÃ¡rio *</label>
+        <label for="username">Usuário *</label>
         <input type="text" id="username" name="username" required>
 
         <label for="email">E-mail</label>
         <input type="email" id="email" name="email" placeholder="nome@exemplo.com">
-        <div class="help">Opcional por enquanto. No futuro poderÃ¡ ser usado para convites, troca de senha e avisos.</div>
+        <div class="help">Opcional por enquanto. No futuro poderá ser usado para convites, troca de senha e avisos.</div>
 
         <label for="role">Papel *</label>
         <select id="role" name="role" required>
@@ -105,7 +105,7 @@
 
         <label for="password">Senha</label>
         <input type="password" id="password" name="password" minlength="8">
-        <div class="help" id="senhaHelp">MÃ­nimo 8 caracteres. Ao editar, deixe em branco para manter a senha atual.</div>
+        <div class="help" id="senhaHelp">Mínimo 8 caracteres. Ao editar, deixe em branco para manter a senha atual.</div>
 
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" id="btnCancelarUsuario">Cancelar</button>
@@ -125,12 +125,12 @@
     const CSRF_TOKEN = {{ csrf_token() | tojson }};
 
     function prepararNovoUsuario() {
-      tituloModalUsuario.textContent = 'Novo UsuÃ¡rio';
+      tituloModalUsuario.textContent = 'Novo Usuário';
       formNovoUsuario.reset();
       document.getElementById('userId').value = '';
       document.getElementById('ativo').value = '1';
       document.getElementById('password').required = true;
-      document.getElementById('senhaHelp').textContent = 'MÃ­nimo 8 caracteres.';
+      document.getElementById('senhaHelp').textContent = 'Mínimo 8 caracteres.';
     }
 
     function abrirModalUsuario() {
@@ -141,7 +141,7 @@
     }
 
     function abrirEditarUsuario(id, username, email, role, ativo) {
-      tituloModalUsuario.textContent = 'Editar UsuÃ¡rio';
+      tituloModalUsuario.textContent = 'Editar Usuário';
       document.getElementById('userId').value = id;
       document.getElementById('username').value = username;
       document.getElementById('email').value = email || '';
@@ -209,12 +209,12 @@
       const password = document.getElementById('password').value;
 
       if (!username || (!userId && !password)) {
-        mostrarErroUsuario('UsuÃ¡rio e senha sÃ£o obrigatÃ³rios.');
+        mostrarErroUsuario('Usuário e senha são obrigatórios.');
         return;
       }
 
       if (password && password.length < 8) {
-        mostrarErroUsuario('A senha deve ter no mÃ­nimo 8 caracteres.');
+        mostrarErroUsuario('A senha deve ter no mínimo 8 caracteres.');
         return;
       }
 
@@ -234,18 +234,18 @@
         const data = await resp.json();
 
         if (!resp.ok) {
-          mostrarErroUsuario(data.erro || 'Erro ao salvar usuÃ¡rio.');
+          mostrarErroUsuario(data.erro || 'Erro ao salvar usuário.');
           return;
         }
 
         window.location.reload();
       } catch (err) {
-        mostrarErroUsuario('NÃ£o foi possÃ­vel salvar agora. Verifique a conexÃ£o e tente novamente.');
+        mostrarErroUsuario('Não foi possível salvar agora. Verifique a conexão e tente novamente.');
       }
     });
 
     async function inativarUsuario(id, username) {
-      if (!confirm(`Inativar o usuÃ¡rio "${username}"?`)) return;
+      if (!confirm(`Inativar o usuário "${username}"?`)) return;
 
       try {
         const resp = await fetch(`/api/usuarios/${id}`, {
@@ -255,13 +255,13 @@
         const data = await resp.json();
 
         if (!resp.ok) {
-          alert(data.erro || 'Erro ao inativar usuÃ¡rio.');
+          alert(data.erro || 'Erro ao inativar usuário.');
           return;
         }
 
         window.location.reload();
       } catch (err) {
-        alert('NÃ£o foi possÃ­vel inativar agora. Verifique a conexÃ£o e tente novamente.');
+        alert('Não foi possível inativar agora. Verifique a conexão e tente novamente.');
       }
     }
 
@@ -278,17 +278,17 @@
         const data = await resp.json();
 
         if (!resp.ok) {
-          alert(data.erro || 'Erro ao reativar usuÃ¡rio.');
+          alert(data.erro || 'Erro ao reativar usuário.');
           return;
         }
 
         window.location.reload();
       } catch (err) {
-        alert('NÃ£o foi possÃ­vel reativar agora. Verifique a conexÃ£o e tente novamente.');
+        alert('Não foi possível reativar agora. Verifique a conexão e tente novamente.');
       }
     }
   </script>
 <script>lucide.createIcons();</script>
-<div class="version-footer">VersÃ£o {{ versao }}</div>
+<div class="version-footer">Versão {{ versao }}</div>
 </body>
 </html>

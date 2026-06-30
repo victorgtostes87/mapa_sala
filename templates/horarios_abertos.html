@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Horários Abertos</title>
+  <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/painel_recepcao.css') }}">
+</head>
+<body>
+  <nav class="app-nav">
+    <a class="app-nav-brand" href="/painel"><i data-lucide="calendar-plus"></i><span>Horários Abertos</span></a>
+    <div class="app-nav-title">Mapa de Sala - Policlínica Psicologia UVV</div>
+    <div class="app-nav-spacer"></div>
+    <div class="app-nav-user">
+      <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
+      <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
+    </div>
+    <div class="app-nav-actions">
+      <a href="/painel" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Voltar</a>
+      <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
+      <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
+    </div>
+  </nav>
+
+  <main class="dashboard-page">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Marcação de pacientes</p>
+        <h1>Horários abertos sem paciente</h1>
+        <p class="muted">Use esta lista para encontrar rapidamente onde ainda dá para marcar paciente ou triagem.</p>
+      </div>
+      <a class="quick-map" href="/mapa"><i data-lucide="layout-grid"></i> Abrir mapa</a>
+    </section>
+
+    <section class="summary-grid compact-summary">
+      <div class="summary-card info">
+        <span>Total aberto</span>
+        <strong>{{ total }}</strong>
+      </div>
+    </section>
+
+    {% if total %}
+    <section class="open-week">
+      {% for dia in horarios_por_dia %}
+      <article class="panel day-open">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">{{ dia.itens|length }} horário(s)</p>
+            <h2>{{ dia.label }}</h2>
+          </div>
+        </div>
+        {% if dia.itens %}
+        <div class="task-list">
+          {% for ag in dia.itens %}
+          <div class="task-row status-aberto">
+            <strong>{{ ag.horario }} · {{ ag.sala }}</strong>
+            <span>{{ ag.estagiario }} · {{ ag.categoria or 'Sem categoria' }}</span>
+            <em>{{ ag.tipo_abertura }}. {{ ag.aviso }}</em>
+            {% if ag.observacao %}<small>{{ ag.observacao }}</small>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty positive"><i data-lucide="check-circle-2"></i><span>Nenhum horário aberto neste dia.</span></div>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </section>
+    {% else %}
+    <section class="empty big-empty positive">
+      <i data-lucide="badge-check"></i>
+      <span>Nenhum horário aberto sem paciente no momento. Quando a coordenação liberar horários, eles aparecerão aqui.</span>
+    </section>
+    {% endif %}
+  </main>
+
+  <script>lucide.createIcons();</script>
+</body>
+</html>

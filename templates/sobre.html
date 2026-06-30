@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sobre o Sistema</title>
+  <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/painel_recepcao.css') }}">
+</head>
+<body>
+  <nav class="app-nav">
+    <a class="app-nav-brand" href="/sobre"><i data-lucide="info"></i><span>Sobre</span></a>
+    <div class="app-nav-title">Mapa de Sala - Policlínica Psicologia UVV</div>
+    <div class="app-nav-spacer"></div>
+    <div class="app-nav-user">
+      <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
+      <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
+    </div>
+    <div class="app-nav-actions">
+      <a href="/painel" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Voltar</a>
+      <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
+      <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
+    </div>
+  </nav>
+
+  <main class="dashboard-page">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Informações do sistema</p>
+        <h1>Mapa de Sala - Policlínica Psicologia UVV</h1>
+        <p class="muted">Sistema interno para organização de salas, reservas, instrumentos e rotina da recepção.</p>
+      </div>
+    </section>
+
+    <section class="panel-grid">
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Versão</p>
+            <h2>{{ versao }}</h2>
+          </div>
+        </div>
+        <p class="muted">Esta versão inclui mapa de sala, reservas, afazeres compartilhados, impressão e exportação.</p>
+      </article>
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Uso diário</p>
+            <h2>Feito para rotina interna</h2>
+          </div>
+        </div>
+        <p class="muted">O foco é ajudar recepção, coordenação, professores e alunos a reduzir conflitos de horário e retrabalho.</p>
+      </article>
+    </section>
+  </main>
+
+  <script>lucide.createIcons();</script>
+</body>
+</html>

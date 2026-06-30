@@ -40,7 +40,7 @@ a.back:hover{color:var(--text)}
     <span class="role-badge role-{{ papel }}">{{ (papeis_label|default({})).get(papel, papel) }}</span>
   </div>
   <div class="app-nav-actions">
-    <a href="/" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Voltar</a>
+    <a href="/painel" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Voltar</a>
     <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
     <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
   </div>
@@ -49,7 +49,7 @@ a.back:hover{color:var(--text)}
 <div class="wrap">
   <div class="card">
     <h2><i data-lucide="printer"></i> Lista de Pacientes</h2>
-    <p>Selecione o dia para abrir a lista para impressÃ£o / PDF</p>
+    <p>Selecione o dia para abrir a lista para impressão / PDF</p>
     <div class="dias">
       {% for d in dias %}
       <a class="dia-btn" href="/imprimir/{{ d }}" target="_blank">{{ dias_pt[d] }}</a>

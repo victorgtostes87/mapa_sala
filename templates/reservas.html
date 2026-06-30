@@ -18,15 +18,8 @@
       <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
     </div>
     <div class="app-nav-actions">
-      <a href="/painel" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Painel</a>
-      <a href="/afazeres" class="app-btn app-btn-ghost"><i data-lucide="list-checks"></i> Afazeres</a>
-      {% if papel == 'coordenador' %}
-      <a href="/mapa" class="app-btn app-btn-primary"><i data-lucide="layout-grid"></i> Mapa</a>
-      {% endif %}
-      <a href="/api/export" class="app-btn app-btn-ghost"><i data-lucide="download"></i> Exportar</a>
-      <a href="/imprimir" target="_blank" class="app-btn app-btn-ghost"><i data-lucide="printer"></i> Imprimir</a>
+      <a href="/painel" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Voltar</a>
       <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
-      <a href="/sobre" class="app-btn app-btn-ghost"><i data-lucide="info"></i> Sobre</a>
       <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
     </div>
   </nav>

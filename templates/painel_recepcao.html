@@ -18,9 +18,6 @@
       <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
     </div>
     <div class="app-nav-actions">
-      {% if papel == 'coordenador' %}
-      <a href="/mapa" class="app-btn app-btn-primary"><i data-lucide="layout-grid"></i> Mapa</a>
-      {% endif %}
       <a href="/afazeres" class="app-btn app-btn-ghost"><i data-lucide="list-checks"></i> Afazeres</a>
       <a href="/reservas" class="app-btn app-btn-ghost"><i data-lucide="bell"></i> Reservas</a>
       <a href="/api/export" class="app-btn app-btn-ghost"><i data-lucide="download"></i> Exportar</a>
@@ -35,17 +32,13 @@
     <section class="hero">
       <div>
         <p class="eyebrow">Hoje, {{ hoje_label }}</p>
-        <h1>Resumo da recepção</h1>
-        <p class="muted">Um ponto de partida para ver o que precisa de resposta e o movimento do mapa no dia.</p>
+        <h1>Painel da recepção</h1>
+        <p class="muted">Foco no que precisa ser resolvido: reservas pendentes, instrumentos pendentes e afazeres do turno.</p>
       </div>
-      {% if papel == 'coordenador' %}
-      <a class="quick-map" href="/mapa"><i data-lucide="plus-circle"></i> Abrir mapa para agendar</a>
-      {% else %}
       <a class="quick-map" href="/afazeres"><i data-lucide="list-checks"></i> Abrir afazeres</a>
-      {% endif %}
     </section>
 
-    <section class="summary-grid">
+    <section class="summary-grid compact-summary">
       <a class="summary-card warn" href="/reservas">
         <span>Salas pendentes</span>
         <strong>{{ pendentes_sala|length }}</strong>
@@ -54,33 +47,6 @@
         <span>Instrumentos pendentes</span>
         <strong>{{ pendentes_instrumento|length }}</strong>
       </a>
-      <a class="summary-card success" href="/reservas">
-        <span>Instrumentos ativos</span>
-        <strong>{{ instrumentos_ativos|length }}</strong>
-      </a>
-      {% if papel == 'coordenador' %}
-      <a class="summary-card neutral" href="/mapa">
-        <span>Agendamentos hoje</span>
-        <strong>{{ agendamentos_hoje|length }}</strong>
-      </a>
-      <a class="summary-card info" href="/horarios-abertos">
-        <span>Horários abertos</span>
-        <strong>{{ total_horarios_abertos }}</strong>
-      </a>
-      <a class="summary-card success" href="/relatorio-semanal">
-        <span>Relatório semanal</span>
-        <strong>Ver</strong>
-      </a>
-      {% else %}
-      <a class="summary-card neutral" href="/api/export">
-        <span>Exportar</span>
-        <strong>XLSX</strong>
-      </a>
-      <a class="summary-card info" href="/imprimir" target="_blank">
-        <span>Imprimir</span>
-        <strong>Lista</strong>
-      </a>
-      {% endif %}
       <a class="summary-card warn" href="/afazeres">
         <span>Afazeres</span>
         <strong>{{ tarefas_manuais|length }}</strong>
@@ -152,7 +118,7 @@
           </div>
           <a href="/reservas">Abrir caderno</a>
         </div>
-        {% if pendentes_instrumento or instrumentos_ativos %}
+        {% if pendentes_instrumento %}
         <div class="task-list">
           {% for r in pendentes_instrumento %}
           <div class="task-row status-pendente">
@@ -161,68 +127,11 @@
             <em>Pendente de aprovação</em>
           </div>
           {% endfor %}
-          {% for r in instrumentos_ativos %}
-          <div class="task-row status-{{ r.status }}">
-            <strong>{{ r.instrumento }}</strong>
-            <span>{{ r.usuario }} · {{ r.data_label }} às {{ r.horario_inicio }}</span>
-            <em>{{ r.status_label }}</em>
-          </div>
-          {% endfor %}
         </div>
         {% else %}
-        <div class="empty positive"><i data-lucide="clipboard-check"></i><span>Nenhum instrumento em aberto. O caderno está limpo.</span></div>
+        <div class="empty positive"><i data-lucide="clipboard-check"></i><span>Nenhum instrumento pendente agora.</span></div>
         {% endif %}
       </article>
-
-      {% if papel == 'coordenador' %}
-      <article class="panel">
-        <div class="panel-head">
-          <div>
-            <p class="eyebrow">Marcação</p>
-            <h2>Horários abertos para paciente</h2>
-          </div>
-          <a href="/horarios-abertos">Ver lista</a>
-        </div>
-        {% if horarios_abertos_preview %}
-        <div class="task-list">
-          {% for ag in horarios_abertos_preview %}
-          <div class="task-row status-aberto">
-            <strong>{{ ag.estagiario }}</strong>
-            <span>{{ ag.dia_semana }} · {{ ag.horario }} · {{ ag.sala }}</span>
-            <em>{% if ag.triagem %}Triagem livre{% else %}Aberto para paciente{% endif %}</em>
-          </div>
-          {% endfor %}
-        </div>
-        {% else %}
-        <div class="empty positive"><i data-lucide="calendar-check"></i><span>Nenhum horário aberto sem paciente no momento.</span></div>
-        {% endif %}
-      </article>
-      {% endif %}
-
-      {% if papel == 'coordenador' %}
-      <article class="panel wide">
-        <div class="panel-head">
-          <div>
-            <p class="eyebrow">{{ dia_hoje_label }}</p>
-            <h2>Agendamentos ocupando sala hoje</h2>
-          </div>
-          <a href="/mapa">Ver mapa</a>
-        </div>
-        {% if agendamentos_hoje %}
-        <div class="today-list">
-          {% for ag in agendamentos_hoje %}
-          <div class="today-row">
-            <strong>{{ ag.horario }}</strong>
-            <span>{{ ag.sala }}</span>
-            <em>{{ ag.estagiario }}{% if ag.paciente %} · {{ ag.paciente }}{% endif %}</em>
-          </div>
-          {% endfor %}
-        </div>
-        {% else %}
-        <div class="empty positive"><i data-lucide="calendar-x"></i><span>Nenhum agendamento ocupando sala hoje. O mapa do dia está livre.</span></div>
-        {% endif %}
-      </article>
-      {% endif %}
     </section>
   </main>
 

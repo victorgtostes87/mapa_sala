@@ -117,6 +117,19 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 302)
         self.assertIn('/meus-agendamentos', resp.headers['Location'])
 
+    def test_recepcao_entra_no_painel_inicial(self):
+        resp = self._login('recepcao')
+
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn('/painel', resp.headers['Location'])
+
+        painel = self.client.get('/painel')
+        html = painel.get_data(as_text=True)
+
+        self.assertEqual(painel.status_code, 200)
+        self.assertIn('Resumo da recepção', html)
+        self.assertIn('Testes e instrumentos', html)
+
     def test_tela_meus_agendamentos_mostra_somente_do_aluno(self):
         conn = mapa.get_db()
         try:
@@ -324,6 +337,37 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertIn('Reservas de testes e instrumentos', html)
         self.assertIn('HTP', html)
         self.assertIn('WISC', html)
+
+    def test_recepcao_atualiza_status_do_caderno_de_instrumentos(self):
+        data_uso = self._data_util_com_antecedencia()
+        conn = mapa.get_db()
+        try:
+            cur = conn.execute(
+                """
+                INSERT INTO reservas(usuario_id, usuario, tipo, status, data_uso, horario_inicio, instrumento, finalidade)
+                VALUES(?,?,?,?,?,?,?,?)
+                """,
+                (self.aluno1_id, 'aluno1', 'instrumento', 'aprovada', data_uso, '09:00', 'HTP', 'Avaliação')
+            )
+            reserva_id = cur.lastrowid
+            conn.commit()
+        finally:
+            conn.close()
+
+        self._login('recepcao')
+        resp = self.client.post(
+            f'/reservas/{reserva_id}/status',
+            data={'csrf_token': self.csrf, 'status': 'separado'}
+        )
+
+        self.assertEqual(resp.status_code, 302)
+        conn = mapa.get_db()
+        try:
+            row = conn.execute('SELECT status FROM reservas WHERE id=?', (reserva_id,)).fetchone()
+        finally:
+            conn.close()
+
+        self.assertEqual(row['status'], 'separado')
 
     def test_aprovar_reserva_de_sala_cria_agendamentos_no_mapa(self):
         data_uso = self._data_util_com_antecedencia()

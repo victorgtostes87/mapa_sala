@@ -56,6 +56,49 @@
       </div>
     </section>
 
+    <section class="section-head" id="semana">
+      <div>
+        <p class="eyebrow">Visão semanal</p>
+        <h2>Sua semana no mapa</h2>
+      </div>
+      <span>Paciente marcado e horário reservado sem paciente</span>
+    </section>
+
+    <section class="week-board">
+      {% for dia in semana_aluno %}
+      <article class="day-column">
+        <header>{{ dia.label }}</header>
+        {% if dia.itens %}
+        <div class="day-items">
+          {% for ag in dia.itens %}
+          <div class="week-item {{ ag.semana_tipo }} {{ ag.status_slug or ag.tipo_slug }}">
+            <div class="week-time">
+              <strong>{{ ag.horario }}</strong>
+              <span>{{ ag.sala }}</span>
+            </div>
+            <div class="week-info">
+              <h3>{{ ag.semana_titulo }}</h3>
+              <p>{{ ag.semana_descricao }}</p>
+              <div class="week-tags">
+                {% if ag.semana_tipo == 'paciente' %}
+                <span>Paciente marcado</span>
+                {% else %}
+                <span>Sem paciente</span>
+                {% endif %}
+                {% if ag.triagem %}<span>Triagem</span>{% endif %}
+                {% if ag.data_label %}<span>{{ ag.data_label }}</span>{% endif %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="day-empty">Sem horários</div>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </section>
+
     <section class="section-head" id="pacientes">
       <div>
         <p class="eyebrow">Agenda real</p>

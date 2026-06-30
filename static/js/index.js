@@ -138,10 +138,13 @@ function renderAgendamentoCell(ag, cellTemOcupacao=false){
   const badgeHtml = ag.triagem ? '<span class="badge">triagem</span>' : '';
   const dataHtml  = ag.data_especifica ? '<span class="badge">'+esc(ag.data_especifica)+'</span>' : '';
   const ocupa = parseInt(ag.ocupa_sala) === 1;
+  const temPaciente = !!String(ag.paciente || '').trim();
+  const estadoSala = temPaciente ? 'cell-com-paciente' : 'cell-fixo-sem-paciente';
+  const tipoData = ag.data_especifica ? 'cell-pontual' : 'cell-fixo';
   const obsHtml = ag.observacao ? '<div class="obs">'+esc(ag.observacao)+'</div>' : '';
-  const editBtn   = PODE_EDITAR ? `<button class="edit-btn" onclick="event.stopPropagation();openModal(${ag.id})">✏️</button>` : '';
+  const editBtn   = PODE_EDITAR ? `<button class="edit-btn" onclick="event.stopPropagation();openModal(${ag.id})">Editar</button>` : '';
   const usarBtn = PODE_EDITAR && !ocupa && !cellTemOcupacao ? `<button class="use-room-btn" onclick="event.stopPropagation();openUsoPontual('${escAttr(ag.horario)}','${escAttr(ag.sala)}')">+ Usar sala</button>` : '';
-  return `<div class="cell ${cls}" onclick="openModal(${ag.id})">
+  return `<div class="cell ${cls} ${estadoSala} ${tipoData}" onclick="openModal(${ag.id})">
     ${editBtn}
     <div class="intern">${esc(ag.estagiario)}</div>
     ${ag.paciente ? '<div class="patient">'+esc(ag.paciente)+'</div>' : ''}
@@ -314,7 +317,7 @@ function setF(id,val){ const el=document.getElementById(id); if(el) el.value=val
 function closeModal(){ document.getElementById('modalOverlay').classList.remove('open'); }
 function closeModalIfBg(e){ if(e.target.id==='modalOverlay') closeModal(); }
 async function saveAg(){
-  if(temConflito){ showToast('🚫 Resolva o conflito antes de salvar!','error'); return; }
+  if(temConflito){ showToast('Resolva o conflito antes de salvar!','error'); return; }
   const id=document.getElementById('fId').value;
   const body={
     dia_semana:document.getElementById('fDia').value,
@@ -339,7 +342,7 @@ async function saveAg(){
     return;
   }
   if(res.ok){
-    showToast('✅ Salvo!','success');
+    showToast('Salvo!','success');
     closeModal();
     if(body.data_especifica) syncDayWithDate(body.data_especifica);
     renderGrid();
@@ -349,8 +352,8 @@ async function saveAg(){
     document.getElementById('conflictBox').classList.add('show');
     const btn=document.getElementById('saveBtn');
     btn.disabled=true; btn.style.opacity='0.4'; btn.style.cursor='not-allowed';
-    showToast('🚫 Conflito de sala!','error');
-  } else { showToast('❌ '+(data.erro||'Erro ao salvar'),'error'); }
+    showToast('Conflito de sala!','error');
+  } else { showToast((data.erro||'Erro ao salvar'),'error'); }
 }
 function deleteAg(){
   const id=document.getElementById('fId').value;

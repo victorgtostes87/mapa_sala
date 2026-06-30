@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Painel da Recepção</title>
+  <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/painel_recepcao.css') }}">
+</head>
+<body>
+  <nav class="app-nav">
+    <a class="app-nav-brand" href="/painel"><i data-lucide="layout-dashboard"></i><span>Painel da Recepção</span></a>
+    <div class="app-nav-title">Mapa de Sala - Policlínica Psicologia UVV</div>
+    <div class="app-nav-spacer"></div>
+    <div class="app-nav-user">
+      <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
+      <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
+    </div>
+    <div class="app-nav-actions">
+      <a href="/mapa" class="app-btn app-btn-primary"><i data-lucide="layout-grid"></i> Mapa</a>
+      <a href="/reservas" class="app-btn app-btn-ghost"><i data-lucide="bell"></i> Reservas</a>
+      <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
+      <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
+    </div>
+  </nav>
+
+  <main class="dashboard-page">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Hoje, {{ hoje_label }}</p>
+        <h1>Resumo da recepção</h1>
+        <p class="muted">Um ponto de partida para ver o que precisa de resposta e o movimento do mapa no dia.</p>
+      </div>
+      <a class="quick-map" href="/mapa"><i data-lucide="plus-circle"></i> Abrir mapa para agendar</a>
+    </section>
+
+    <section class="summary-grid">
+      <a class="summary-card warn" href="/reservas">
+        <span>Salas pendentes</span>
+        <strong>{{ pendentes_sala|length }}</strong>
+      </a>
+      <a class="summary-card info" href="/reservas">
+        <span>Instrumentos pendentes</span>
+        <strong>{{ pendentes_instrumento|length }}</strong>
+      </a>
+      <a class="summary-card success" href="/reservas">
+        <span>Instrumentos ativos</span>
+        <strong>{{ instrumentos_ativos|length }}</strong>
+      </a>
+      <a class="summary-card neutral" href="/mapa">
+        <span>Agendamentos hoje</span>
+        <strong>{{ agendamentos_hoje|length }}</strong>
+      </a>
+    </section>
+
+    <section class="panel-grid">
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Precisa responder</p>
+            <h2>Reservas de sala</h2>
+          </div>
+          <a href="/reservas">Ver tudo</a>
+        </div>
+        {% if pendentes_sala %}
+        <div class="task-list">
+          {% for r in pendentes_sala %}
+          <div class="task-row">
+            <strong>{{ r.usuario }}</strong>
+            <span>{{ r.data_label }} às {{ r.horario_inicio }}{% if r.horario_fim %} - {{ r.horario_fim }}{% endif %}</span>
+            <em>{{ r.finalidade or 'Sem finalidade informada' }}</em>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty"><i data-lucide="check-circle-2"></i><span>Nenhuma reserva de sala pendente.</span></div>
+        {% endif %}
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Caderno virtual</p>
+            <h2>Testes e instrumentos</h2>
+          </div>
+          <a href="/reservas">Abrir caderno</a>
+        </div>
+        {% if pendentes_instrumento or instrumentos_ativos %}
+        <div class="task-list">
+          {% for r in pendentes_instrumento %}
+          <div class="task-row status-pendente">
+            <strong>{{ r.instrumento }}</strong>
+            <span>{{ r.usuario }} · {{ r.data_label }} às {{ r.horario_inicio }}</span>
+            <em>Pendente de aprovação</em>
+          </div>
+          {% endfor %}
+          {% for r in instrumentos_ativos %}
+          <div class="task-row status-{{ r.status }}">
+            <strong>{{ r.instrumento }}</strong>
+            <span>{{ r.usuario }} · {{ r.data_label }} às {{ r.horario_inicio }}</span>
+            <em>{{ r.status_label }}</em>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty"><i data-lucide="clipboard-check"></i><span>Nenhum instrumento em aberto.</span></div>
+        {% endif %}
+      </article>
+
+      <article class="panel wide">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">{{ dia_hoje_label }}</p>
+            <h2>Agendamentos ocupando sala hoje</h2>
+          </div>
+          <a href="/mapa">Ver mapa</a>
+        </div>
+        {% if agendamentos_hoje %}
+        <div class="today-list">
+          {% for ag in agendamentos_hoje %}
+          <div class="today-row">
+            <strong>{{ ag.horario }}</strong>
+            <span>{{ ag.sala }}</span>
+            <em>{{ ag.estagiario }}{% if ag.paciente %} · {{ ag.paciente }}{% endif %}</em>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty"><i data-lucide="calendar-x"></i><span>Nenhum agendamento ocupando sala hoje.</span></div>
+        {% endif %}
+      </article>
+    </section>
+  </main>
+
+  <script>lucide.createIcons();</script>
+</body>
+</html>

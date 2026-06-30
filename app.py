@@ -40,7 +40,7 @@ DB_PATH = os.environ.get(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 )
 
-VERSAO = '2026-06-26-v21'
+VERSAO = '2026-06-30-v23'
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -770,6 +770,9 @@ def label_status_reserva(status):
     return {
         'pendente': 'Pendente',
         'aprovada': 'Aprovada',
+        'separado': 'Separado',
+        'retirado': 'Retirado',
+        'devolvido': 'Devolvido',
         'recusada': 'Recusada'
     }.get(status, status)
 
@@ -949,6 +952,20 @@ def logout():
 def index():
     if current_user.role == 'aluno':
         return redirect(url_for('meus_agendamentos'))
+    if current_user.role == 'recepcao':
+        return redirect(url_for('painel_recepcao'))
+    return renderizar_mapa_sala()
+
+
+@app.route('/mapa')
+@login_required
+def mapa_sala():
+    if current_user.role == 'aluno':
+        return redirect(url_for('meus_agendamentos'))
+    return renderizar_mapa_sala()
+
+
+def renderizar_mapa_sala():
     return render_template(
         'index.html',
         salas=SALAS,
@@ -957,6 +974,99 @@ def index():
         dias=DIAS,
         usuario=current_user.username,
         papel=current_user.role
+    )
+
+
+@app.route('/painel')
+@login_required
+@requer_papel_page('coordenador', 'recepcao')
+def painel_recepcao():
+    hoje = data_hoje_iso()
+    weekday = datetime.now().weekday()
+    dia_hoje = DIAS[weekday] if weekday < len(DIAS) else ''
+
+    conn = get_db()
+    try:
+        pendentes_sala = conn.execute(
+            """
+            SELECT *
+            FROM reservas
+            WHERE tipo='sala' AND status='pendente'
+            ORDER BY data_uso, horario_inicio
+            LIMIT 6
+            """
+        ).fetchall()
+        pendentes_instrumento = conn.execute(
+            """
+            SELECT *
+            FROM reservas
+            WHERE tipo='instrumento' AND status='pendente'
+            ORDER BY data_uso, horario_inicio
+            LIMIT 6
+            """
+        ).fetchall()
+        instrumentos_ativos = conn.execute(
+            """
+            SELECT *
+            FROM reservas
+            WHERE tipo='instrumento'
+              AND status IN ('aprovada', 'separado', 'retirado')
+              AND data_uso>=?
+            ORDER BY data_uso, horario_inicio
+            LIMIT 8
+            """,
+            (hoje,)
+        ).fetchall()
+
+        if dia_hoje:
+            ag_hoje = conn.execute(
+                """
+                SELECT *
+                FROM agendamentos
+                WHERE ocupa_sala=1
+                  AND (
+                    data_especifica=?
+                    OR (dia_semana=? AND (data_especifica IS NULL OR data_especifica=''))
+                  )
+                ORDER BY horario, sala
+                LIMIT 10
+                """,
+                (hoje, dia_hoje)
+            ).fetchall()
+        else:
+            ag_hoje = conn.execute(
+                """
+                SELECT *
+                FROM agendamentos
+                WHERE ocupa_sala=1 AND data_especifica=?
+                ORDER BY horario, sala
+                LIMIT 10
+                """,
+                (hoje,)
+            ).fetchall()
+    finally:
+        conn.close()
+
+    def preparar_linha_reserva(row):
+        r = dict(row)
+        r['status_label'] = label_status_reserva(r.get('status'))
+        try:
+            r['data_label'] = datetime.strptime(r['data_uso'], '%Y-%m-%d').strftime('%d/%m/%Y')
+        except (ValueError, TypeError):
+            r['data_label'] = r.get('data_uso') or ''
+        return r
+
+    return render_template(
+        'painel_recepcao.html',
+        usuario=current_user.username,
+        papel=current_user.role,
+        papel_label=PAPEIS_LABEL.get(current_user.role, current_user.role),
+        hoje_label=datetime.now().strftime('%d/%m/%Y'),
+        dia_hoje_label=DIAS_PT.get(dia_hoje, 'Hoje'),
+        pendentes_sala=[preparar_linha_reserva(r) for r in pendentes_sala],
+        pendentes_instrumento=[preparar_linha_reserva(r) for r in pendentes_instrumento],
+        instrumentos_ativos=[preparar_linha_reserva(r) for r in instrumentos_ativos],
+        agendamentos_hoje=[dict(r) for r in ag_hoje],
     )
 
 
@@ -1001,7 +1111,13 @@ def meus_agendamentos():
 
     for row in rows:
         ag = dict(row)
-        ag['dia_label'] = DIAS_PT.get(ag['dia_semana'], ag['dia_semana'].title())
+        ag['dia_visual'] = ag['dia_semana']
+        if ag.get('data_especifica'):
+            try:
+                ag['dia_visual'] = dia_semana_da_data(ag['data_especifica'])
+            except ValueError:
+                ag['dia_visual'] = ag['dia_semana']
+        ag['dia_label'] = DIAS_PT.get(ag['dia_visual'], ag['dia_visual'].title())
         ag['tipo'] = 'Pontual' if ag.get('data_especifica') else 'Fixo semanal'
         ag['tipo_slug'] = 'pontual' if ag.get('data_especifica') else 'fixo'
         ag['tem_paciente'] = bool((ag.get('paciente') or '').strip())
@@ -1053,11 +1169,39 @@ def meus_agendamentos():
 
         horarios_fixos.append(ag)
 
+    semana_aluno = []
+    for dia in DIAS:
+        itens = []
+        for ag in atendimentos_paciente:
+            if ag.get('dia_visual') != dia:
+                continue
+            item = dict(ag)
+            item['semana_tipo'] = 'paciente'
+            item['semana_titulo'] = ag.get('paciente') or 'Paciente marcado'
+            item['semana_descricao'] = 'Triagem marcada' if ag.get('eh_triagem') else 'Atendimento com paciente'
+            itens.append(item)
+        for ag in horarios_fixos:
+            if ag.get('dia_visual') != dia:
+                continue
+            item = dict(ag)
+            item['semana_tipo'] = 'fixo'
+            item['semana_titulo'] = ag.get('status_fixo') or 'Horário fixo sem paciente'
+            item['semana_descricao'] = ag.get('status_descricao') or 'Horário reservado, ainda sem paciente.'
+            itens.append(item)
+
+        itens.sort(key=lambda item: (HORARIOS.index(item['horario']) if item.get('horario') in HORARIOS else 99, item.get('sala') or ''))
+        semana_aluno.append({
+            'dia': dia,
+            'label': DIAS_PT.get(dia, dia.title()),
+            'itens': itens
+        })
+
     return render_template(
         'meus_agendamentos.html',
         agendamentos=agendamentos,
         atendimentos_paciente=atendimentos_paciente,
         horarios_fixos=horarios_fixos,
+        semana_aluno=semana_aluno,
         total=len(agendamentos),
         total_fixos=len(horarios_fixos),
         total_atendimentos=len(atendimentos_paciente),
@@ -1379,6 +1523,43 @@ def recusar_reserva(rid):
 
     registrar_log('RECUSAR_RESERVA', f'Reserva #{rid} recusada por {current_user.username}')
     flash('Reserva recusada.', 'success')
+    return redirect(url_for('reservas'))
+
+
+@app.route('/reservas/<int:rid>/status', methods=['POST'])
+@login_required
+@requer_papel('coordenador', 'recepcao')
+def atualizar_status_reserva(rid):
+    novo_status = request.form.get('status', '').strip()
+    status_validos = ('aprovada', 'separado', 'retirado', 'devolvido')
+    if novo_status not in status_validos:
+        flash('Status inválido.', 'error')
+        return redirect(url_for('reservas'))
+
+    conn = get_db()
+    try:
+        reserva = conn.execute("SELECT * FROM reservas WHERE id=?", (rid,)).fetchone()
+        if not reserva or reserva['tipo'] != 'instrumento':
+            flash('Reserva de instrumento não encontrada.', 'error')
+            return redirect(url_for('reservas'))
+        if reserva['status'] == 'recusada':
+            flash('Uma reserva recusada não pode mudar de status.', 'error')
+            return redirect(url_for('reservas'))
+
+        conn.execute(
+            """
+            UPDATE reservas
+            SET status=?, analisado_por=?, updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            (novo_status, current_user.username, rid)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    registrar_log('STATUS_RESERVA_INSTRUMENTO', f'Reserva #{rid} marcada como {novo_status} por {current_user.username}')
+    flash('Status do instrumento atualizado.', 'success')
     return redirect(url_for('reservas'))
 
 

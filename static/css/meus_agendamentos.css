@@ -16,6 +16,19 @@ h1{font-size:24px;line-height:1.15;color:#f8fafc}
 .section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-top:24px;margin-bottom:10px}
 .section-head h2{font-size:18px;color:#f8fafc}
 .section-head span{color:var(--text2);font-size:12px;font-weight:800}
+.week-board{display:grid;grid-template-columns:repeat(5,minmax(160px,1fr));gap:10px}
+.day-column{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);min-height:160px;overflow:hidden}
+.day-column header{background:#17233a;border-bottom:1px solid var(--border);color:#bfdbfe;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.4px;padding:10px 11px}
+.day-items{display:grid;gap:7px;padding:9px}
+.week-item{border:1px solid var(--border);border-radius:var(--radius);background:#111827;padding:9px;display:grid;gap:8px}
+.week-item.paciente{border-color:#2563eb;box-shadow:inset 4px 0 0 #60a5fa}
+.week-item.fixo{border-color:#d97706;background:repeating-linear-gradient(135deg,#111827 0 10px,#162033 10px 20px)}
+.week-time{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.week-time strong{color:#f8fafc;font-size:17px}.week-time span{color:#93c5fd;font-size:11px;font-weight:800;text-align:right}
+.week-info h3{font-size:13px;color:#f8fafc;line-height:1.25}.week-info p{color:var(--text2);font-size:11px;line-height:1.35;margin-top:3px}
+.week-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:7px}
+.week-tags span{background:#263348;border:1px solid var(--border);border-radius:999px;color:#cbd5e1;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.25px;padding:2px 6px}
+.day-empty{color:#64748b;font-size:12px;font-weight:800;text-align:center;padding:30px 8px}
 .appointments{display:grid;gap:10px}
 .appointment-card{display:grid;grid-template-columns:108px 1fr;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
 .patient-card{border-color:#2563eb}
@@ -59,6 +72,10 @@ h1{font-size:24px;line-height:1.15;color:#f8fafc}
   .summary-card{padding:11px 12px}
   .summary-card strong{font-size:22px}
   .section-head{align-items:flex-start;flex-direction:column;margin-top:20px;gap:4px}
+  .week-board{grid-template-columns:1fr}
+  .day-column{min-height:0}
+  .day-items{padding:8px}
+  .week-item{grid-template-columns:1fr}
   .appointment-card{grid-template-columns:1fr}
   .time-block{border-right:0;border-bottom:1px solid var(--border);padding:12px 14px;flex-direction:row;align-items:center;justify-content:space-between}
   .card-top{flex-direction:column}

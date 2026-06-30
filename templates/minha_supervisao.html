@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Minha Supervisão</title>
+  <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/minha_supervisao.css') }}">
+</head>
+<body>
+  <nav class="app-nav">
+    <a class="app-nav-brand" href="/minha-supervisao"><i data-lucide="graduation-cap"></i><span>Minha Supervisão</span></a>
+    <div class="app-nav-title">Mapa de Sala - Policlínica Psicologia UVV</div>
+    <div class="app-nav-spacer"></div>
+    <div class="app-nav-user">
+      <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
+      <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
+    </div>
+    <div class="app-nav-actions">
+      <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
+      <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
+    </div>
+  </nav>
+
+  <main class="supervision-page">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Área do professor</p>
+        <h1>Minha supervisão</h1>
+        <p class="muted">Acompanhe somente os alunos vinculados a você, com foco em carga prática, triagens e horários ainda abertos.</p>
+      </div>
+    </section>
+
+    <section class="summary">
+      <div class="summary-card">
+        <span>Alunos</span>
+        <strong>{{ total_alunos }}</strong>
+      </div>
+      <div class="summary-card">
+        <span>Horários fixos</span>
+        <strong>{{ total_fixos }}</strong>
+      </div>
+      <div class="summary-card">
+        <span>Com paciente</span>
+        <strong>{{ total_pacientes }}</strong>
+      </div>
+      <div class="summary-card warn">
+        <span>Abertos</span>
+        <strong>{{ total_abertos }}</strong>
+      </div>
+      <div class="summary-card info">
+        <span>Triagens</span>
+        <strong>{{ total_triagens }}</strong>
+      </div>
+    </section>
+
+    {% if total_alunos_sem_paciente %}
+    <section class="supervision-alert">
+      <i data-lucide="circle-alert"></i>
+      <div>
+        <strong>{{ total_alunos_sem_paciente }} aluno(s) ainda sem paciente marcado.</strong>
+        <span>Use essa informação para conversar com a coordenação ou recepção sobre a distribuição das fichas.</span>
+      </div>
+    </section>
+    {% endif %}
+
+    {% if alunos %}
+    <section class="students-list">
+      {% for aluno in alunos %}
+      <article class="student-card">
+        <header class="student-head">
+          <div>
+            <p class="eyebrow">Aluno supervisionado</p>
+            <h2>{{ aluno.nome }}</h2>
+            <span>{{ aluno.username }}{% if aluno.email %} · {{ aluno.email }}{% endif %}</span>
+          </div>
+          <div class="student-stats">
+            <strong>{{ aluno.total_fixos }}</strong><span>fixos</span>
+            <strong>{{ aluno.total_pacientes }}</strong><span>pacientes</span>
+            <strong>{{ aluno.total_abertos }}</strong><span>abertos</span>
+            <strong>{{ aluno.total_triagens }}</strong><span>triagens</span>
+          </div>
+        </header>
+
+        <div class="student-columns">
+          <section>
+            <h3><i data-lucide="user-check"></i> Pacientes marcados</h3>
+            {% if aluno.pacientes %}
+            <div class="mini-list">
+              {% for ag in aluno.pacientes %}
+              <div class="mini-row patient">
+                <strong>{{ ag.dia_label }} · {{ ag.horario }}</strong>
+                <span>{{ ag.sala }} · {{ ag.paciente }}</span>
+                <em>{% if ag.eh_triagem %}Triagem{% else %}Paciente{% endif %}{% if ag.data_label %} · {{ ag.data_label }}{% endif %}</em>
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty">Nenhum paciente marcado.</div>
+            {% endif %}
+          </section>
+
+          <section>
+            <h3><i data-lucide="calendar-plus"></i> Horários abertos</h3>
+            {% if aluno.abertos %}
+            <div class="mini-list">
+              {% for ag in aluno.abertos %}
+              <div class="mini-row open {{ ag.status_slug }}">
+                <strong>{{ ag.dia_label }} · {{ ag.horario }}</strong>
+                <span>{{ ag.sala }} · {{ ag.status_fixo }}</span>
+                <em>{{ ag.status_descricao }}</em>
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty positive">Sem horários abertos para marcação.</div>
+            {% endif %}
+          </section>
+        </div>
+
+        <section class="week">
+          {% for dia in aluno.semana %}
+          <div class="day">
+            <header>{{ dia.label }}</header>
+            {% if dia.itens %}
+            {% for ag in dia.itens %}
+            <div class="week-item {% if ag.tem_paciente %}patient{% elif ag.eh_triagem %}triage{% elif ag.categoria == 'MARCAR' %}open{% else %}fixed{% endif %}">
+              <strong>{{ ag.horario }}</strong>
+              <span>{{ ag.sala }}</span>
+              <em>
+                {% if ag.tem_paciente %}
+                {{ ag.paciente }}
+                {% elif ag.eh_triagem %}
+                Triagem aberta
+                {% elif ag.categoria == 'MARCAR' %}
+                Aberto para paciente
+                {% else %}
+                Reservado
+                {% endif %}
+              </em>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="day-empty">Sem horários</div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </section>
+      </article>
+      {% endfor %}
+    </section>
+    {% else %}
+    <section class="empty-state">
+      <i data-lucide="users"></i>
+      <h2>Nenhum aluno vinculado a você ainda</h2>
+      <p>A coordenação pode ir em Usuários, editar o aluno e selecionar você no campo “Supervisor do aluno”.</p>
+    </section>
+    {% endif %}
+  </main>
+
+  <script>lucide.createIcons();</script>
+</body>
+</html>

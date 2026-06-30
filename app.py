@@ -42,7 +42,7 @@ DB_PATH = os.environ.get(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 )
 
-VERSAO = '2026-06-30-v25'
+VERSAO = '2026-06-30-v28'
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -402,6 +402,15 @@ def valor_ativo(valor, padrao=1):
     return 0 if str(valor).strip().lower() in ('0', 'false', 'nao', 'não', 'inativo') else 1
 
 
+def normalizar_supervisor_id(valor):
+    if str(valor or '').strip() == '':
+        return None
+    try:
+        return int(valor)
+    except (TypeError, ValueError):
+        return 'invalido'
+
+
 def limpar_logs_antigos(conn):
     """Remove historico antigo para impedir crescimento continuo do arquivo SQLite."""
     cur = conn.execute(
@@ -572,6 +581,7 @@ def init_db():
             "role TEXT NOT NULL DEFAULT 'aluno',"
             "nome_completo TEXT DEFAULT '',"
             "email TEXT DEFAULT '',"
+            "supervisor_id INTEGER DEFAULT NULL REFERENCES usuarios(id) ON DELETE SET NULL,"
             "ativo INTEGER DEFAULT 1,"
             "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
             ");"
@@ -626,6 +636,9 @@ def init_db():
             conn.commit()
         if 'ativo' not in cols_usuarios:
             conn.execute("ALTER TABLE usuarios ADD COLUMN ativo INTEGER DEFAULT 1")
+            conn.commit()
+        if 'supervisor_id' not in cols_usuarios:
+            conn.execute("ALTER TABLE usuarios ADD COLUMN supervisor_id INTEGER DEFAULT NULL")
             conn.commit()
         cols_historico = [r[1] for r in conn.execute("PRAGMA table_info(historico)").fetchall()]
         if 'ip' not in cols_historico:
@@ -931,6 +944,8 @@ def index():
         return redirect(url_for('meus_agendamentos'))
     if current_user.role == 'recepcao':
         return redirect(url_for('painel_recepcao'))
+    if current_user.role == 'professor':
+        return redirect(url_for('minha_supervisao'))
     return renderizar_mapa_sala()
 
 
@@ -939,6 +954,8 @@ def index():
 def mapa_sala():
     if current_user.role == 'aluno':
         return redirect(url_for('meus_agendamentos'))
+    if current_user.role == 'professor':
+        return redirect(url_for('minha_supervisao'))
     if current_user.role != 'coordenador':
         flash('Acesso restrito à coordenação.', 'error')
         return redirect(url_for('painel_recepcao'))
@@ -990,7 +1007,7 @@ def painel_recepcao():
             SELECT *
             FROM reservas
             WHERE tipo='instrumento'
-              AND status IN ('aprovada', 'separado', 'retirado')
+              AND status IN ('aprovada', 'separado')
               AND data_uso>=?
             ORDER BY data_uso, horario_inicio
             LIMIT 8
@@ -1093,11 +1110,11 @@ def painel_recepcao():
             'detalhe': f'{len(pendentes_instrumento)} pedido(s) aguardando aprovação.',
             'url': url_for('reservas')
         })
-    instrumentos_retirados = [r for r in instrumentos_ativos if r['status'] == 'retirado']
-    if instrumentos_retirados:
+    instrumentos_separados = [r for r in instrumentos_ativos if r['status'] == 'separado']
+    if instrumentos_separados:
         checklist_auto.append({
-            'titulo': 'Conferir instrumentos retirados',
-            'detalhe': f'{len(instrumentos_retirados)} instrumento(s) ainda não devolvido(s).',
+            'titulo': 'Guardar instrumentos separados',
+            'detalhe': f'{len(instrumentos_separados)} instrumento(s) separado(s) aguardando guarda.',
             'url': url_for('reservas')
         })
     if total_horarios_abertos and current_user.role == 'coordenador':
@@ -1211,7 +1228,7 @@ def sobre():
 
 @app.route('/horarios-abertos')
 @login_required
-@requer_papel_page('coordenador')
+@requer_papel_page('coordenador', 'recepcao')
 def horarios_abertos():
     conn = get_db()
     try:
@@ -1265,6 +1282,167 @@ def horarios_abertos():
         papel_label=PAPEIS_LABEL.get(current_user.role, current_user.role),
         horarios_por_dia=horarios_por_dia,
         total=sum(len(d['itens']) for d in horarios_por_dia)
+    )
+
+
+@app.route('/minha-supervisao')
+@login_required
+@requer_papel_page('professor')
+def minha_supervisao():
+    hoje = data_hoje_iso()
+    conn = get_db()
+    try:
+        alunos_rows = conn.execute(
+            """
+            SELECT id, username, nome_completo, email
+            FROM usuarios
+            WHERE role='aluno'
+              AND ativo=1
+              AND supervisor_id=?
+            ORDER BY COALESCE(NULLIF(nome_completo, ''), username)
+            """,
+            (current_user.id,)
+        ).fetchall()
+
+        alunos_ids = [row['id'] for row in alunos_rows]
+        alunos_usernames = [row['username'] for row in alunos_rows]
+        ag_rows = []
+        if alunos_ids:
+            placeholders_ids = ','.join('?' for _ in alunos_ids)
+            placeholders_names = ','.join('?' for _ in alunos_usernames)
+            ag_rows = conn.execute(
+                f"""
+                SELECT *
+                FROM agendamentos
+                WHERE (
+                    usuario_id IN ({placeholders_ids})
+                    OR (usuario_id IS NULL AND estagiario IN ({placeholders_names}))
+                  )
+                  AND (
+                    data_especifica IS NULL
+                    OR data_especifica = ''
+                    OR data_especifica >= ?
+                  )
+                ORDER BY
+                  CASE dia_semana
+                    WHEN 'SEGUNDA' THEN 1
+                    WHEN 'TERÇA' THEN 2
+                    WHEN 'QUARTA' THEN 3
+                    WHEN 'QUINTA' THEN 4
+                    WHEN 'SEXTA' THEN 5
+                    ELSE 6
+                  END,
+                  horario,
+                  sala,
+                  data_especifica
+                """,
+                (*alunos_ids, *alunos_usernames, hoje)
+            ).fetchall()
+    finally:
+        conn.close()
+
+    ag_por_aluno = {}
+    for row in ag_rows:
+        ag = dict(row)
+        chave = ag.get('usuario_id') or ag.get('estagiario')
+        ag['dia_visual'] = ag['dia_semana']
+        if ag.get('data_especifica'):
+            try:
+                ag['dia_visual'] = dia_semana_da_data(ag['data_especifica'])
+            except ValueError:
+                ag['dia_visual'] = ag['dia_semana']
+        ag['dia_label'] = DIAS_PT.get(ag['dia_visual'], ag['dia_visual'].title())
+        ag['tem_paciente'] = bool((ag.get('paciente') or '').strip())
+        ag['eh_fixo'] = not bool(ag.get('data_especifica'))
+        ag['eh_triagem'] = bool(int(ag.get('triagem') or 0))
+        ag['tipo'] = 'Pontual' if ag.get('data_especifica') else 'Fixo semanal'
+        ag['data_label'] = ''
+        if ag.get('data_especifica'):
+            try:
+                ag['data_label'] = datetime.strptime(ag['data_especifica'], '%Y-%m-%d').strftime('%d/%m/%Y')
+            except ValueError:
+                ag['data_label'] = ag['data_especifica']
+        ag_por_aluno.setdefault(chave, []).append(ag)
+
+    alunos = []
+    total_fixos = 0
+    total_pacientes = 0
+    total_triagens = 0
+    total_abertos = 0
+    total_alunos_sem_paciente = 0
+
+    for aluno_row in alunos_rows:
+        aluno = dict(aluno_row)
+        itens = ag_por_aluno.get(aluno['id'], []) + ag_por_aluno.get(aluno['username'], [])
+        fixos = [ag for ag in itens if ag['eh_fixo']]
+        pacientes = [ag for ag in itens if ag['tem_paciente']]
+        triagens = [ag for ag in itens if ag['eh_triagem']]
+        abertos = []
+
+        for ag in fixos:
+            if ag['tem_paciente']:
+                continue
+            categoria_upper = (ag.get('categoria') or '').upper()
+            if ag['eh_triagem']:
+                ag['status_fixo'] = 'Triagem aberta'
+                ag['status_slug'] = 'aguardando'
+                ag['status_descricao'] = 'Horário reservado para triagem, ainda sem paciente marcado.'
+                abertos.append(ag)
+            elif categoria_upper == 'MARCAR':
+                ag['status_fixo'] = 'Aberto para paciente'
+                ag['status_slug'] = 'aberto'
+                ag['status_descricao'] = 'Horário liberado para a recepção marcar paciente.'
+                abertos.append(ag)
+            else:
+                ag['status_fixo'] = 'Reservado sem paciente'
+                ag['status_slug'] = 'livre'
+                ag['status_descricao'] = 'Horário fixo reservado, mas sem paciente marcado.'
+
+        semana = []
+        for dia in DIAS:
+            dia_itens = [ag for ag in itens if ag.get('dia_visual') == dia]
+            dia_itens.sort(key=lambda ag: (HORARIOS.index(ag['horario']) if ag.get('horario') in HORARIOS else 99, ag.get('sala') or ''))
+            semana.append({
+                'dia': dia,
+                'label': DIAS_PT.get(dia, dia.title()),
+                'itens': dia_itens
+            })
+
+        total_fixos += len(fixos)
+        total_pacientes += len(pacientes)
+        total_triagens += len(triagens)
+        total_abertos += len(abertos)
+        if fixos and not pacientes:
+            total_alunos_sem_paciente += 1
+
+        alunos.append({
+            'id': aluno['id'],
+            'username': aluno['username'],
+            'nome': aluno.get('nome_completo') or aluno['username'],
+            'email': aluno.get('email') or '',
+            'fixos': fixos,
+            'pacientes': pacientes,
+            'triagens': triagens,
+            'abertos': abertos,
+            'semana': semana,
+            'total_fixos': len(fixos),
+            'total_pacientes': len(pacientes),
+            'total_triagens': len(triagens),
+            'total_abertos': len(abertos)
+        })
+
+    return render_template(
+        'minha_supervisao.html',
+        usuario=current_user.username,
+        papel=current_user.role,
+        papel_label=PAPEIS_LABEL.get(current_user.role, current_user.role),
+        alunos=alunos,
+        total_alunos=len(alunos),
+        total_fixos=total_fixos,
+        total_pacientes=total_pacientes,
+        total_triagens=total_triagens,
+        total_abertos=total_abertos,
+        total_alunos_sem_paciente=total_alunos_sem_paciente
     )
 
 
@@ -1664,12 +1842,24 @@ def logs_page():
 def usuarios_page():
     conn = get_db()
     try:
-        rows = conn.execute('SELECT id, username, email, role, ativo, created_at FROM usuarios ORDER BY created_at').fetchall()
+        rows = conn.execute(
+            """
+            SELECT u.id, u.username, u.email, u.role, u.supervisor_id, u.ativo, u.created_at,
+                   p.username AS supervisor_nome
+            FROM usuarios u
+            LEFT JOIN usuarios p ON p.id = u.supervisor_id
+            ORDER BY u.created_at
+            """
+        ).fetchall()
+        professores = conn.execute(
+            "SELECT id, username, nome_completo FROM usuarios WHERE role='professor' AND ativo=1 ORDER BY username"
+        ).fetchall()
     finally:
         conn.close()
     return render_template(
         'usuarios.html',
         usuarios=[dict(r) for r in rows],
+        professores=[dict(r) for r in professores],
         usuario=current_user.username,
         papel=current_user.role,
         papeis_label=PAPEIS_LABEL
@@ -1693,7 +1883,15 @@ def api_list_estagiarios():
 def api_list_usuarios():
     conn = get_db()
     try:
-        rows = conn.execute('SELECT id, username, email, role, ativo, created_at FROM usuarios ORDER BY created_at').fetchall()
+        rows = conn.execute(
+            """
+            SELECT u.id, u.username, u.email, u.role, u.supervisor_id, u.ativo, u.created_at,
+                   p.username AS supervisor_nome
+            FROM usuarios u
+            LEFT JOIN usuarios p ON p.id = u.supervisor_id
+            ORDER BY u.created_at
+            """
+        ).fetchall()
     finally:
         conn.close()
     return jsonify([dict(r) for r in rows])
@@ -1713,6 +1911,9 @@ def api_criar_usuario():
     password = (d.get('password') or '').strip()
     role = (d.get('role') or 'aluno').strip()
     ativo = valor_ativo(d.get('ativo'), 1)
+    supervisor_id = normalizar_supervisor_id(d.get('supervisor_id'))
+    if supervisor_id == 'invalido':
+        return jsonify({'erro': 'Supervisor inválido'}), 400
 
     if not username or not password:
         return jsonify({'erro': 'Usuário e senha são obrigatórios'}), 400
@@ -1720,13 +1921,22 @@ def api_criar_usuario():
         return jsonify({'erro': 'A senha deve ter no mínimo 8 caracteres'}), 400
     if role not in PAPEIS_VALIDOS:
         return jsonify({'erro': 'Papel inválido'}), 400
+    if role != 'aluno':
+        supervisor_id = None
 
     try:
         conn = get_db()
         try:
+            if supervisor_id:
+                professor = conn.execute(
+                    "SELECT id FROM usuarios WHERE id=? AND role='professor' AND ativo=1",
+                    (supervisor_id,)
+                ).fetchone()
+                if not professor:
+                    return jsonify({'erro': 'Supervisor professor não encontrado'}), 400
             conn.execute(
-                'INSERT INTO usuarios(username, email, password_hash, role, ativo) VALUES(?,?,?,?,?)',
-                (username, email, generate_password_hash(password), role, ativo)
+                'INSERT INTO usuarios(username, email, password_hash, role, supervisor_id, ativo) VALUES(?,?,?,?,?,?)',
+                (username, email, generate_password_hash(password), role, supervisor_id, ativo)
             )
             conn.commit()
         finally:
@@ -1759,6 +1969,18 @@ def api_editar_usuario(uid):
         if new_role not in PAPEIS_VALIDOS:
             return jsonify({'erro': 'Papel inválido'}), 400
         ativo = valor_ativo(d.get('ativo'), row['ativo'])
+        supervisor_id = normalizar_supervisor_id(d.get('supervisor_id', row['supervisor_id']))
+        if supervisor_id == 'invalido':
+            return jsonify({'erro': 'Supervisor inválido'}), 400
+        if new_role != 'aluno':
+            supervisor_id = None
+        if supervisor_id:
+            professor = conn.execute(
+                "SELECT id FROM usuarios WHERE id=? AND role='professor' AND ativo=1",
+                (supervisor_id,)
+            ).fetchone()
+            if not professor:
+                return jsonify({'erro': 'Supervisor professor não encontrado'}), 400
         if row['id'] == current_user.id and not ativo:
             return jsonify({'erro': 'Você não pode inativar sua própria conta'}), 400
         new_pass = (d.get('password') or '').strip()
@@ -1766,13 +1988,13 @@ def api_editar_usuario(uid):
             return jsonify({'erro': 'A senha deve ter no mínimo 8 caracteres'}), 400
         if new_pass:
             conn.execute(
-                'UPDATE usuarios SET username=?, email=?, role=?, ativo=?, password_hash=? WHERE id=?',
-                (new_username, new_email, new_role, ativo, generate_password_hash(new_pass), uid)
+                'UPDATE usuarios SET username=?, email=?, role=?, supervisor_id=?, ativo=?, password_hash=? WHERE id=?',
+                (new_username, new_email, new_role, supervisor_id, ativo, generate_password_hash(new_pass), uid)
             )
         else:
             conn.execute(
-                'UPDATE usuarios SET username=?, email=?, role=?, ativo=? WHERE id=?',
-                (new_username, new_email, new_role, ativo, uid)
+                'UPDATE usuarios SET username=?, email=?, role=?, supervisor_id=?, ativo=? WHERE id=?',
+                (new_username, new_email, new_role, supervisor_id, ativo, uid)
             )
         try:
             conn.commit()
@@ -1802,6 +2024,45 @@ def api_excluir_usuario(uid):
         conn.close()
     registrar_log('INATIVAR_USUARIO', f'Usuário "{row["username"]}" inativado')
     return jsonify({'message': 'Usuário inativado'})
+
+
+@app.route('/api/usuarios/<int:uid>/excluir-definitivo', methods=['DELETE'])
+@login_required
+@requer_papel('coordenador')
+@limiter.limit('10 per minute')
+def api_excluir_usuario_definitivo(uid):
+    if uid == current_user.id:
+        return jsonify({'erro': 'Você não pode excluir sua própria conta'}), 400
+
+    conn = get_db()
+    try:
+        row = conn.execute('SELECT * FROM usuarios WHERE id=?', (uid,)).fetchone()
+        if not row:
+            return jsonify({'erro': 'Usuário não encontrado'}), 404
+
+        usos = {
+            'agendamentos': conn.execute(
+                'SELECT COUNT(*) AS total FROM agendamentos WHERE usuario_id=?',
+                (uid,)
+            ).fetchone()['total'],
+            'reservas': conn.execute(
+                'SELECT COUNT(*) AS total FROM reservas WHERE usuario_id=?',
+                (uid,)
+            ).fetchone()['total'],
+        }
+        if any(usos.values()):
+            return jsonify({
+                'erro': 'Este usuário já possui agendamentos ou reservas. Para manter o histórico correto, inative em vez de excluir.'
+            }), 400
+
+        conn.execute('UPDATE usuarios SET supervisor_id=NULL WHERE supervisor_id=?', (uid,))
+        conn.execute('DELETE FROM usuarios WHERE id=?', (uid,))
+        conn.commit()
+    finally:
+        conn.close()
+
+    registrar_log('EXCLUIR_USUARIO', f'Usuário "{row["username"]}" excluído definitivamente')
+    return jsonify({'message': 'Usuário excluído definitivamente'})
 
 
 # ========================================

@@ -32,7 +32,7 @@ input:focus,select:focus{border-color:var(--accent)}
 @media (max-width:700px){
   .container{margin:14px auto;padding:0 10px}
   .card{padding:14px;overflow-x:auto}
-  table{min-width:760px}
+  table{min-width:900px}
   .modal{padding:18px}
   .nav .btn,.actions .btn{padding:8px 10px}
 }

@@ -1,0 +1,52 @@
+:root{--bg:#0f172a;--surface:#1e293b;--surface2:#263348;--border:#334155;--text:#e2e8f0;--text2:#94a3b8;--accent:#3b82f6;--radius:8px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;min-height:100vh}
+.supervision-page{max-width:1180px;margin:0 auto;padding:22px 20px 36px}
+.hero{background:linear-gradient(135deg,#17233a,#111827);border:1px solid var(--border);border-radius:var(--radius);padding:22px}
+.eyebrow{color:#93c5fd;text-transform:uppercase;letter-spacing:.7px;font-size:11px;font-weight:800;margin-bottom:6px}
+h1{font-size:25px;color:#f8fafc;line-height:1.15}
+.muted{color:var(--text2);line-height:1.45;margin-top:8px}
+.summary{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:14px}
+.summary-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:13px 14px}
+.summary-card.warn{border-color:#d97706}.summary-card.info{border-color:#0e7490}
+.summary-card span{display:block;color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:.45px;font-weight:800}
+.summary-card strong{display:block;color:#f8fafc;font-size:25px;margin-top:4px}
+.supervision-alert{margin-top:12px;background:#431407;border:1px solid #d97706;border-radius:var(--radius);padding:12px 14px;display:flex;gap:10px;align-items:flex-start;color:#fed7aa}
+.supervision-alert i{width:20px;height:20px;color:#fbbf24;flex:0 0 auto}.supervision-alert strong{color:#fff7ed}.supervision-alert span{display:block;font-size:12px;margin-top:3px;line-height:1.4}
+.students-list{display:grid;gap:14px;margin-top:16px}
+.student-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.student-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;border-bottom:1px solid var(--border);padding-bottom:12px;margin-bottom:12px}
+.student-head h2{font-size:19px;color:#f8fafc}.student-head span{color:var(--text2);font-size:12px}
+.student-stats{display:grid;grid-template-columns:repeat(4,auto);gap:4px 10px;text-align:center;align-items:end}
+.student-stats strong{font-size:22px;color:#f8fafc}.student-stats span{color:var(--text2);font-size:10px;text-transform:uppercase;font-weight:900}
+.student-columns{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.student-columns h3{font-size:14px;color:#f8fafc;display:flex;align-items:center;gap:7px;margin-bottom:8px}
+.student-columns h3 i{width:16px;height:16px;color:#93c5fd}
+.mini-list{display:grid;gap:7px}
+.mini-row{background:#111827;border:1px solid var(--border);border-radius:var(--radius);padding:9px 10px;display:grid;gap:3px}
+.mini-row.patient{border-color:#2563eb}.mini-row.open{border-color:#d97706}.mini-row.open.aberto{border-color:#65a30d}.mini-row.open.aguardando{border-color:#0e7490}
+.mini-row strong{color:#f8fafc}.mini-row span{color:#cbd5e1;font-size:12px}.mini-row em{color:var(--text2);font-size:12px;font-style:normal;line-height:1.35}
+.empty{border:1px dashed var(--border);border-radius:var(--radius);padding:18px 12px;color:var(--text2);text-align:center}
+.empty.positive{border-color:#14532d;background:rgba(5,46,22,.22);color:#bbf7d0}
+.week{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:14px}
+.day{background:#111827;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.day header{background:#17233a;border-bottom:1px solid var(--border);color:#bfdbfe;font-size:11px;font-weight:900;text-transform:uppercase;padding:8px 9px}
+.week-item{margin:7px;border:1px solid var(--border);border-radius:var(--radius);padding:8px;background:#0f172a;display:grid;gap:3px}
+.week-item.patient{border-color:#2563eb;box-shadow:inset 3px 0 0 #60a5fa}.week-item.triage{border-color:#0e7490}.week-item.open{border-color:#65a30d}.week-item.fixed{border-color:#475569}
+.week-item strong{font-size:16px;color:#f8fafc}.week-item span{color:#93c5fd;font-size:11px;font-weight:800}.week-item em{font-style:normal;color:var(--text2);font-size:11px;line-height:1.3}
+.day-empty{color:#64748b;font-size:12px;font-weight:800;text-align:center;padding:24px 6px}
+.empty-state{margin-top:16px;background:var(--surface);border:1px dashed var(--border);border-radius:var(--radius);padding:38px 20px;text-align:center;color:var(--text2)}
+.empty-state i{width:40px;height:40px;color:#93c5fd;margin-bottom:12px}.empty-state h2{color:#f8fafc;font-size:18px;margin-bottom:6px}
+@media (max-width:850px){
+  .supervision-page{padding:12px 10px 28px}
+  .summary{grid-template-columns:repeat(2,1fr)}
+  .student-head{flex-direction:column}
+  .student-stats{grid-template-columns:repeat(4,1fr);width:100%}
+  .student-columns{grid-template-columns:1fr}
+  .week{grid-template-columns:1fr}
+}
+@media (max-width:420px){
+  .summary{grid-template-columns:1fr}
+  .summary-card{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .summary-card strong{margin-top:0}
+}

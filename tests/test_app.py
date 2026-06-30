@@ -36,8 +36,10 @@ class MapaSalasTestCase(unittest.TestCase):
             conn.execute('DELETE FROM usuarios')
             self.coord_id = self._criar_usuario(conn, 'coordenador', 'coordenador')
             self.recepcao_id = self._criar_usuario(conn, 'recepcao', 'recepcao')
+            self.professor_id = self._criar_usuario(conn, 'professor1', 'professor')
             self.aluno1_id = self._criar_usuario(conn, 'aluno1', 'aluno')
             self.aluno2_id = self._criar_usuario(conn, 'aluno2', 'aluno')
+            conn.execute('UPDATE usuarios SET supervisor_id=? WHERE id=?', (self.professor_id, self.aluno1_id))
             conn.commit()
         finally:
             conn.close()
@@ -129,7 +131,7 @@ class MapaSalasTestCase(unittest.TestCase):
         html = painel.get_data(as_text=True)
 
         self.assertEqual(painel.status_code, 200)
-        self.assertIn('Resumo da recepção', html)
+        self.assertIn('Painel da recepção', html)
         self.assertIn('Testes e instrumentos', html)
 
     def test_recepcao_nao_acessa_mapa(self):
@@ -139,6 +141,93 @@ class MapaSalasTestCase(unittest.TestCase):
 
         self.assertEqual(resp.status_code, 302)
         self.assertIn('/painel', resp.headers['Location'])
+
+    def test_coordenador_exclui_usuario_criado_por_engano(self):
+        conn = mapa.get_db()
+        try:
+            usuario_id = self._criar_usuario(conn, 'cadastro_errado', 'aluno')
+            conn.commit()
+        finally:
+            conn.close()
+
+        self._login('coordenador')
+        resp = self.client.delete(
+            f'/api/usuarios/{usuario_id}/excluir-definitivo',
+            headers={'X-CSRFToken': self.csrf}
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        conn = mapa.get_db()
+        try:
+            row = conn.execute('SELECT * FROM usuarios WHERE id=?', (usuario_id,)).fetchone()
+        finally:
+            conn.close()
+
+        self.assertIsNone(row)
+
+    def test_professor_entra_na_tela_de_supervisao(self):
+        resp = self._login('professor1')
+
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn('/minha-supervisao', resp.headers['Location'])
+
+    def test_professor_ve_somente_alunos_supervisionados(self):
+        conn = mapa.get_db()
+        try:
+            mapa.inserir_agendamento(conn, {
+                'dia': 'SEGUNDA',
+                'horario': '08:00',
+                'sala': 'Consultório 1',
+                'estagiario': 'aluno1',
+                'paciente': 'Paciente Supervisionado',
+                'categoria': 'ESTAGIÁRIO 9°',
+                'semestre': 9,
+                'triagem': 0,
+                'observacao': '',
+                'data_especifica': '',
+                'usuario_id': self.aluno1_id
+            })
+            mapa.inserir_agendamento(conn, {
+                'dia': 'TERÇA',
+                'horario': '09:00',
+                'sala': 'Consultório 2',
+                'estagiario': 'aluno2',
+                'paciente': 'Paciente De Outro Professor',
+                'categoria': 'ESTAGIÁRIO 9°',
+                'semestre': 9,
+                'triagem': 0,
+                'observacao': '',
+                'data_especifica': '',
+                'usuario_id': self.aluno2_id
+            })
+            mapa.inserir_agendamento(conn, {
+                'dia': 'QUARTA',
+                'horario': '10:00',
+                'sala': 'Consultório 3',
+                'estagiario': 'aluno1',
+                'paciente': '',
+                'categoria': 'MARCAR',
+                'semestre': 10,
+                'triagem': 1,
+                'observacao': '',
+                'data_especifica': '',
+                'usuario_id': self.aluno1_id
+            })
+            conn.commit()
+        finally:
+            conn.close()
+
+        self._login('professor1')
+        resp = self.client.get('/minha-supervisao')
+        html = resp.get_data(as_text=True)
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('Minha supervisão', html)
+        self.assertIn('aluno1', html)
+        self.assertIn('Paciente Supervisionado', html)
+        self.assertIn('Triagem aberta', html)
+        self.assertNotIn('aluno2', html)
+        self.assertNotIn('Paciente De Outro Professor', html)
 
     def test_recepcao_cria_e_conclui_afazer_compartilhado(self):
         self._login('recepcao')
@@ -223,6 +312,12 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertIn('Horários abertos sem paciente', html)
         self.assertIn('Aberto para paciente', html)
         self.assertIn('Triagem livre', html)
+
+        self._login('recepcao')
+        resp_recepcao = self.client.get('/horarios-abertos')
+
+        self.assertEqual(resp_recepcao.status_code, 200)
+        self.assertIn('Horários abertos sem paciente', resp_recepcao.get_data(as_text=True))
 
     def test_relatorio_semanal_mostra_resumo(self):
         data_uso = self._data_util_com_antecedencia()
@@ -600,6 +695,20 @@ class MapaSalasTestCase(unittest.TestCase):
             conn.close()
 
         self.assertEqual(row['status'], 'separado')
+
+        resp = self.client.post(
+            f'/reservas/{reserva_id}/status',
+            data={'csrf_token': self.csrf, 'status': 'guardado'}
+        )
+
+        self.assertEqual(resp.status_code, 302)
+        conn = mapa.get_db()
+        try:
+            row = conn.execute('SELECT status FROM reservas WHERE id=?', (reserva_id,)).fetchone()
+        finally:
+            conn.close()
+
+        self.assertEqual(row['status'], 'guardado')
 
     def test_status_invalido_de_instrumento_nao_altera_reserva(self):
         data_uso = self._data_util_com_antecedencia()

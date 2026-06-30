@@ -939,6 +939,9 @@ def index():
 def mapa_sala():
     if current_user.role == 'aluno':
         return redirect(url_for('meus_agendamentos'))
+    if current_user.role != 'coordenador':
+        flash('Acesso restrito à coordenação.', 'error')
+        return redirect(url_for('painel_recepcao'))
     return renderizar_mapa_sala()
 
 
@@ -1097,7 +1100,7 @@ def painel_recepcao():
             'detalhe': f'{len(instrumentos_retirados)} instrumento(s) ainda não devolvido(s).',
             'url': url_for('reservas')
         })
-    if total_horarios_abertos:
+    if total_horarios_abertos and current_user.role == 'coordenador':
         checklist_auto.append({
             'titulo': 'Ver horários abertos sem paciente',
             'detalhe': f'{total_horarios_abertos} horário(s) para marcar paciente ou triagem.',
@@ -1194,9 +1197,21 @@ def afazeres_recepcao():
     )
 
 
+@app.route('/sobre')
+@login_required
+def sobre():
+    return render_template(
+        'sobre.html',
+        usuario=current_user.username,
+        papel=current_user.role,
+        papel_label=PAPEIS_LABEL.get(current_user.role, current_user.role),
+        versao=VERSAO
+    )
+
+
 @app.route('/horarios-abertos')
 @login_required
-@requer_papel_page('coordenador', 'recepcao')
+@requer_papel_page('coordenador')
 def horarios_abertos():
     conn = get_db()
     try:
@@ -1255,7 +1270,7 @@ def horarios_abertos():
 
 @app.route('/relatorio-semanal')
 @login_required
-@requer_papel_page('coordenador', 'recepcao')
+@requer_papel_page('coordenador')
 def relatorio_semanal():
     hoje_dt = datetime.now().date()
     inicio_dt = hoje_dt - timedelta(days=hoje_dt.weekday())
@@ -2481,7 +2496,7 @@ def importar_xlsx_mapa(file_storage, substituir=False):
 
 @app.route('/api/import', methods=['POST'])
 @login_required
-@requer_papel('coordenador', 'recepcao')
+@requer_papel('coordenador')
 @limiter.limit('10 per minute')
 def import_csv():
     if 'file' not in request.files:

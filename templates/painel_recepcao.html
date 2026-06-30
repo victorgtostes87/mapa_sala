@@ -18,10 +18,15 @@
       <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
     </div>
     <div class="app-nav-actions">
+      {% if papel == 'coordenador' %}
       <a href="/mapa" class="app-btn app-btn-primary"><i data-lucide="layout-grid"></i> Mapa</a>
+      {% endif %}
       <a href="/afazeres" class="app-btn app-btn-ghost"><i data-lucide="list-checks"></i> Afazeres</a>
       <a href="/reservas" class="app-btn app-btn-ghost"><i data-lucide="bell"></i> Reservas</a>
+      <a href="/api/export" class="app-btn app-btn-ghost"><i data-lucide="download"></i> Exportar</a>
+      <a href="/imprimir" target="_blank" class="app-btn app-btn-ghost"><i data-lucide="printer"></i> Imprimir</a>
       <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
+      <a href="/sobre" class="app-btn app-btn-ghost"><i data-lucide="info"></i> Sobre</a>
       <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
     </div>
   </nav>
@@ -33,7 +38,11 @@
         <h1>Resumo da recepção</h1>
         <p class="muted">Um ponto de partida para ver o que precisa de resposta e o movimento do mapa no dia.</p>
       </div>
+      {% if papel == 'coordenador' %}
       <a class="quick-map" href="/mapa"><i data-lucide="plus-circle"></i> Abrir mapa para agendar</a>
+      {% else %}
+      <a class="quick-map" href="/afazeres"><i data-lucide="list-checks"></i> Abrir afazeres</a>
+      {% endif %}
     </section>
 
     <section class="summary-grid">
@@ -49,6 +58,7 @@
         <span>Instrumentos ativos</span>
         <strong>{{ instrumentos_ativos|length }}</strong>
       </a>
+      {% if papel == 'coordenador' %}
       <a class="summary-card neutral" href="/mapa">
         <span>Agendamentos hoje</span>
         <strong>{{ agendamentos_hoje|length }}</strong>
@@ -57,6 +67,20 @@
         <span>Horários abertos</span>
         <strong>{{ total_horarios_abertos }}</strong>
       </a>
+      <a class="summary-card success" href="/relatorio-semanal">
+        <span>Relatório semanal</span>
+        <strong>Ver</strong>
+      </a>
+      {% else %}
+      <a class="summary-card neutral" href="/api/export">
+        <span>Exportar</span>
+        <strong>XLSX</strong>
+      </a>
+      <a class="summary-card info" href="/imprimir" target="_blank">
+        <span>Imprimir</span>
+        <strong>Lista</strong>
+      </a>
+      {% endif %}
       <a class="summary-card warn" href="/afazeres">
         <span>Afazeres</span>
         <strong>{{ tarefas_manuais|length }}</strong>
@@ -150,6 +174,7 @@
         {% endif %}
       </article>
 
+      {% if papel == 'coordenador' %}
       <article class="panel">
         <div class="panel-head">
           <div>
@@ -172,7 +197,9 @@
         <div class="empty positive"><i data-lucide="calendar-check"></i><span>Nenhum horário aberto sem paciente no momento.</span></div>
         {% endif %}
       </article>
+      {% endif %}
 
+      {% if papel == 'coordenador' %}
       <article class="panel wide">
         <div class="panel-head">
           <div>
@@ -195,6 +222,7 @@
         <div class="empty positive"><i data-lucide="calendar-x"></i><span>Nenhum agendamento ocupando sala hoje. O mapa do dia está livre.</span></div>
         {% endif %}
       </article>
+      {% endif %}
     </section>
   </main>
 

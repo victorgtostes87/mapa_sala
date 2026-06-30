@@ -21,7 +21,7 @@
   </div>
 
   <div class="app-nav-actions">
-    {% if papel in ['coordenador', 'recepcao'] %}
+    {% if papel == 'coordenador' %}
     <button class="app-btn app-btn-primary" onclick="openModal(null)"><i data-lucide="circle-plus"></i> Novo</button>
     {% endif %}
     <div class="app-dropdown" id="menuDropdown">
@@ -42,12 +42,11 @@
       <a href="/painel"><i data-lucide="layout-dashboard"></i> Painel</a>
       <a href="/afazeres"><i data-lucide="list-checks"></i> Afazeres</a>
       <a href="/reservas"><i data-lucide="bell"></i> Reservas {% if reservas_pendentes_count %}<span class="nav-badge">{{ reservas_pendentes_count }}</span>{% endif %}</a>
-      <button onclick="openImportModal()"><i data-lucide="upload"></i> Importar Excel</button>
       <button onclick="exportCSV()"><i data-lucide="download"></i> Exportar</button>
       <a href="/imprimir" target="_blank"><i data-lucide="printer"></i> Imprimir</a>
       {% endif %}
       <a href="/perfil"><i data-lucide="user-round"></i> Perfil</a>
-      <button onclick="openAboutModal()"><i data-lucide="info"></i> Sobre</button>
+      <a href="/sobre"><i data-lucide="info"></i> Sobre</a>
     </div>
     </div>
     <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>

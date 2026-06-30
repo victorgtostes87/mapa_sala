@@ -19,7 +19,14 @@
     </div>
     <div class="app-nav-actions">
       <a href="/painel" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Painel</a>
+      {% if papel == 'coordenador' %}
       <a href="/mapa" class="app-btn app-btn-primary"><i data-lucide="layout-grid"></i> Mapa</a>
+      {% endif %}
+      <a href="/reservas" class="app-btn app-btn-ghost"><i data-lucide="bell"></i> Reservas</a>
+      <a href="/api/export" class="app-btn app-btn-ghost"><i data-lucide="download"></i> Exportar</a>
+      <a href="/imprimir" target="_blank" class="app-btn app-btn-ghost"><i data-lucide="printer"></i> Imprimir</a>
+      <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
+      <a href="/sobre" class="app-btn app-btn-ghost"><i data-lucide="info"></i> Sobre</a>
       <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
     </div>
   </nav>
@@ -54,7 +61,7 @@
         {% if tarefas %}
           {% for t in tarefas %}
           <article class="todo-note">
-            <form method="post" action="/painel/tarefas/{{ t.id }}/concluir">
+            <form class="todo-complete-form" method="post" action="/painel/tarefas/{{ t.id }}/concluir">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit" title="Concluir e apagar"><i data-lucide="check"></i></button>
             </form>
@@ -75,6 +82,17 @@
     </section>
   </main>
 
-  <script>lucide.createIcons();</script>
+  <script>
+    lucide.createIcons();
+    document.querySelectorAll('.todo-complete-form').forEach(function(form){
+      form.addEventListener('submit', function(ev){
+        var note = form.closest('.todo-note');
+        if(!note || note.classList.contains('completing')) return;
+        ev.preventDefault();
+        note.classList.add('completing');
+        setTimeout(function(){ form.submit(); }, 420);
+      });
+    });
+  </script>
 </body>
 </html>

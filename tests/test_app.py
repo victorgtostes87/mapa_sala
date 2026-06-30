@@ -132,6 +132,14 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertIn('Resumo da recepção', html)
         self.assertIn('Testes e instrumentos', html)
 
+    def test_recepcao_nao_acessa_mapa(self):
+        self._login('recepcao')
+
+        resp = self.client.get('/mapa')
+
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn('/painel', resp.headers['Location'])
+
     def test_recepcao_cria_e_conclui_afazer_compartilhado(self):
         self._login('recepcao')
 
@@ -207,7 +215,7 @@ class MapaSalasTestCase(unittest.TestCase):
         finally:
             conn.close()
 
-        self._login('recepcao')
+        self._login('coordenador')
         resp = self.client.get('/horarios-abertos')
         html = resp.get_data(as_text=True)
 
@@ -244,7 +252,7 @@ class MapaSalasTestCase(unittest.TestCase):
         finally:
             conn.close()
 
-        self._login('recepcao')
+        self._login('coordenador')
         resp = self.client.get('/relatorio-semanal')
         html = resp.get_data(as_text=True)
 

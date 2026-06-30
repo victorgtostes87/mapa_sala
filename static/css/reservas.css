@@ -26,8 +26,8 @@ textarea{min-height:74px;resize:vertical}input:focus,select:focus,textarea:focus
 .request-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
 .type{display:inline-block;color:#93c5fd;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
 .status{display:inline-flex;border-radius:999px;padding:4px 8px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.3px;color:#fff;white-space:nowrap}
-.status.pendente{background:#d97706}.status.aprovada{background:#15803d}.status.separado{background:#2563eb}.status.retirado{background:#7c3aed}.status.devolvido{background:#475569}.status.recusada{background:#991b1b}
-.request-card.pendente{border-color:#d97706}.request-card.aprovada{border-color:#15803d}.request-card.separado{border-color:#2563eb}.request-card.retirado{border-color:#7c3aed}.request-card.devolvido{border-color:#475569}.request-card.recusada{border-color:#991b1b}
+.status.pendente{background:#d97706}.status.aprovada{background:#15803d}.status.separado{background:#2563eb}.status.guardado,.status.retirado,.status.devolvido{background:#475569}.status.recusada{background:#991b1b}
+.request-card.pendente{border-color:#d97706}.request-card.aprovada{border-color:#15803d}.request-card.separado{border-color:#2563eb}.request-card.guardado,.request-card.retirado,.request-card.devolvido{border-color:#475569}.request-card.recusada{border-color:#991b1b}
 .request-meta{display:flex;gap:8px 14px;flex-wrap:wrap;color:var(--text2);font-size:12px;margin-bottom:10px}
 .request-meta div{display:inline-flex;align-items:center;gap:6px}.request-meta i{width:14px;height:14px;color:#93c5fd}
 .request-card p{color:var(--text2);line-height:1.45;margin-top:6px}.request-card strong{color:var(--text)}

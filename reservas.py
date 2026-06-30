@@ -109,8 +109,9 @@ def label_status_reserva(status):
         'pendente': 'Pendente',
         'aprovada': 'Aprovada',
         'separado': 'Separado',
-        'retirado': 'Retirado',
-        'devolvido': 'Devolvido',
+        'guardado': 'Guardado',
+        'retirado': 'Guardado',
+        'devolvido': 'Guardado',
         'recusada': 'Recusada'
     }.get(status, status)
 
@@ -139,6 +140,7 @@ def registrar_rotas_reservas(app, deps):
     inserir_agendamento = deps['inserir_agendamento']
     detect_sem = deps['detect_sem']
     registrar_log = deps['registrar_log']
+    notificar_reserva_email = deps.get('notificar_reserva_email')
     horarios = deps['HORARIOS']
     salas = deps['SALAS']
     salas_reservaveis = deps['SALAS_RESERVAVEIS']
@@ -223,6 +225,9 @@ def registrar_rotas_reservas(app, deps):
                 FROM reservas
                 WHERE tipo='instrumento'
                   AND status!='recusada'
+                  AND status!='guardado'
+                  AND status!='retirado'
+                  AND status!='devolvido'
                   AND data_uso>=?
                 ORDER BY data_uso, horario_inicio, usuario
                 """,
@@ -361,6 +366,7 @@ def registrar_rotas_reservas(app, deps):
         resposta = request.form.get('resposta', '').strip()
         sala_escolhida = request.form.get('sala_atribuida', '').strip()
         conn = get_db()
+        reserva_email = None
         try:
             reserva = conn.execute("SELECT * FROM reservas WHERE id=?", (rid,)).fetchone()
             if not reserva or reserva['status'] != 'pendente':
@@ -430,6 +436,8 @@ def registrar_rotas_reservas(app, deps):
                 """,
                 (resposta, sala_atribuida, agendamento_ids, current_user.username, rid)
             )
+            reserva_email = dict(reserva)
+            reserva_email['sala_atribuida'] = sala_atribuida
             conn.commit()
         except sqlite3.IntegrityError:
             conn.rollback()
@@ -439,6 +447,8 @@ def registrar_rotas_reservas(app, deps):
             conn.close()
 
         registrar_log('APROVAR_RESERVA', f'Reserva #{rid} aprovada por {current_user.username}')
+        if callable(notificar_reserva_email):
+            notificar_reserva_email(reserva_email, 'aprovada', resposta)
         flash('Reserva aprovada.', 'success')
         return redirect(url_for('reservas'))
 
@@ -448,6 +458,7 @@ def registrar_rotas_reservas(app, deps):
     def recusar_reserva(rid):
         resposta = request.form.get('resposta', '').strip()
         conn = get_db()
+        reserva_email = None
         try:
             reserva = conn.execute("SELECT * FROM reservas WHERE id=?", (rid,)).fetchone()
             if not reserva or reserva['status'] != 'pendente':
@@ -461,11 +472,14 @@ def registrar_rotas_reservas(app, deps):
                 """,
                 (resposta, current_user.username, rid)
             )
+            reserva_email = dict(reserva)
             conn.commit()
         finally:
             conn.close()
 
         registrar_log('RECUSAR_RESERVA', f'Reserva #{rid} recusada por {current_user.username}')
+        if callable(notificar_reserva_email):
+            notificar_reserva_email(reserva_email, 'recusada', resposta)
         flash('Reserva recusada.', 'success')
         return redirect(url_for('reservas'))
 
@@ -474,7 +488,7 @@ def registrar_rotas_reservas(app, deps):
     @requer_papel('coordenador', 'recepcao')
     def atualizar_status_reserva(rid):
         novo_status = request.form.get('status', '').strip()
-        status_validos = ('aprovada', 'separado', 'retirado', 'devolvido')
+        status_validos = ('aprovada', 'separado', 'guardado')
         if novo_status not in status_validos:
             flash('Status inválido.', 'error')
             return redirect(url_for('reservas'))

@@ -317,7 +317,7 @@
         <div class="instrument-actions read-only">
           <strong>{{ r.status_label }}</strong>
           {% if r.resposta %}<span>{{ r.resposta }}</span>{% endif %}
-          {% if r.status in ['aprovada', 'separado', 'retirado'] %}
+          {% if r.status in ['aprovada', 'separado'] %}
           <div class="status-actions">
             {% if r.status == 'aprovada' %}
             <form method="post" action="/reservas/{{ r.id }}/status">
@@ -326,18 +326,11 @@
               <button class="btn small" type="submit">Marcar separado</button>
             </form>
             {% endif %}
-            {% if r.status in ['aprovada', 'separado'] %}
+            {% if r.status == 'separado' %}
             <form method="post" action="/reservas/{{ r.id }}/status">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <input type="hidden" name="status" value="retirado">
-              <button class="btn small" type="submit">Marcar retirado</button>
-            </form>
-            {% endif %}
-            {% if r.status == 'retirado' %}
-            <form method="post" action="/reservas/{{ r.id }}/status">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <input type="hidden" name="status" value="devolvido">
-              <button class="btn small" type="submit">Marcar devolvido</button>
+              <input type="hidden" name="status" value="guardado">
+              <button class="btn small" type="submit">Marcar guardado</button>
             </form>
             {% endif %}
           </div>

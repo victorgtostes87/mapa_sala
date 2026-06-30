@@ -1185,7 +1185,12 @@ def meus_agendamentos():
                 continue
             item = dict(ag)
             item['semana_tipo'] = 'fixo'
-            item['semana_titulo'] = ag.get('status_fixo') or 'Horário fixo sem paciente'
+            if ag.get('eh_triagem'):
+                item['semana_titulo'] = 'Triagem livre'
+            elif (ag.get('categoria') or '').upper() == 'MARCAR':
+                item['semana_titulo'] = 'Horário aberto'
+            else:
+                item['semana_titulo'] = 'Horário reservado'
             item['semana_descricao'] = ag.get('status_descricao') or 'Horário reservado, ainda sem paciente.'
             itens.append(item)
 

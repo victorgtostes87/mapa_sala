@@ -60,12 +60,12 @@ h2{font-size:17px;color:#f8fafc}
 .todo-create button{border:0;border-radius:var(--radius);background:var(--accent);color:#fff;font-weight:900;padding:10px 12px;display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:pointer}
 .todo-create button i{width:16px;height:16px}
 .todo-board{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.todo-note{background:#2a220f;border:1px solid #d97706;border-radius:var(--radius);padding:14px;display:grid;grid-template-columns:auto 1fr;gap:11px;align-items:start;box-shadow:0 8px 18px rgba(0,0,0,.18)}
-.todo-note form{margin:0}.todo-note button{width:30px;height:30px;border-radius:999px;border:1px solid #16a34a;background:#052e16;color:#bbf7d0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
-.todo-note button:hover{background:#15803d;color:#fff}.todo-note button i{width:16px;height:16px}
-.todo-note h2{font-size:16px;line-height:1.25;color:#fff7ed;margin-bottom:6px}
-.todo-note p{color:#fed7aa;line-height:1.45;margin-bottom:10px}
-.todo-note span{color:#fbbf24;font-size:11px;font-weight:800}
+.todo-note{background:var(--surface);border:1px solid var(--border);border-left:4px solid #f59e0b;border-radius:var(--radius);padding:14px;display:grid;grid-template-columns:auto 1fr;gap:11px;align-items:start;box-shadow:none}
+.todo-note form{margin:0}.todo-note button{width:28px;height:28px;border-radius:999px;border:1px solid #22c55e;background:rgba(5,46,22,.35);color:#86efac;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.todo-note button:hover{background:#15803d;color:#fff}.todo-note button i{width:15px;height:15px}
+.todo-note h2{font-size:16px;line-height:1.25;color:#f8fafc;margin-bottom:6px}
+.todo-note p{color:#cbd5e1;line-height:1.45;margin-bottom:10px}
+.todo-note span{color:#93c5fd;font-size:11px;font-weight:800}
 .flash{border-radius:var(--radius);padding:10px 12px;margin-bottom:12px;font-weight:800}
 .flash.success{background:#052e16;border:1px solid #15803d;color:#bbf7d0}.flash.error{background:#431407;border:1px solid #ef4444;color:#fecaca}
 .open-week{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}

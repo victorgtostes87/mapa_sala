@@ -117,11 +117,45 @@
 
     <section class="section-head">
       <div>
+        <p class="eyebrow">Caderno virtual</p>
+        <h2>Testes e instrumentos reservados</h2>
+      </div>
+      <span class="count-label">{{ caderno_instrumentos|length }} registro(s)</span>
+    </section>
+
+    {% if caderno_instrumentos %}
+    <section class="instrument-list notebook">
+      {% for r in caderno_instrumentos %}
+      <article class="instrument-row">
+        <div class="instrument-main">
+          <span class="status {{ r.status }}">{{ r.status_label }}</span>
+          <h3>{{ r.instrumento }}</h3>
+          <div class="request-meta">
+            <div><i data-lucide="user"></i>{{ r.usuario }}</div>
+            <div><i data-lucide="calendar"></i>{{ r.data_label }}</div>
+            <div><i data-lucide="clock"></i>{{ r.horario_inicio }}</div>
+          </div>
+          {% if r.finalidade %}<p><strong>Finalidade:</strong> {{ r.finalidade }}</p>{% endif %}
+          {% if r.observacao %}<p><strong>Obs.:</strong> {{ r.observacao }}</p>{% endif %}
+        </div>
+      </article>
+      {% endfor %}
+    </section>
+    {% else %}
+    <section class="empty-state compact-empty">
+      <i data-lucide="clipboard-list"></i>
+      <h2>Nenhum instrumento no caderno</h2>
+      <p>Quando alguém solicitar um teste ou instrumento, ele aparecerá aqui.</p>
+    </section>
+    {% endif %}
+
+    <section class="section-head">
+      <div>
         <p class="eyebrow">Histórico</p>
-        <h2>Minhas solicitações</h2>
+        <h2>Minhas reservas de sala</h2>
       </div>
     </section>
-    {% set lista = minhas_reservas %}
+    {% set lista = minhas_salas %}
     {% if lista %}
     <section class="request-list">
       {% for r in lista %}
@@ -180,7 +214,7 @@
     <section class="empty-state">
       <i data-lucide="inbox"></i>
       <h2>Nenhuma solicitação por aqui</h2>
-      <p>Quando você enviar uma reserva, ela aparecerá nesta lista.</p>
+      <p>Quando você enviar uma reserva de sala, ela aparecerá nesta lista.</p>
     </section>
     {% endif %}
     {% else %}
@@ -248,12 +282,12 @@
         <p class="eyebrow">Caderno virtual</p>
         <h2>Reservas de testes e instrumentos</h2>
       </div>
-      <span class="count-label">{{ pendentes_instrumento|length }} pendente(s)</span>
+      <span class="count-label">{{ caderno_instrumentos|length }} registro(s)</span>
     </section>
 
-    {% if pendentes_instrumento %}
-    <section class="instrument-list">
-      {% for r in pendentes_instrumento %}
+    {% if caderno_instrumentos %}
+    <section class="instrument-list notebook">
+      {% for r in caderno_instrumentos %}
       <article class="instrument-row">
         <div class="instrument-main">
           <span class="status {{ r.status }}">{{ r.status_label }}</span>
@@ -266,6 +300,7 @@
           {% if r.finalidade %}<p><strong>Finalidade:</strong> {{ r.finalidade }}</p>{% endif %}
           {% if r.observacao %}<p><strong>Obs.:</strong> {{ r.observacao }}</p>{% endif %}
         </div>
+        {% if r.status == 'pendente' %}
         <div class="instrument-actions">
           <form method="post" action="/reservas/{{ r.id }}/aprovar">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -278,6 +313,12 @@
             <button class="btn danger" type="submit"><i data-lucide="x"></i> Recusar</button>
           </form>
         </div>
+        {% else %}
+        <div class="instrument-actions read-only">
+          <strong>{{ r.status_label }}</strong>
+          {% if r.resposta %}<span>{{ r.resposta }}</span>{% endif %}
+        </div>
+        {% endif %}
       </article>
       {% endfor %}
     </section>

@@ -304,6 +304,13 @@ class MapaSalasTestCase(unittest.TestCase):
                 """,
                 (self.aluno1_id, 'aluno1', 'instrumento', data_uso, '10:00', 'HTP', 'Avaliação')
             )
+            conn.execute(
+                """
+                INSERT INTO reservas(usuario_id, usuario, tipo, status, data_uso, horario_inicio, instrumento, finalidade)
+                VALUES(?,?,?,?,?,?,?,?)
+                """,
+                (self.aluno2_id, 'aluno2', 'instrumento', 'aprovada', data_uso, '11:00', 'WISC', 'Avaliação')
+            )
             conn.commit()
         finally:
             conn.close()
@@ -316,6 +323,7 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertIn('Reservas de sala pendentes', html)
         self.assertIn('Reservas de testes e instrumentos', html)
         self.assertIn('HTP', html)
+        self.assertIn('WISC', html)
 
     def test_aprovar_reserva_de_sala_cria_agendamentos_no_mapa(self):
         data_uso = self._data_util_com_antecedencia()

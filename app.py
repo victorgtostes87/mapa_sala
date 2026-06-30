@@ -1112,6 +1112,18 @@ def reservas():
         else:
             flash('Acesso negado.', 'error')
             return redirect(url_for('index'))
+
+        caderno_rows = conn.execute(
+            """
+            SELECT *
+            FROM reservas
+            WHERE tipo='instrumento'
+              AND status!='recusada'
+              AND data_uso>=?
+            ORDER BY data_uso, horario_inicio, usuario
+            """,
+            (data_hoje_iso(),)
+        ).fetchall()
     finally:
         conn.close()
 
@@ -1129,6 +1141,7 @@ def reservas():
 
     minhas_reservas = [preparar_reserva(r) for r in rows]
     pendentes = [preparar_reserva(r) for r in pendentes]
+    caderno_instrumentos = [preparar_reserva(r) for r in caderno_rows]
 
     return render_template(
         'reservas.html',
@@ -1137,9 +1150,12 @@ def reservas():
         papel_label=PAPEIS_LABEL.get(current_user.role, current_user.role),
         horarios=HORARIOS,
         minhas_reservas=minhas_reservas,
+        minhas_salas=[r for r in minhas_reservas if r.get('tipo') == 'sala'],
+        minhas_instrumentos=[r for r in minhas_reservas if r.get('tipo') == 'instrumento'],
         pendentes=pendentes,
         pendentes_sala=[r for r in pendentes if r.get('tipo') == 'sala'],
         pendentes_instrumento=[r for r in pendentes if r.get('tipo') == 'instrumento'],
+        caderno_instrumentos=caderno_instrumentos,
         recentes_sala=[r for r in minhas_reservas if r.get('tipo') == 'sala'],
         recentes_instrumento=[r for r in minhas_reservas if r.get('tipo') == 'instrumento'],
     )

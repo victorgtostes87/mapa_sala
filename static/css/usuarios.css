@@ -25,6 +25,8 @@ tr:hover td{background:#1a2744}
 label{display:block;font-weight:700;margin:12px 0 6px;color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:.4px}
 input,select{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--bg);color:var(--text);outline:none}
 input:focus,select:focus{border-color:var(--accent)}
+.check-line{display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:13px;color:var(--text);margin-top:12px}
+.check-line input{width:auto}
 .help{color:var(--text2);font-size:12px;margin-top:6px;line-height:1.45}
 .error-box{display:none;background:#431407;color:#fca5a5;border:1px solid #ef4444;border-radius:var(--radius);padding:10px 12px;margin-bottom:12px;font-size:13px}
 .modal-actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;justify-content:flex-end}

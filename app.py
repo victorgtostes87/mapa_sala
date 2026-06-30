@@ -1,10 +1,13 @@
 ﻿import csv
+import hashlib
 import io
 import os
 import re
 import secrets
+import smtplib
 import sqlite3
 import unicodedata
+from email.message import EmailMessage
 from datetime import datetime, timedelta
 from functools import wraps
 import click
@@ -42,7 +45,14 @@ DB_PATH = os.environ.get(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 )
 
-VERSAO = '2026-06-30-v28'
+VERSAO = '2026-06-30-v29'
+EMAIL_BASE_URL = os.environ.get('EMAIL_BASE_URL', '').rstrip('/')
+EMAIL_FROM = os.environ.get('EMAIL_FROM', os.environ.get('SMTP_USER', ''))
+SMTP_HOST = os.environ.get('SMTP_HOST', '')
+SMTP_PORT = int(os.environ.get('SMTP_PORT', '587'))
+SMTP_USER = os.environ.get('SMTP_USER', '')
+SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
+SMTP_TLS = os.environ.get('SMTP_TLS', '1').strip().lower() not in ('0', 'false', 'nao', 'não')
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -411,6 +421,177 @@ def normalizar_supervisor_id(valor):
         return 'invalido'
 
 
+def email_configurado():
+    return bool(SMTP_HOST and EMAIL_FROM)
+
+
+def url_absoluta(endpoint, **valores):
+    if EMAIL_BASE_URL:
+        return f"{EMAIL_BASE_URL}{url_for(endpoint, **valores)}"
+    return url_for(endpoint, _external=True, **valores)
+
+
+def enviar_email(destinatario, assunto, corpo):
+    destinatario = (destinatario or '').strip()
+    if not destinatario:
+        return False
+    if not email_configurado():
+        registrar_log('EMAIL_NAO_CONFIGURADO', f'E-mail não enviado para {destinatario}: {assunto}')
+        return False
+
+    msg = EmailMessage()
+    msg['From'] = EMAIL_FROM
+    msg['To'] = destinatario
+    msg['Subject'] = assunto
+    msg.set_content(corpo)
+
+    try:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as smtp:
+            if SMTP_TLS:
+                smtp.starttls()
+            if SMTP_USER and SMTP_PASSWORD:
+                smtp.login(SMTP_USER, SMTP_PASSWORD)
+            smtp.send_message(msg)
+        return True
+    except Exception as exc:
+        registrar_log('EMAIL_ERRO', f'Falha ao enviar para {destinatario}: {assunto} | {exc}')
+        return False
+
+
+def hash_token(token):
+    return hashlib.sha256(token.encode('utf-8')).hexdigest()
+
+
+def criar_token_email(conn, usuario_id, tipo, horas=24):
+    token = secrets.token_urlsafe(32)
+    expira_em = (datetime.now() + timedelta(hours=horas)).strftime('%Y-%m-%d %H:%M:%S')
+    conn.execute(
+        """
+        INSERT INTO tokens_email(usuario_id, tipo, token_hash, expira_em)
+        VALUES(?,?,?,?)
+        """,
+        (usuario_id, tipo, hash_token(token), expira_em)
+    )
+    return token
+
+
+def buscar_token_email(token, tipo):
+    conn = get_db()
+    try:
+        row = conn.execute(
+            """
+            SELECT t.*, u.username, u.email
+            FROM tokens_email t
+            JOIN usuarios u ON u.id = t.usuario_id
+            WHERE t.token_hash=? AND t.tipo=? AND t.usado_em IS NULL AND t.expira_em > datetime('now')
+            """,
+            (hash_token(token), tipo)
+        ).fetchone()
+    finally:
+        conn.close()
+    return row
+
+
+def marcar_token_usado(conn, token_id):
+    conn.execute('UPDATE tokens_email SET usado_em=CURRENT_TIMESTAMP WHERE id=?', (token_id,))
+
+
+def preparar_convite_criacao_conta(conn, usuario_row):
+    if not usuario_row or not usuario_row['email']:
+        return None
+    token = criar_token_email(conn, usuario_row['id'], 'convite', horas=72)
+    link = url_absoluta('redefinir_senha', token=token)
+    return (
+        usuario_row['email'],
+        'Convite para acessar o Mapa de Sala',
+        (
+            f'Olá, {usuario_row["username"]}.\n\n'
+            'Uma conta foi criada para você no Mapa de Sala da Policlínica de Psicologia UVV.\n'
+            'Acesse o link abaixo para criar sua senha. Ele vale por 72 horas:\n\n'
+            f'{link}\n\n'
+            'Depois disso, você poderá entrar no sistema normalmente.'
+        )
+    )
+
+
+def resumo_agendamento_email(dados_ag):
+    tipo = 'triagem' if int(dados_ag.get('triagem') or 0) else 'atendimento'
+    ocupacao = 'com paciente marcado' if (dados_ag.get('paciente') or '').strip() else 'sem paciente vinculado'
+    data_ref = dados_ag.get('data_especifica') or dados_ag.get('dia') or dados_ag.get('dia_semana') or ''
+    return (
+        f'Tipo: {tipo}\n'
+        f'Situação: {ocupacao}\n'
+        f'Dia/data: {data_ref}\n'
+        f'Horário: {dados_ag.get("horario")}\n'
+        f'Sala: {dados_ag.get("sala")}\n'
+        f'Categoria: {dados_ag.get("categoria") or "Sem categoria"}'
+    )
+
+
+def notificar_agendamento_email(dados_ag, acao):
+    aluno_id = dados_ag.get('usuario_id')
+    aluno_username = dados_ag.get('estagiario') or ''
+    conn = get_db()
+    try:
+        aluno = None
+        if aluno_id:
+            aluno = conn.execute('SELECT * FROM usuarios WHERE id=?', (aluno_id,)).fetchone()
+        if not aluno and aluno_username:
+            aluno = conn.execute(
+                "SELECT * FROM usuarios WHERE username=? AND role='aluno'",
+                (aluno_username,)
+            ).fetchone()
+
+        professor = None
+        if aluno and aluno['supervisor_id']:
+            professor = conn.execute('SELECT * FROM usuarios WHERE id=?', (aluno['supervisor_id'],)).fetchone()
+    finally:
+        conn.close()
+
+    titulo_acao = 'criado' if acao == 'criado' else 'alterado'
+    corpo_base = (
+        f'Um agendamento foi {titulo_acao} no Mapa de Sala.\n\n'
+        f'{resumo_agendamento_email(dados_ag)}\n\n'
+        'Por segurança, este e-mail não inclui nome de paciente. Acesse o sistema para ver os detalhes.'
+    )
+
+    if aluno and aluno['email']:
+        enviar_email(aluno['email'], f'Agendamento {titulo_acao} - Mapa de Sala', corpo_base)
+    if professor and professor['email']:
+        enviar_email(
+            professor['email'],
+            f'Agendamento {titulo_acao} para aluno supervisionado',
+            f'Aluno: {aluno["username"]}\n\n{corpo_base}'
+        )
+
+
+def notificar_reserva_email(reserva, status, resposta=''):
+    if not reserva or not reserva.get('usuario_id'):
+        return False
+    conn = get_db()
+    try:
+        usuario = conn.execute('SELECT * FROM usuarios WHERE id=?', (reserva['usuario_id'],)).fetchone()
+    finally:
+        conn.close()
+    if not usuario or not usuario['email']:
+        return False
+
+    tipo = 'sala' if reserva.get('tipo') == 'sala' else 'teste/instrumento'
+    status_txt = 'aprovada' if status == 'aprovada' else 'recusada'
+    detalhe = reserva.get('sala_atribuida') if reserva.get('tipo') == 'sala' else reserva.get('instrumento')
+    corpo = (
+        f'Sua reserva de {tipo} foi {status_txt}.\n\n'
+        f'Data: {reserva.get("data_uso")}\n'
+        f'Horário: {reserva.get("horario_inicio")}'
+        f'{(" até " + reserva.get("horario_fim")) if reserva.get("horario_fim") else ""}\n'
+        f'Detalhe: {detalhe or "-"}\n'
+    )
+    if resposta:
+        corpo += f'\nMensagem da recepção/coordenação: {resposta}\n'
+    corpo += '\nAcesse o sistema para acompanhar a solicitação.'
+    return enviar_email(usuario['email'], f'Reserva {status_txt} - Mapa de Sala', corpo)
+
+
 def limpar_logs_antigos(conn):
     """Remove historico antigo para impedir crescimento continuo do arquivo SQLite."""
     cur = conn.execute(
@@ -583,6 +764,15 @@ def init_db():
             "email TEXT DEFAULT '',"
             "supervisor_id INTEGER DEFAULT NULL REFERENCES usuarios(id) ON DELETE SET NULL,"
             "ativo INTEGER DEFAULT 1,"
+            "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+            ");"
+            "CREATE TABLE IF NOT EXISTS tokens_email ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,"
+            "tipo TEXT NOT NULL,"
+            "token_hash TEXT NOT NULL UNIQUE,"
+            "expira_em TIMESTAMP NOT NULL,"
+            "usado_em TIMESTAMP DEFAULT NULL,"
             "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
             ");"
             "CREATE TABLE IF NOT EXISTS reservas ("
@@ -923,6 +1113,87 @@ def login():
             return redirect(url_for('index'))
         flash('Usuário ou senha inválidos.')
     return render_template('login.html')
+
+
+@app.route('/recuperar-senha', methods=['GET', 'POST'])
+@limiter.limit('5 per minute', methods=['POST'])
+def recuperar_senha():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+
+    if request.method == 'POST':
+        identificador = request.form.get('identificador', '').strip()
+        conn = get_db()
+        try:
+            row = conn.execute(
+                "SELECT * FROM usuarios WHERE ativo=1 AND (username=? OR email=?)",
+                (identificador, identificador)
+            ).fetchone()
+            if row and row['email']:
+                token = criar_token_email(conn, row['id'], 'reset', horas=2)
+                conn.commit()
+                link = url_absoluta('redefinir_senha', token=token)
+                enviar_email(
+                    row['email'],
+                    'Recuperação de senha - Mapa de Sala',
+                    (
+                        f'Olá, {row["username"]}.\n\n'
+                        'Recebemos uma solicitação para recuperar sua senha no Mapa de Sala.\n'
+                        f'Acesse o link abaixo para criar uma nova senha. Ele vale por 2 horas:\n\n{link}\n\n'
+                        'Se você não pediu isso, ignore este e-mail.'
+                    )
+                )
+        finally:
+            conn.close()
+
+        flash('Se o usuário ou e-mail existir no sistema, enviaremos um link de recuperação.', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('recuperar_senha.html')
+
+
+@app.route('/definir-senha/<token>', methods=['GET', 'POST'])
+@limiter.limit('10 per minute', methods=['POST'])
+def redefinir_senha(token):
+    row_reset = buscar_token_email(token, 'reset')
+    row_convite = buscar_token_email(token, 'convite') if not row_reset else None
+    row = row_reset or row_convite
+    tipo = 'convite' if row_convite else 'reset'
+    if not row:
+        flash('Link inválido ou expirado. Peça um novo link.', 'error')
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        nova_senha = request.form.get('nova_senha', '').strip()
+        confirmar = request.form.get('confirmar_senha', '').strip()
+        if len(nova_senha) < 8:
+            flash('A senha deve ter no mínimo 8 caracteres.', 'error')
+            return redirect(url_for('redefinir_senha', token=token))
+        if nova_senha != confirmar:
+            flash('As senhas não coincidem.', 'error')
+            return redirect(url_for('redefinir_senha', token=token))
+
+        conn = get_db()
+        try:
+            conn.execute(
+                'UPDATE usuarios SET password_hash=?, ativo=1 WHERE id=?',
+                (generate_password_hash(nova_senha), row['usuario_id'])
+            )
+            marcar_token_usado(conn, row['id'])
+            conn.commit()
+        finally:
+            conn.close()
+
+        registrar_log('DEFINIR_SENHA_EMAIL', f'Usuário {row["username"]} definiu senha por link de {tipo}')
+        flash('Senha definida com sucesso. Faça login para entrar.', 'success')
+        return redirect(url_for('login'))
+
+    return render_template(
+        'redefinir_senha.html',
+        token=token,
+        titulo='Criar senha' if tipo == 'convite' else 'Recuperar senha',
+        usuario=row['username']
+    )
 
 
 @app.route('/logout')
@@ -1702,6 +1973,7 @@ reservas_mod.registrar_rotas_reservas(app, {
     'inserir_agendamento': inserir_agendamento,
     'detect_sem': detect_sem,
     'registrar_log': registrar_log,
+    'notificar_reserva_email': notificar_reserva_email,
     'HORARIOS': HORARIOS,
     'SALAS': SALAS,
     'SALAS_RESERVAVEIS': SALAS_RESERVAVEIS,
@@ -1909,15 +2181,18 @@ def api_criar_usuario():
     username = (d.get('username') or '').strip()
     email = (d.get('email') or '').strip()
     password = (d.get('password') or '').strip()
+    enviar_convite = bool(d.get('enviar_convite'))
     role = (d.get('role') or 'aluno').strip()
     ativo = valor_ativo(d.get('ativo'), 1)
     supervisor_id = normalizar_supervisor_id(d.get('supervisor_id'))
     if supervisor_id == 'invalido':
         return jsonify({'erro': 'Supervisor inválido'}), 400
 
-    if not username or not password:
-        return jsonify({'erro': 'Usuário e senha são obrigatórios'}), 400
-    if len(password) < 8:
+    if not username:
+        return jsonify({'erro': 'Usuário é obrigatório'}), 400
+    if not password and not (enviar_convite and email):
+        return jsonify({'erro': 'Informe uma senha ou marque para enviar convite por e-mail'}), 400
+    if password and len(password) < 8:
         return jsonify({'erro': 'A senha deve ter no mínimo 8 caracteres'}), 400
     if role not in PAPEIS_VALIDOS:
         return jsonify({'erro': 'Papel inválido'}), 400
@@ -1926,7 +2201,9 @@ def api_criar_usuario():
 
     try:
         conn = get_db()
+        email_convite = None
         try:
+            senha_inicial = password or secrets.token_urlsafe(18)
             if supervisor_id:
                 professor = conn.execute(
                     "SELECT id FROM usuarios WHERE id=? AND role='professor' AND ativo=1",
@@ -1936,13 +2213,20 @@ def api_criar_usuario():
                     return jsonify({'erro': 'Supervisor professor não encontrado'}), 400
             conn.execute(
                 'INSERT INTO usuarios(username, email, password_hash, role, supervisor_id, ativo) VALUES(?,?,?,?,?,?)',
-                (username, email, generate_password_hash(password), role, supervisor_id, ativo)
+                (username, email, generate_password_hash(senha_inicial), role, supervisor_id, ativo)
             )
+            usuario_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+            email_enviado = False
+            if enviar_convite and email:
+                usuario_row = conn.execute('SELECT * FROM usuarios WHERE id=?', (usuario_id,)).fetchone()
+                email_convite = preparar_convite_criacao_conta(conn, usuario_row)
             conn.commit()
         finally:
             conn.close()
+        if email_convite:
+            email_enviado = enviar_email(*email_convite)
         registrar_log('CRIAR_USUARIO', f'Usuário "{username}" ({role}) criado')
-        return jsonify({'message': 'Usuário criado'}), 201
+        return jsonify({'message': 'Usuário criado', 'email_enviado': email_enviado}), 201
     except sqlite3.IntegrityError:
         return jsonify({'erro': 'Nome de usuário já existe'}), 409
 
@@ -2229,6 +2513,7 @@ def create_ag():
         conn = get_db()
         try:
             nid = inserir_agendamento(conn, dados_ag)
+            row_notificacao = conn.execute('SELECT * FROM agendamentos WHERE id=?', (nid,)).fetchone()
             conn.commit()
         finally:
             conn.close()
@@ -2236,6 +2521,8 @@ def create_ag():
         return jsonify({'erro': 'Conflito: esse horário já foi ocupado por outro agendamento.'}), 409
 
     registrar_log('CRIAR', f'Agendamento #{nid} criado — sala: {dados_ag["sala"]} {dados_ag["horario"]}')
+    if row_notificacao:
+        notificar_agendamento_email(dict(row_notificacao), 'criado')
     return jsonify({'id': nid, 'message': 'Criado'}), 201
 
 
@@ -2288,6 +2575,7 @@ def update_ag(aid):
             )
             if cur.rowcount == 0:
                 return jsonify({'erro': 'Agendamento nao encontrado'}), 404
+            row_notificacao = conn.execute('SELECT * FROM agendamentos WHERE id=?', (aid,)).fetchone()
             conn.commit()
         finally:
             conn.close()
@@ -2295,6 +2583,8 @@ def update_ag(aid):
         return jsonify({'erro': 'Conflito: esse horário já foi ocupado por outro agendamento.'}), 409
 
     registrar_log('EDITAR', f'Agendamento #{aid} editado — sala: {dados_ag["sala"]} {dados_ag["horario"]}')
+    if row_notificacao:
+        notificar_agendamento_email(dict(row_notificacao), 'alterado')
     return jsonify({'message': 'Atualizado'})
 
 

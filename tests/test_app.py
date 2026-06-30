@@ -937,6 +937,65 @@ class MapaSalasTestCase(unittest.TestCase):
 
         self.assertEqual(row['email'], 'novo.aluno@example.com')
 
+    def test_cria_usuario_com_convite_por_email(self):
+        self._login('coordenador')
+
+        resp = self.client.post(
+            '/api/usuarios',
+            json={
+                'username': 'aluno_convite',
+                'email': 'aluno.convite@example.com',
+                'role': 'aluno',
+                'ativo': True,
+                'enviar_convite': True
+            },
+            headers={'X-CSRFToken': self.csrf}
+        )
+
+        self.assertEqual(resp.status_code, 201)
+
+        conn = mapa.get_db()
+        try:
+            row = conn.execute("SELECT id FROM usuarios WHERE username='aluno_convite'").fetchone()
+            token = conn.execute(
+                "SELECT * FROM tokens_email WHERE usuario_id=? AND tipo='convite'",
+                (row['id'],)
+            ).fetchone()
+        finally:
+            conn.close()
+
+        self.assertIsNotNone(token)
+
+    def test_recuperar_senha_cria_token_por_email(self):
+        conn = mapa.get_db()
+        try:
+            conn.execute("UPDATE usuarios SET email='aluno1@example.com' WHERE username='aluno1'")
+            conn.commit()
+        finally:
+            conn.close()
+
+        with self.client.session_transaction() as sess:
+            sess['_csrf_token'] = self.csrf
+        resp = self.client.post(
+            '/recuperar-senha',
+            data={
+                'csrf_token': self.csrf,
+                'identificador': 'aluno1@example.com'
+            }
+        )
+
+        self.assertEqual(resp.status_code, 302)
+        conn = mapa.get_db()
+        try:
+            token = conn.execute(
+                "SELECT * FROM tokens_email WHERE usuario_id=? AND tipo='reset'",
+                (self.aluno1_id,)
+            ).fetchone()
+        finally:
+            conn.close()
+
+        self.assertIsNotNone(token)
+
     def test_backup_sem_confirmacao_mostra_pagina_amigavel(self):
         self._login('coordenador')
 

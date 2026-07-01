@@ -37,7 +37,7 @@
       <div>
         <p class="eyebrow">Salas e instrumentos</p>
         <h1>Reservas</h1>
-        <p>Solicitações devem ser feitas com no mínimo 24h de antecedência.</p>
+        <p>Solicitações devem ser feitas com não mínimo 24h de antecedência.</p>
       </div>
       {% if papel in ['coordenador', 'recepcao'] %}
       <div class="pending-pill"><i data-lucide="bell"></i>{{ pendentes|length }} pendente(s)</div>
@@ -87,7 +87,7 @@
       <form class="card" method="post" action="/reservas/instrumento">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <h2><i data-lucide="clipboard-list"></i> Reservar teste/instrumento</h2>
-        <p class="muted">Funciona como o caderno da recepção, só que registrado no sistema.</p>
+        <p class="muted">Funciona como o cadernão da recepção, só que registrado não sistema.</p>
 
         <label>Teste ou instrumento</label>
         <input name="instrumento" placeholder="Ex: HTP, WISC, Bender, palográfico..." required>
@@ -117,7 +117,7 @@
 
     <section class="section-head">
       <div>
-        <p class="eyebrow">Caderno virtual</p>
+        <p class="eyebrow">Cadernão virtual</p>
         <h2>Testes e instrumentos reservados</h2>
       </div>
       <span class="count-label">{{ caderno_instrumentos|length }} registro(s)</span>
@@ -144,14 +144,14 @@
     {% else %}
     <section class="empty-state compact-empty">
       <i data-lucide="clipboard-list"></i>
-      <h2>Nenhum instrumento no caderno</h2>
-      <p>Quando alguém solicitar um teste ou instrumento, ele aparecerá aqui.</p>
+      <h2>Nenhum instrumento não caderno</h2>
+      <p>Quando algum solicitar um teste ou instrumento, ele aparecer? aqui.</p>
     </section>
     {% endif %}
 
     <section class="section-head">
       <div>
-        <p class="eyebrow">Histórico</p>
+        <p class="eyebrow">Histrico</p>
         <h2>Minhas reservas de sala</h2>
       </div>
     </section>
@@ -176,7 +176,7 @@
         <div class="request-meta">
           <div><i data-lucide="user"></i>{{ r.usuario }}</div>
           <div><i data-lucide="calendar"></i>{{ r.data_label }}</div>
-          <div><i data-lucide="clock"></i>{{ r.horario_inicio }}{% if r.horario_fim %} às {{ r.horario_fim }}{% endif %}</div>
+          <div><i data-lucide="clock"></i>{{ r.horario_inicio }}{% if r.horario_fim %} s {{ r.horario_fim }}{% endif %}</div>
           {% if r.tipo == 'sala' and r.sala_atribuida %}
           <div><i data-lucide="map-pin"></i>Sugestão: {{ r.sala_atribuida }}</div>
           {% endif %}
@@ -214,7 +214,7 @@
     <section class="empty-state">
       <i data-lucide="inbox"></i>
       <h2>Nenhuma solicitação por aqui</h2>
-      <p>Quando você enviar uma reserva de sala, ela aparecerá nesta lista.</p>
+      <p>Quando você enviar uma reserva de sala, ela aparecer? nesta lista.</p>
     </section>
     {% endif %}
     {% else %}
@@ -240,7 +240,7 @@
         <div class="request-meta">
           <div><i data-lucide="user"></i>{{ r.usuario }}</div>
           <div><i data-lucide="calendar"></i>{{ r.data_label }}</div>
-          <div><i data-lucide="clock"></i>{{ r.horario_inicio }}{% if r.horario_fim %} às {{ r.horario_fim }}{% endif %}</div>
+          <div><i data-lucide="clock"></i>{{ r.horario_inicio }}{% if r.horario_fim %} s {{ r.horario_fim }}{% endif %}</div>
           {% if r.sala_atribuida %}
           <div><i data-lucide="map-pin"></i>Sugestão: {{ r.sala_atribuida }}</div>
           {% endif %}
@@ -273,13 +273,13 @@
     <section class="empty-state compact-empty">
       <i data-lucide="door-open"></i>
       <h2>Nenhuma reserva de sala pendente</h2>
-      <p>Quando um aluno solicitar sala, a solicitação aparecerá aqui.</p>
+      <p>Quando um alunão solicitar sala, a solicitação aparecer? aqui.</p>
     </section>
     {% endif %}
 
     <section class="section-head">
       <div>
-        <p class="eyebrow">Caderno virtual</p>
+        <p class="eyebrow">Cadernão virtual</p>
         <h2>Reservas de testes e instrumentos</h2>
       </div>
       <span class="count-label">{{ caderno_instrumentos|length }} registro(s)</span>
@@ -344,7 +344,7 @@
     <section class="empty-state compact-empty">
       <i data-lucide="clipboard-list"></i>
       <h2>Nenhum instrumento pendente</h2>
-      <p>Quando um aluno pedir teste ou instrumento, ele entra nesta lista como no caderno da recepção.</p>
+      <p>Quando um alunão pedir teste ou instrumento, ele entra nesta lista como não cadernão da recepção.</p>
     </section>
     {% endif %}
     {% endif %}
@@ -369,7 +369,7 @@
         <div class="request-meta">
           <div><i data-lucide="user"></i>{{ r.usuario }}</div>
           <div><i data-lucide="calendar"></i>{{ r.data_label }}</div>
-          <div><i data-lucide="clock"></i>{{ r.horario_inicio }}{% if r.horario_fim %} às {{ r.horario_fim }}{% endif %}</div>
+          <div><i data-lucide="clock"></i>{{ r.horario_inicio }}{% if r.horario_fim %} s {{ r.horario_fim }}{% endif %}</div>
         </div>
       </article>
       {% endfor %}

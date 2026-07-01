@@ -27,7 +27,7 @@ def validar_antecedencia_minima(data_uso, horario_inicio):
     except ValueError:
         return None, 'Data ou horário inválido.'
     if inicio < datetime.now() + timedelta(hours=24):
-        return None, 'Reservas precisam ser feitas com no mínimo 24h de antecedência.'
+        return None, 'Reservas precisam ser feitas com não mínimo 24h de antecedência.'
     return inicio, None
 
 
@@ -106,9 +106,9 @@ def sala_disponivel_para_reserva(
 
 def label_status_reserva(status):
     return {
-        'pendente': 'Pendente',
+        'pendente': 'Aguardando análise',
         'aprovada': 'Aprovada',
-        'separado': 'Separado',
+        'separado': 'Instrumento separado',
         'guardado': 'Guardado',
         'retirado': 'Guardado',
         'devolvido': 'Guardado',
@@ -141,6 +141,7 @@ def registrar_rotas_reservas(app, deps):
     detect_sem = deps['detect_sem']
     registrar_log = deps['registrar_log']
     notificar_reserva_email = deps.get('notificar_reserva_email')
+    notificar_reserva_solicitada_email = deps.get('notificar_reserva_solicitada_email')
     horarios = deps['HORARIOS']
     salas = deps['SALAS']
     salas_reservaveis = deps['SALAS_RESERVAVEIS']
@@ -293,9 +294,10 @@ def registrar_rotas_reservas(app, deps):
             flash(erro_sala, 'error')
             return redirect(url_for('reservas'))
 
+        reserva_email = None
         conn = get_db()
         try:
-            conn.execute(
+            cur = conn.execute(
                 """
                 INSERT INTO reservas(
                   usuario_id, usuario, tipo, data_uso, horario_inicio, horario_fim,
@@ -307,11 +309,26 @@ def registrar_rotas_reservas(app, deps):
                     horario_fim, tipo_sala, sala_sugerida, finalidade, observacao
                 )
             )
+            reserva_email = {
+                'id': cur.lastrowid,
+                'usuario_id': current_user.id,
+                'usuario': current_user.username,
+                'tipo': 'sala',
+                'data_uso': data_uso,
+                'horario_inicio': horario_inicio,
+                'horario_fim': horario_fim,
+                'tipo_sala': tipo_sala,
+                'sala_atribuida': sala_sugerida,
+                'finalidade': finalidade,
+                'observacao': observacao,
+            }
             conn.commit()
         finally:
             conn.close()
 
         registrar_log('SOLICITAR_RESERVA_SALA', f'{current_user.username} solicitou {tipo_sala} em {data_uso} {horario_inicio}-{horario_fim}')
+        if callable(notificar_reserva_solicitada_email):
+            notificar_reserva_solicitada_email(reserva_email)
         flash('Solicitação enviada para a recepção/coordenação.', 'success')
         return redirect(url_for('reservas'))
 
@@ -337,9 +354,10 @@ def registrar_rotas_reservas(app, deps):
             flash(erro_antecedencia, 'error')
             return redirect(url_for('reservas'))
 
+        reserva_email = None
         conn = get_db()
         try:
-            conn.execute(
+            cur = conn.execute(
                 """
                 INSERT INTO reservas(
                   usuario_id, usuario, tipo, data_uso, horario_inicio,
@@ -351,11 +369,24 @@ def registrar_rotas_reservas(app, deps):
                     horario_inicio, instrumento, finalidade, observacao
                 )
             )
+            reserva_email = {
+                'id': cur.lastrowid,
+                'usuario_id': current_user.id,
+                'usuario': current_user.username,
+                'tipo': 'instrumento',
+                'data_uso': data_uso,
+                'horario_inicio': horario_inicio,
+                'instrumento': instrumento,
+                'finalidade': finalidade,
+                'observacao': observacao,
+            }
             conn.commit()
         finally:
             conn.close()
 
         registrar_log('SOLICITAR_RESERVA_INSTRUMENTO', f'{current_user.username} solicitou {instrumento} em {data_uso} {horario_inicio}')
+        if callable(notificar_reserva_solicitada_email):
+            notificar_reserva_solicitada_email(reserva_email)
         flash('Solicitação de instrumento enviada.', 'success')
         return redirect(url_for('reservas'))
 
@@ -378,7 +409,7 @@ def registrar_rotas_reservas(app, deps):
             if reserva['tipo'] == 'sala':
                 _, erro_antecedencia = validar_antecedencia_minima(reserva['data_uso'], reserva['horario_inicio'])
                 if erro_antecedencia:
-                    flash('Não é possível aprovar: a solicitação já está com menos de 24h de antecedência.', 'error')
+                    flash('N?o ? poss?vel aprovar: a solicitação já está com menos de 24h de antecedência.', 'error')
                     return redirect(url_for('reservas'))
 
                 if sala_escolhida:
@@ -416,7 +447,7 @@ def registrar_rotas_reservas(app, deps):
                         'sala': sala_atribuida,
                         'estagiario': reserva['usuario'],
                         'paciente': '',
-                        'categoria': 'PRONTUÁRIO/ESTUDAR',
+                        'categoria': 'PRONTURIO/ESTUDAR',
                         'semestre': detect_sem(reserva['usuario']),
                         'triagem': 0,
                         'observacao': f'Reserva aprovada: {reserva["finalidade"]}',
@@ -441,7 +472,7 @@ def registrar_rotas_reservas(app, deps):
             conn.commit()
         except sqlite3.IntegrityError:
             conn.rollback()
-            flash('Não foi possível aprovar: a sala ficou ocupada por outro agendamento.', 'error')
+            flash('No foi possvel aprovar: a sala ficou ocupada por outro agendamento.', 'error')
             return redirect(url_for('reservas'))
         finally:
             conn.close()
@@ -493,6 +524,7 @@ def registrar_rotas_reservas(app, deps):
             flash('Status inválido.', 'error')
             return redirect(url_for('reservas'))
 
+        reserva_email = None
         conn = get_db()
         try:
             reserva = conn.execute("SELECT * FROM reservas WHERE id=?", (rid,)).fetchone()
@@ -511,10 +543,14 @@ def registrar_rotas_reservas(app, deps):
                 """,
                 (novo_status, current_user.username, rid)
             )
+            reserva_email = dict(reserva)
+            reserva_email['status'] = novo_status
             conn.commit()
         finally:
             conn.close()
 
         registrar_log('STATUS_RESERVA_INSTRUMENTO', f'Reserva #{rid} marcada como {novo_status} por {current_user.username}')
+        if callable(notificar_reserva_email):
+            notificar_reserva_email(reserva_email, novo_status)
         flash('Status do instrumento atualizado.', 'success')
         return redirect(url_for('reservas'))

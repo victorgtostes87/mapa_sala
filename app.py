@@ -6,9 +6,11 @@ import re
 import secrets
 import smtplib
 import sqlite3
+import tempfile
 import unicodedata
 from email.message import EmailMessage
 from datetime import datetime, timedelta
+from contextlib import contextmanager
 from functools import wraps
 import click
 from flask import Flask, render_template, render_template_string, jsonify, request, send_file, redirect, url_for, flash, session
@@ -100,9 +102,9 @@ def proteger_csrf():
         return None
 
     if request.path.startswith('/api/'):
-        return jsonify({'erro': 'Sua sessao expirou. Recarregue a pagina e tente novamente.'}), 400
+        return jsonify({'erro': 'Sua sessão expirou. Recarregue a página e tente novamente.'}), 400
 
-    flash('Sua sessao expirou. Recarregue a pagina e tente novamente.', 'error')
+    flash('Sua sessão expirou. Recarregue a página e tente novamente.', 'error')
     return redirect(url_for('login'))
 
 
@@ -128,13 +130,25 @@ def get_db():
     return conn
 
 
-@login_manager.user_loader
-def load_user(user_id):
+@contextmanager
+def db_connection(commit=False):
     conn = get_db()
     try:
-        row = conn.execute('SELECT * FROM usuarios WHERE id=? AND ativo=1', (user_id,)).fetchone()
+        yield conn
+        if commit:
+            conn.commit()
+    except Exception:
+        if commit:
+            conn.rollback()
+        raise
     finally:
         conn.close()
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    with db_connection() as conn:
+        row = conn.execute('SELECT * FROM usuarios WHERE id=? AND ativo=1', (user_id,)).fetchone()
     if not row:
         return None
     return Usuario(row['id'], row['username'], row['role'],
@@ -201,6 +215,12 @@ CATEGORIAS = [
     'PRONTUÁRIO/ESTUDAR', 'LIVRE', 'OUTRO'
 ]
 
+CATEGORIAS_OCUPAM_SALA = (
+    'SUPERVISÃO', 'NACE', 'SOU', 'NUTRIÇÃO', 'PSICODIAGNÓSTICO',
+    'PSIQUIATRIA', 'AMBULATÓRIO NEUROPSICOLOGIA', 'PLANTÃO PSICOLÓGICO',
+    'PRONTUÁRIO/ESTUDAR'
+)
+
 PAPEIS_LABEL = {
     'coordenador': 'Coordenador',
     'recepcao': 'Recepcionista',
@@ -243,18 +263,31 @@ def numero_semana_sqlite(dia):
 
 def validar_valores_agendamento(dia, horario, sala, categoria=''):
     if dia not in DIAS:
-        return f'Dia inválido: {dia}'
+        return 'Escolha um dia da semana válido.'
     if horario not in HORARIOS:
-        return f'Horário inválido: {horario}'
+        return 'Escolha um horário disponível na lista.'
     if sala not in SALAS:
-        return f'Sala inválida: {sala}'
+        return 'Escolha uma sala cadastrada no sistema.'
     if categoria and categoria not in CATEGORIAS:
-        return f'Categoria inválida: {categoria}'
+        return 'Escolha uma categoria cadastrada no sistema.'
     return None
 
 
 def data_hoje_iso():
     return datetime.now().strftime('%Y-%m-%d')
+
+
+def inteiro_query(nome, padrao, minimo=None, maximo=None):
+    valor = request.args.get(nome, padrao)
+    try:
+        valor = int(valor)
+    except (TypeError, ValueError):
+        return None, f'O campo "{nome}" precisa ser um número.'
+    if minimo is not None:
+        valor = max(minimo, valor)
+    if maximo is not None:
+        valor = min(maximo, valor)
+    return valor, None
 
 
 def normalizar_categoria_triagem(categoria):
@@ -286,23 +319,25 @@ def valor_ocupa_sala(valor, padrao=None):
     return 1 if str(valor).strip().lower() in ('1', 'true', 'sim', 'yes') else 0
 
 
-def calcular_ocupa_sala(categoria, paciente='', observacao='', data_especifica='', triagem=0):
+def motivo_ocupacao_sala(categoria, paciente='', observacao='', data_especifica='', triagem=0):
     categoria = (categoria or '').strip().upper()
     paciente = (paciente or '').strip()
     observacao = (observacao or '').strip()
     data_especifica = (data_especifica or '').strip()
 
     if paciente:
-        return 1
+        return 'paciente'
     if valor_triagem(triagem, 0) and paciente:
-        return 1
-    if categoria in (
-        'SUPERVISÃO', 'NACE', 'SOU', 'NUTRIÇÃO', 'PSICODIAGNÓSTICO',
-        'PSIQUIATRIA', 'AMBULATÓRIO NEUROPSICOLOGIA', 'PLANTÃO PSICOLÓGICO',
-        'PRONTUÁRIO/ESTUDAR'
-    ):
-        return 1
+        return 'triagem_com_paciente'
+    if categoria in CATEGORIAS_OCUPAM_SALA:
+        return 'categoria'
     if data_especifica and observacao:
+        return 'reserva_pontual'
+    return ''
+
+
+def calcular_ocupa_sala(categoria, paciente='', observacao='', data_especifica='', triagem=0):
+    if motivo_ocupacao_sala(categoria, paciente, observacao, data_especifica, triagem):
         return 1
     return 0
 
@@ -458,6 +493,41 @@ def enviar_email(destinatario, assunto, corpo):
         return False
 
 
+def enviar_email_multiplos(destinatarios, assunto, corpo):
+    enviados = 0
+    for destinatario in sorted(set(d for d in destinatarios if d)):
+        if enviar_email(destinatario, assunto, corpo):
+            enviados += 1
+    return enviados
+
+
+def emails_usuarios_por_papel(*papeis):
+    if not papeis:
+        return []
+    placeholders = ','.join('?' for _ in papeis)
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            f"""
+            SELECT email
+            FROM usuarios
+            WHERE ativo=1
+              AND TRIM(COALESCE(email, ''))!=''
+              AND role IN ({placeholders})
+            """,
+            papeis
+        ).fetchall()
+    finally:
+        conn.close()
+    return [r['email'] for r in rows]
+
+
+def nome_exibicao_usuario(usuario_row):
+    if not usuario_row:
+        return ''
+    return usuario_row['nome_completo'] or usuario_row['username']
+
+
 def hash_token(token):
     return hashlib.sha256(token.encode('utf-8')).hexdigest()
 
@@ -514,6 +584,39 @@ def preparar_convite_criacao_conta(conn, usuario_row):
     )
 
 
+def preparar_aviso_conta_criada(usuario_row):
+    if not usuario_row or not usuario_row['email']:
+        return None
+    link = url_absoluta('login')
+    return (
+        usuario_row['email'],
+        'Conta criada no Mapa de Sala',
+        (
+            f'Olá, {nome_exibicao_usuario(usuario_row)}.\n\n'
+            'Sua conta no Mapa de Sala foi criada pela coordenação.\n\n'
+            f'Acesse o sistema por este link:\n{link}\n\n'
+            'Se você ainda não recebeu sua senha, procure a coordenação ou use a opção de recuperar senha.'
+        )
+    )
+
+
+def notificar_senha_alterada_email(usuario_row, origem):
+    if not usuario_row or not usuario_row['email']:
+        return False
+    quando = datetime.now().strftime('%d/%m/%Y %H:%M')
+    origem_txt = 'por recuperação de senha' if origem == 'reset' else 'na tela de troca de senha'
+    return enviar_email(
+        usuario_row['email'],
+        'Senha alterada - Mapa de Sala',
+        (
+            f'Olá, {nome_exibicao_usuario(usuario_row)}.\n\n'
+            f'Sua senha do Mapa de Sala foi alterada {origem_txt} em {quando}.\n\n'
+            'Se foi você, nenhuma ação é necessária.\n'
+            'Se não foi você, avise a coordenação imediatamente.'
+        )
+    )
+
+
 def resumo_agendamento_email(dados_ag):
     tipo = 'triagem' if int(dados_ag.get('triagem') or 0) else 'atendimento'
     ocupacao = 'com paciente marcado' if (dados_ag.get('paciente') or '').strip() else 'sem paciente vinculado'
@@ -548,7 +651,11 @@ def notificar_agendamento_email(dados_ag, acao):
     finally:
         conn.close()
 
-    titulo_acao = 'criado' if acao == 'criado' else 'alterado'
+    titulo_acao = {
+        'criado': 'criado',
+        'alterado': 'alterado',
+        'excluido': 'excluído',
+    }.get(acao, 'atualizado')
     corpo_base = (
         f'Um agendamento foi {titulo_acao} no Mapa de Sala.\n\n'
         f'{resumo_agendamento_email(dados_ag)}\n\n'
@@ -565,6 +672,28 @@ def notificar_agendamento_email(dados_ag, acao):
         )
 
 
+def notificar_reserva_solicitada_email(reserva):
+    if not reserva:
+        return 0
+    tipo = 'sala' if reserva.get('tipo') == 'sala' else 'teste/instrumento'
+    detalhe = reserva.get('tipo_sala') if reserva.get('tipo') == 'sala' else reserva.get('instrumento')
+    corpo = (
+        f'Uma nova reserva de {tipo} foi solicitada no Mapa de Sala.\n\n'
+        f'Aluno: {reserva.get("usuario")}\n'
+        f'Data: {reserva.get("data_uso")}\n'
+        f'Horário: {reserva.get("horario_inicio")}'
+        f'{(" até " + reserva.get("horario_fim")) if reserva.get("horario_fim") else ""}\n'
+        f'Detalhe: {detalhe or "-"}\n'
+        f'Finalidade: {reserva.get("finalidade") or "-"}\n\n'
+        'Acesse a tela de Reservas para aprovar ou recusar.'
+    )
+    return enviar_email_multiplos(
+        emails_usuarios_por_papel('coordenador', 'recepcao'),
+        'Nova reserva aguardando análise - Mapa de Sala',
+        corpo
+    )
+
+
 def notificar_reserva_email(reserva, status, resposta=''):
     if not reserva or not reserva.get('usuario_id'):
         return False
@@ -577,7 +706,12 @@ def notificar_reserva_email(reserva, status, resposta=''):
         return False
 
     tipo = 'sala' if reserva.get('tipo') == 'sala' else 'teste/instrumento'
-    status_txt = 'aprovada' if status == 'aprovada' else 'recusada'
+    status_txt = {
+        'aprovada': 'aprovada',
+        'recusada': 'recusada',
+        'separado': 'com instrumento separado',
+        'guardado': 'com instrumento guardado/devolvido',
+    }.get(status, status)
     detalhe = reserva.get('sala_atribuida') if reserva.get('tipo') == 'sala' else reserva.get('instrumento')
     corpo = (
         f'Sua reserva de {tipo} foi {status_txt}.\n\n'
@@ -707,162 +841,269 @@ def migrar_categorias_triagem(conn):
 
 
 def recalcular_ocupacao_sala_agendamentos(conn):
+    placeholders = ','.join('?' for _ in CATEGORIAS_OCUPAM_SALA)
     conn.execute(
-        """
+        f"""
         UPDATE agendamentos
         SET ocupa_sala = CASE
             WHEN TRIM(COALESCE(paciente, '')) != '' THEN 1
-            WHEN categoria IN (
-                'SUPERVISÃO', 'NACE', 'SOU', 'NUTRIÇÃO', 'PSICODIAGNÓSTICO',
-                'PSIQUIATRIA', 'AMBULATÓRIO NEUROPSICOLOGIA', 'PLANTÃO PSICOLÓGICO',
-                'PRONTUÁRIO/ESTUDAR'
-            ) THEN 1
+            WHEN categoria IN ({placeholders}) THEN 1
             WHEN TRIM(COALESCE(data_especifica, '')) != ''
                  AND TRIM(COALESCE(observacao, '')) != '' THEN 1
             ELSE 0
         END
-        """
+        """,
+        CATEGORIAS_OCUPAM_SALA
     )
 
 
-def init_db():
-    conn = get_db()
-    try:
-        conn.executescript(
-            "CREATE TABLE IF NOT EXISTS agendamentos ("
-            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-            "dia_semana TEXT DEFAULT 'SEGUNDA',"
-            "horario TEXT NOT NULL,"
-            "sala TEXT NOT NULL,"
-            "estagiario TEXT DEFAULT '',"
-            "paciente TEXT DEFAULT '',"
-            "categoria TEXT DEFAULT '',"
-            "semestre INTEGER DEFAULT 0,"
-            "triagem INTEGER DEFAULT 0,"
+def criar_tabelas_base(conn):
+    conn.executescript(
+        "CREATE TABLE IF NOT EXISTS agendamentos ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "dia_semana TEXT DEFAULT 'SEGUNDA',"
+        "horario TEXT NOT NULL,"
+        "sala TEXT NOT NULL,"
+        "estagiario TEXT DEFAULT '',"
+        "paciente TEXT DEFAULT '',"
+        "categoria TEXT DEFAULT '',"
+        "semestre INTEGER DEFAULT 0,"
+        "triagem INTEGER DEFAULT 0,"
         "observacao TEXT DEFAULT '',"
         "data_especifica TEXT DEFAULT '',"
         "usuario_id INTEGER DEFAULT NULL REFERENCES usuarios(id) ON DELETE SET NULL,"
         "ocupa_sala INTEGER DEFAULT 0,"
         "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
-            "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
-            ");"
-            "CREATE TABLE IF NOT EXISTS historico ("
-            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-            "usuario TEXT DEFAULT '',"
-            "acao TEXT,"
-            "dados TEXT,"
-            "ip TEXT DEFAULT '',"
-            "user_agent TEXT DEFAULT '',"
-            "ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
-            ");"
-            "CREATE TABLE IF NOT EXISTS usuarios ("
-            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-            "username TEXT NOT NULL UNIQUE,"
-            "password_hash TEXT NOT NULL,"
-            "role TEXT NOT NULL DEFAULT 'aluno',"
-            "nome_completo TEXT DEFAULT '',"
-            "email TEXT DEFAULT '',"
-            "supervisor_id INTEGER DEFAULT NULL REFERENCES usuarios(id) ON DELETE SET NULL,"
-            "ativo INTEGER DEFAULT 1,"
-            "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
-            ");"
-            "CREATE TABLE IF NOT EXISTS tokens_email ("
-            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-            "usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,"
-            "tipo TEXT NOT NULL,"
-            "token_hash TEXT NOT NULL UNIQUE,"
-            "expira_em TIMESTAMP NOT NULL,"
-            "usado_em TIMESTAMP DEFAULT NULL,"
-            "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
-            ");"
-            "CREATE TABLE IF NOT EXISTS reservas ("
-            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-            "usuario_id INTEGER DEFAULT NULL REFERENCES usuarios(id) ON DELETE SET NULL,"
-            "usuario TEXT DEFAULT '',"
-            "tipo TEXT NOT NULL,"
-            "status TEXT DEFAULT 'pendente',"
-            "data_uso TEXT NOT NULL,"
-            "horario_inicio TEXT DEFAULT '',"
-            "horario_fim TEXT DEFAULT '',"
-            "tipo_sala TEXT DEFAULT '',"
-            "sala_atribuida TEXT DEFAULT '',"
-            "instrumento TEXT DEFAULT '',"
-            "finalidade TEXT DEFAULT '',"
-            "observacao TEXT DEFAULT '',"
-            "resposta TEXT DEFAULT '',"
-            "agendamento_ids TEXT DEFAULT '',"
-            "analisado_por TEXT DEFAULT '',"
-            "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
-            "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
-            ");"
-            "CREATE INDEX IF NOT EXISTS idx_reservas_status ON reservas(status);"
-            "CREATE INDEX IF NOT EXISTS idx_reservas_usuario ON reservas(usuario_id);"
-            "CREATE TABLE IF NOT EXISTS tarefas_painel ("
-            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-            "titulo TEXT NOT NULL,"
-            "detalhe TEXT DEFAULT '',"
-            "criado_por TEXT DEFAULT '',"
-            "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
-            ");"
-        )
-        existe = conn.execute("SELECT id FROM usuarios WHERE username='coordenador'").fetchone()
-        if not existe:
-            conn.execute(
-                "INSERT INTO usuarios(username, password_hash, role) VALUES(?,?,?)",
-                ('coordenador', generate_password_hash('mudar@2026'), 'coordenador')
-            )
-        cols = [r[1] for r in conn.execute("PRAGMA table_info(agendamentos)").fetchall()]
-        ocupa_col_criada = False
-        if 'usuario_id' not in cols:
-            conn.execute("ALTER TABLE agendamentos ADD COLUMN usuario_id INTEGER DEFAULT NULL")
-            conn.commit()
-        if 'ocupa_sala' not in cols:
-            conn.execute("ALTER TABLE agendamentos ADD COLUMN ocupa_sala INTEGER DEFAULT 0")
-            ocupa_col_criada = True
-            conn.commit()
-        cols_usuarios = [r[1] for r in conn.execute("PRAGMA table_info(usuarios)").fetchall()]
-        if 'email' not in cols_usuarios:
-            conn.execute("ALTER TABLE usuarios ADD COLUMN email TEXT DEFAULT ''")
-            conn.commit()
-        if 'ativo' not in cols_usuarios:
-            conn.execute("ALTER TABLE usuarios ADD COLUMN ativo INTEGER DEFAULT 1")
-            conn.commit()
-        if 'supervisor_id' not in cols_usuarios:
-            conn.execute("ALTER TABLE usuarios ADD COLUMN supervisor_id INTEGER DEFAULT NULL")
-            conn.commit()
-        cols_historico = [r[1] for r in conn.execute("PRAGMA table_info(historico)").fetchall()]
-        if 'ip' not in cols_historico:
-            conn.execute("ALTER TABLE historico ADD COLUMN ip TEXT DEFAULT ''")
-            conn.commit()
-        if 'user_agent' not in cols_historico:
-            conn.execute("ALTER TABLE historico ADD COLUMN user_agent TEXT DEFAULT ''")
-            conn.commit()
-        migrar_fk_usuario_id_agendamentos(conn)
-        corrigir_vinculos_alunos_agendamentos(conn)
-        migrar_categorias_triagem(conn)
-        if ocupa_col_criada:
-            recalcular_ocupacao_sala_agendamentos(conn)
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+        ");"
+        "CREATE TABLE IF NOT EXISTS historico ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "usuario TEXT DEFAULT '',"
+        "acao TEXT,"
+        "dados TEXT,"
+        "ip TEXT DEFAULT '',"
+        "user_agent TEXT DEFAULT '',"
+        "ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+        ");"
+        "CREATE TABLE IF NOT EXISTS usuarios ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "username TEXT NOT NULL UNIQUE,"
+        "password_hash TEXT NOT NULL,"
+        "role TEXT NOT NULL DEFAULT 'aluno',"
+        "nome_completo TEXT DEFAULT '',"
+        "email TEXT DEFAULT '',"
+        "supervisor_id INTEGER DEFAULT NULL REFERENCES usuarios(id) ON DELETE SET NULL,"
+        "ativo INTEGER DEFAULT 1,"
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+        ");"
+        "CREATE TABLE IF NOT EXISTS tokens_email ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,"
+        "tipo TEXT NOT NULL,"
+        "token_hash TEXT NOT NULL UNIQUE,"
+        "expira_em TIMESTAMP NOT NULL,"
+        "usado_em TIMESTAMP DEFAULT NULL,"
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+        ");"
+        "CREATE TABLE IF NOT EXISTS reservas ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "usuario_id INTEGER DEFAULT NULL REFERENCES usuarios(id) ON DELETE SET NULL,"
+        "usuario TEXT DEFAULT '',"
+        "tipo TEXT NOT NULL,"
+        "status TEXT DEFAULT 'pendente',"
+        "data_uso TEXT NOT NULL,"
+        "horario_inicio TEXT DEFAULT '',"
+        "horario_fim TEXT DEFAULT '',"
+        "tipo_sala TEXT DEFAULT '',"
+        "sala_atribuida TEXT DEFAULT '',"
+        "instrumento TEXT DEFAULT '',"
+        "finalidade TEXT DEFAULT '',"
+        "observacao TEXT DEFAULT '',"
+        "resposta TEXT DEFAULT '',"
+        "agendamento_ids TEXT DEFAULT '',"
+        "analisado_por TEXT DEFAULT '',"
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+        ");"
+        "CREATE INDEX IF NOT EXISTS idx_reservas_status ON reservas(status);"
+        "CREATE INDEX IF NOT EXISTS idx_reservas_usuario ON reservas(usuario_id);"
+        "CREATE TABLE IF NOT EXISTS tarefas_painel ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "titulo TEXT NOT NULL,"
+        "detalhe TEXT DEFAULT '',"
+        "criado_por TEXT DEFAULT '',"
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+        ");"
+        "CREATE TABLE IF NOT EXISTS schema_migrations ("
+        "version TEXT PRIMARY KEY,"
+        "description TEXT DEFAULT '',"
+        "applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+        ");"
+    )
+
+
+def criar_usuario_coordenador_padrao(conn):
+    existe = conn.execute("SELECT id FROM usuarios WHERE username='coordenador'").fetchone()
+    if existe:
+        return
+    conn.execute(
+        "INSERT INTO usuarios(username, password_hash, role) VALUES(?,?,?)",
+        ('coordenador', generate_password_hash('mudar@2026'), 'coordenador')
+    )
+
+
+def adicionar_coluna_se_ausente(conn, tabela, coluna, sql_alter):
+    cols = [r[1] for r in conn.execute(f"PRAGMA table_info({tabela})").fetchall()]
+    if coluna in cols:
+        return False
+    conn.execute(sql_alter)
+    return True
+
+
+def migration_ja_aplicada(conn, version):
+    row = conn.execute('SELECT 1 FROM schema_migrations WHERE version=?', (version,)).fetchone()
+    return bool(row)
+
+
+def registrar_migration(conn, version, description):
+    conn.execute(
+        'INSERT OR IGNORE INTO schema_migrations(version, description) VALUES(?,?)',
+        (version, description)
+    )
+
+
+def executar_migration(conn, version, description, func):
+    if migration_ja_aplicada(conn, version):
+        return False
+    func(conn)
+    registrar_migration(conn, version, description)
+    return True
+
+
+def aplicar_migracoes_simples(conn):
+    ocupa_col_criada = adicionar_coluna_se_ausente(
+        conn,
+        'agendamentos',
+        'ocupa_sala',
+        "ALTER TABLE agendamentos ADD COLUMN ocupa_sala INTEGER DEFAULT 0"
+    )
+    adicionar_coluna_se_ausente(
+        conn,
+        'agendamentos',
+        'usuario_id',
+        "ALTER TABLE agendamentos ADD COLUMN usuario_id INTEGER DEFAULT NULL"
+    )
+    adicionar_coluna_se_ausente(conn, 'usuarios', 'email', "ALTER TABLE usuarios ADD COLUMN email TEXT DEFAULT ''")
+    adicionar_coluna_se_ausente(conn, 'usuarios', 'ativo', "ALTER TABLE usuarios ADD COLUMN ativo INTEGER DEFAULT 1")
+    adicionar_coluna_se_ausente(
+        conn,
+        'usuarios',
+        'supervisor_id',
+        "ALTER TABLE usuarios ADD COLUMN supervisor_id INTEGER DEFAULT NULL"
+    )
+    adicionar_coluna_se_ausente(conn, 'historico', 'ip', "ALTER TABLE historico ADD COLUMN ip TEXT DEFAULT ''")
+    adicionar_coluna_se_ausente(
+        conn,
+        'historico',
+        'user_agent',
+        "ALTER TABLE historico ADD COLUMN user_agent TEXT DEFAULT ''"
+    )
+    return ocupa_col_criada
+
+
+def aplicar_migracoes_dados(conn):
+    migrar_fk_usuario_id_agendamentos(conn)
+    corrigir_vinculos_alunos_agendamentos(conn)
+    executar_migration(
+        conn,
+        '2026-06-30-categorias-triagem',
+        'Normaliza categorias antigas de triagem',
+        migrar_categorias_triagem
+    )
+    executar_migration(
+        conn,
+        '2026-07-01-recalcular-ocupacao-sala',
+        'Recalcula ocupa_sala com regra centralizada',
+        recalcular_ocupacao_sala_agendamentos
+    )
+
+
+def init_db():
+    with db_connection(commit=True) as conn:
+        criar_tabelas_base(conn)
+        criar_usuario_coordenador_padrao(conn)
+        aplicar_migracoes_simples(conn)
+        aplicar_migracoes_dados(conn)
         criar_indices_agendamentos(conn)
         limpar_logs_antigos(conn)
-        conn.commit()
-    finally:
-        conn.close()
 
 
 def registrar_log(acao, dados=''):
     usuario = current_user.username if current_user.is_authenticated else 'sistema'
     ip = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
     user_agent = (request.headers.get('User-Agent') or '')[:300]
-    conn = get_db()
-    try:
+    with db_connection(commit=True) as conn:
         conn.execute(
             'INSERT INTO historico(usuario, acao, dados, ip, user_agent) VALUES(?,?,?,?,?)',
             (usuario, acao, dados, ip, user_agent)
         )
         limpar_logs_antigos(conn)
-        conn.commit()
+
+
+def coletar_saude_sistema():
+    with db_connection() as conn:
+        integridade = conn.execute('PRAGMA integrity_check').fetchone()[0]
+        ultimo_backup = conn.execute(
+            "SELECT ts, usuario, dados FROM historico WHERE acao='BACKUP' ORDER BY ts DESC LIMIT 1"
+        ).fetchone()
+        migrations = conn.execute(
+            'SELECT version, description, applied_at FROM schema_migrations ORDER BY applied_at DESC, version DESC'
+        ).fetchall()
+        return {
+            'versao': VERSAO,
+            'banco_ok': integridade == 'ok',
+            'integridade': integridade,
+            'usuarios_total': conn.execute('SELECT COUNT(*) FROM usuarios').fetchone()[0],
+            'usuarios_ativos': conn.execute('SELECT COUNT(*) FROM usuarios WHERE ativo=1').fetchone()[0],
+            'agendamentos_total': conn.execute('SELECT COUNT(*) FROM agendamentos').fetchone()[0],
+            'reservas_pendentes': conn.execute("SELECT COUNT(*) FROM reservas WHERE status='pendente'").fetchone()[0],
+            'logs_total': conn.execute('SELECT COUNT(*) FROM historico').fetchone()[0],
+            'ultimo_backup': dict(ultimo_backup) if ultimo_backup else None,
+            'migrations': [dict(row) for row in migrations],
+        }
+
+
+def descricao_agendamento_log(agendamento_id, dados):
+    data = dados.get('data_especifica') or dados.get('dia') or dados.get('dia_semana') or ''
+    return (
+        f'Agendamento #{agendamento_id} - '
+        f'sala: {dados.get("sala", "")}, '
+        f'horario: {dados.get("horario", "")}, '
+        f'data/dia: {data}'
+    )
+
+
+def criar_backup_sqlite_bytes():
+    origem = sqlite3.connect(DB_PATH, timeout=10)
+    tmp = tempfile.NamedTemporaryFile(prefix='backup_mapa_', suffix='.db', delete=False)
+    tmp_path = tmp.name
+    tmp.close()
+    destino = sqlite3.connect(tmp_path)
+    try:
+        origem.backup(destino)
+        destino.close()
+        with open(tmp_path, 'rb') as f:
+            return f.read()
     finally:
-        conn.close()
+        origem.close()
+        try:
+            destino.close()
+        except sqlite3.Error:
+            pass
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
 
 
 def checar_conflito(dia, horario, sala, data_especifica='', excluir_id=None):
@@ -1185,6 +1426,7 @@ def redefinir_senha(token):
             conn.close()
 
         registrar_log('DEFINIR_SENHA_EMAIL', f'Usuário {row["username"]} definiu senha por link de {tipo}')
+        notificar_senha_alterada_email(row, 'reset')
         flash('Senha definida com sucesso. Faça login para entrar.', 'success')
         return redirect(url_for('login'))
 
@@ -1842,6 +2084,15 @@ def meus_agendamentos():
             """,
             (current_user.id, current_user.username, data_hoje_iso())
         ).fetchall()
+        reservas_pendentes_aluno = conn.execute(
+            """
+            SELECT COUNT(*) AS total
+            FROM reservas
+            WHERE usuario_id=? AND status='pendente'
+            """
+            ,
+            (current_user.id,)
+        ).fetchone()['total']
     finally:
         conn.close()
 
@@ -1956,6 +2207,7 @@ def meus_agendamentos():
             1 for ag in horarios_fixos
             if ag.get('eh_triagem') and not ag.get('tem_paciente') and not ag.get('paciente_pontual_label')
         ),
+        reservas_pendentes_aluno=reservas_pendentes_aluno,
         usuario=current_user.username,
         papel=current_user.role,
         papel_label=PAPEIS_LABEL.get(current_user.role, current_user.role)
@@ -1974,6 +2226,7 @@ reservas_mod.registrar_rotas_reservas(app, {
     'detect_sem': detect_sem,
     'registrar_log': registrar_log,
     'notificar_reserva_email': notificar_reserva_email,
+    'notificar_reserva_solicitada_email': notificar_reserva_solicitada_email,
     'HORARIOS': HORARIOS,
     'SALAS': SALAS,
     'SALAS_RESERVAVEIS': SALAS_RESERVAVEIS,
@@ -2053,6 +2306,7 @@ def trocar_senha():
         finally:
             conn.close()
         registrar_log('TROCAR_SENHA', f'Usuário {current_user.username} alterou a própria senha')
+        notificar_senha_alterada_email(row, 'troca')
         flash('Senha alterada com sucesso!', 'success')
         return redirect(url_for('perfil'))
     return render_template('trocar_senha.html', usuario=current_user.username, papel=current_user.role)
@@ -2102,6 +2356,18 @@ def imprimir(dia):
 @requer_papel_page('coordenador')
 def logs_page():
     return render_template('logs.html', usuario=current_user.username, papel=current_user.role)
+
+
+@app.route('/saude')
+@login_required
+@requer_papel_page('coordenador')
+def saude_sistema():
+    return render_template(
+        'saude.html',
+        usuario=current_user.username,
+        papel=current_user.role,
+        saude=coletar_saude_sistema()
+    )
 
 
 # ========================================
@@ -2176,7 +2442,7 @@ def api_list_usuarios():
 def api_criar_usuario():
     d = request.get_json(silent=True)
     if not d:
-        return jsonify({'erro': 'JSON inválido ou Content-Type incorreto'}), 400
+        return jsonify({'erro': 'Não consegui ler os dados enviados. Recarregue a página e tente novamente.'}), 400
 
     username = (d.get('username') or '').strip()
     email = (d.get('email') or '').strip()
@@ -2202,6 +2468,7 @@ def api_criar_usuario():
     try:
         conn = get_db()
         email_convite = None
+        email_conta_criada = None
         try:
             senha_inicial = password or secrets.token_urlsafe(18)
             if supervisor_id:
@@ -2220,11 +2487,16 @@ def api_criar_usuario():
             if enviar_convite and email:
                 usuario_row = conn.execute('SELECT * FROM usuarios WHERE id=?', (usuario_id,)).fetchone()
                 email_convite = preparar_convite_criacao_conta(conn, usuario_row)
+            elif email:
+                usuario_row = conn.execute('SELECT * FROM usuarios WHERE id=?', (usuario_id,)).fetchone()
+                email_conta_criada = preparar_aviso_conta_criada(usuario_row)
             conn.commit()
         finally:
             conn.close()
         if email_convite:
             email_enviado = enviar_email(*email_convite)
+        elif email_conta_criada:
+            email_enviado = enviar_email(*email_conta_criada)
         registrar_log('CRIAR_USUARIO', f'Usuário "{username}" ({role}) criado')
         return jsonify({'message': 'Usuário criado', 'email_enviado': email_enviado}), 201
     except sqlite3.IntegrityError:
@@ -2238,7 +2510,7 @@ def api_criar_usuario():
 def api_editar_usuario(uid):
     d = request.get_json(silent=True)
     if not d:
-        return jsonify({'erro': 'JSON inválido ou Content-Type incorreto'}), 400
+        return jsonify({'erro': 'Não consegui ler os dados enviados. Recarregue a página e tente novamente.'}), 400
 
     conn = get_db()
     try:
@@ -2248,7 +2520,7 @@ def api_editar_usuario(uid):
         new_username = (d.get('username', row['username']) or '').strip()
         new_email = (d.get('email', row['email']) or '').strip()
         if not new_username:
-            return jsonify({'erro': 'Usuario e obrigatorio'}), 400
+            return jsonify({'erro': 'Informe o nome de usuário.'}), 400
         new_role = (d.get('role') or row['role']).strip()
         if new_role not in PAPEIS_VALIDOS:
             return jsonify({'erro': 'Papel inválido'}), 400
@@ -2486,7 +2758,7 @@ def get_ag(aid):
 def create_ag():
     d = request.get_json(silent=True)
     if not d:
-        return jsonify({'erro': 'JSON inválido ou Content-Type incorreto'}), 400
+        return jsonify({'erro': 'Não consegui ler os dados do agendamento. Recarregue a página e tente novamente.'}), 400
 
     dados_ag, erro = preparar_dados_agendamento(d, current_user.id if current_user.is_authenticated else None)
     if erro:
@@ -2520,7 +2792,7 @@ def create_ag():
     except sqlite3.IntegrityError:
         return jsonify({'erro': 'Conflito: esse horário já foi ocupado por outro agendamento.'}), 409
 
-    registrar_log('CRIAR', f'Agendamento #{nid} criado — sala: {dados_ag["sala"]} {dados_ag["horario"]}')
+    registrar_log('CRIAR', descricao_agendamento_log(nid, dados_ag) + ' criado')
     if row_notificacao:
         notificar_agendamento_email(dict(row_notificacao), 'criado')
     return jsonify({'id': nid, 'message': 'Criado'}), 201
@@ -2533,7 +2805,7 @@ def create_ag():
 def update_ag(aid):
     d = request.get_json(silent=True)
     if not d:
-        return jsonify({'erro': 'JSON inválido ou Content-Type incorreto'}), 400
+        return jsonify({'erro': 'Não consegui ler os dados do agendamento. Recarregue a página e tente novamente.'}), 400
 
     dados_ag, erro = preparar_dados_agendamento(d)
     if erro:
@@ -2574,7 +2846,7 @@ def update_ag(aid):
                 )
             )
             if cur.rowcount == 0:
-                return jsonify({'erro': 'Agendamento nao encontrado'}), 404
+                return jsonify({'erro': 'Agendamento não encontrado. Ele pode ter sido removido por outra pessoa.'}), 404
             row_notificacao = conn.execute('SELECT * FROM agendamentos WHERE id=?', (aid,)).fetchone()
             conn.commit()
         finally:
@@ -2582,7 +2854,7 @@ def update_ag(aid):
     except sqlite3.IntegrityError:
         return jsonify({'erro': 'Conflito: esse horário já foi ocupado por outro agendamento.'}), 409
 
-    registrar_log('EDITAR', f'Agendamento #{aid} editado — sala: {dados_ag["sala"]} {dados_ag["horario"]}')
+    registrar_log('EDITAR', descricao_agendamento_log(aid, dados_ag) + ' editado')
     if row_notificacao:
         notificar_agendamento_email(dict(row_notificacao), 'alterado')
     return jsonify({'message': 'Atualizado'})
@@ -2601,7 +2873,8 @@ def delete_ag(aid):
     finally:
         conn.close()
     if r:
-        registrar_log('EXCLUIR', f'Agendamento #{aid} excluído — sala: {r["sala"]} {r["horario"]}')
+        registrar_log('EXCLUIR', descricao_agendamento_log(aid, dict(r)) + ' excluido')
+        notificar_agendamento_email(dict(r), 'excluido')
     return jsonify({'message': 'Removido'})
 
 
@@ -2614,7 +2887,7 @@ def delete_ag(aid):
 def stats():
     dia = request.args.get('dia_semana', 'SEGUNDA')
     if dia not in DIAS:
-        return jsonify({'erro': f'Dia inválido: {dia}'}), 400
+        return jsonify({'erro': 'Escolha um dia da semana válido.'}), 400
     filtro_visao = (
         "((dia_semana=? AND (data_especifica IS NULL OR data_especifica = '')) "
         "OR (data_especifica IS NOT NULL AND data_especifica != '' "
@@ -2701,8 +2974,12 @@ def export_xlsx():
 @login_required
 @requer_papel('coordenador')
 def get_logs():
-    pagina = max(1, int(request.args.get('pagina', 1)))
-    por_pag = min(100, max(10, int(request.args.get('por_pagina', 50))))
+    pagina, erro = inteiro_query('pagina', 1, minimo=1)
+    if erro:
+        return jsonify({'erro': erro}), 400
+    por_pag, erro = inteiro_query('por_pagina', 50, minimo=10, maximo=100)
+    if erro:
+        return jsonify({'erro': erro}), 400
     usuario = request.args.get('usuario', '').strip()
     acao = request.args.get('acao', '').strip()
     data_ini = request.args.get('data_ini', '').strip()
@@ -3148,9 +3425,12 @@ def backup_db():
             papel=current_user.role,
             versao=VERSAO
         )
-    registrar_log('BACKUP', f'Backup manual baixado por {current_user.username} — IP: {request.remote_addr}')
+    backup_bytes = criar_backup_sqlite_bytes()
+    ip = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
+    registrar_log('BACKUP', f'Backup manual baixado por coordenador #{current_user.id} - IP: {ip}')
     return send_file(
-        DB_PATH,
+        io.BytesIO(backup_bytes),
+        mimetype='application/x-sqlite3',
         as_attachment=True,
         download_name=f'backup_mapa_{datetime.now().strftime("%Y%m%d_%H%M")}.db'
     )

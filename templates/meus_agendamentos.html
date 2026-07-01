@@ -29,22 +29,27 @@
       <div>
         <p class="eyebrow">Área do aluno</p>
         <h1>Seu mapa pessoal</h1>
-        <p class="muted">Veja seus pacientes marcados e os horários fixos que ainda estão sem paciente.</p>
+        <p class="muted">Vejá separado quando você tem paciente marcado, horário aberto e reserva pendente.</p>
       </div>
       <div class="hero-actions">
-        <a href="#pacientes" class="filter-btn active">Pacientes</a>
-        <a href="#fixos" class="filter-btn">Sem paciente</a>
+        <a href="#pacientes" class="filter-btn active">Tenho paciente</a>
+        <a href="#fixos" class="filter-btn">Tenho horário aberto</a>
       </div>
     </section>
 
     <section class="summary">
-      <div class="summary-card">
-        <span>Com paciente</span>
+      <div class="summary-card patient-summary">
+        <span>Você tem paciente marcado</span>
         <strong>{{ total_atendimentos }}</strong>
       </div>
-      <div class="summary-card">
-        <span>Fixos sem paciente</span>
+      <div class="summary-card open-summary">
+        <span>Você tem horário aberto</span>
+        <em>Fixos sem paciente</em>
         <strong>{{ total_fixos }}</strong>
+      </div>
+      <div class="summary-card pending-summary">
+        <span>Você tem reserva pendente</span>
+        <strong>{{ reservas_pendentes_aluno }}</strong>
       </div>
       <div class="summary-card">
         <span>Pacientes pontuais</span>
@@ -56,16 +61,36 @@
       </div>
     </section>
 
+    {% if reservas_pendentes_aluno %}
+    <section class="student-alert pending">
+      <i data-lucide="bell"></i>
+      <div>
+        <strong>Você tem reserva pendente aguardando análise.</strong>
+        <span>Acompanhe o andamento na tela de Reservas.</span>
+      </div>
+    </section>
+    {% endif %}
+
+    {% if total_triagens_livres %}
+    <section class="student-alert">
+      <i data-lucide="clipboard-check"></i>
+      <div>
+        <strong>Você tem triagem livre ainda sem paciente marcado.</strong>
+        <span>Esse horário continua reservado para você, mas a recepção ainda não vinculou um paciente.</span>
+      </div>
+    </section>
+    {% endif %}
+
     <section class="section-head" id="semana">
       <div>
         <p class="eyebrow">Visão semanal</p>
-        <h2>Sua semana no mapa</h2>
+        <h2>Sua semana não mapa</h2>
       </div>
-      <span>Paciente marcado e horário reservado sem paciente</span>
+      <span>Separado por paciente marcado e horário aberto</span>
     </section>
 
     <section class="week-board">
-      {% for dia in semana_aluno %}
+      {% for dia in semana_alunão %}
       <article class="day-column">
         <header>{{ dia.label }}</header>
         {% if dia.itens %}
@@ -83,10 +108,10 @@
                 {% if ag.semana_tipo == 'paciente' %}
                 <span>Paciente marcado</span>
                 {% else %}
-                <span>Sem paciente</span>
+                <span>Horário aberto</span>
                 {% endif %}
                 {% if ag.triagem %}<span>Triagem</span>{% endif %}
-                {% if ag.data_label %}<span>{{ ag.data_label }}</span>{% endif %}
+                {% if ag.data_label %}<span>Somente {{ ag.data_label }}</span>{% else %}<span>Fixo semanal</span>{% endif %}
               </div>
             </div>
           </div>
@@ -102,7 +127,7 @@
     <section class="section-head" id="pacientes">
       <div>
         <p class="eyebrow">Agenda real</p>
-        <h2>Atendimentos com paciente</h2>
+        <h2>Tenho paciente marcado</h2>
       </div>
       <span>{{ total_atendimentos }} marcado(s)</span>
     </section>
@@ -129,7 +154,7 @@
           <div class="details">
             <div><i data-lucide="user"></i><span>Paciente: <strong>{{ ag.paciente }}</strong></span></div>
             {% if ag.data_label %}
-            <div><i data-lucide="calendar-check"></i><span>Data específica: <strong>{{ ag.data_label }}</strong></span></div>
+            <div><i data-lucide="calendar-check"></i><span>Somente nesta data: <strong>{{ ag.data_label }}</strong></span></div>
             {% else %}
             <div><i data-lucide="repeat"></i><span>Atendimento fixo semanal</span></div>
             {% endif %}
@@ -144,15 +169,15 @@
     {% else %}
     <section class="empty-state compact">
       <i data-lucide="calendar-x"></i>
-      <h2>Nenhum paciente marcado</h2>
-      <p>Se existir horário fixo seu ainda sem paciente, ele aparecerá abaixo.</p>
+      <h2>Você ainda não tem paciente marcado</h2>
+      <p>Quando a recepção marcar um paciente ou triagem, ele aparecer? nesta parte.</p>
     </section>
     {% endif %}
 
     <section class="section-head" id="fixos">
       <div>
         <p class="eyebrow">Reserva semanal</p>
-        <h2>Horários fixos sem paciente</h2>
+        <h2>Tenho horário aberto sem paciente</h2>
       </div>
       <span>{{ total_fixos }} aberto(s)</span>
     </section>
@@ -179,7 +204,7 @@
             <div><i data-lucide="calendar-check"></i><span>{{ ag.paciente_pontual_label }}</span></div>
             {% endif %}
             {% if ag.triagem %}
-            <div><i data-lucide="clipboard-check"></i><span>Horário de triagem</span></div>
+            <div class="triagem-warning"><i data-lucide="clipboard-check"></i><span>Triagem ainda sem paciente marcado</span></div>
             {% endif %}
             {% if ag.observacao %}
             <div><i data-lucide="sticky-note"></i><span>Obs.: {{ ag.observacao }}</span></div>
@@ -192,8 +217,8 @@
     {% else %}
     <section class="empty-state compact">
       <i data-lucide="calendar-days"></i>
-      <h2>Nenhum horário fixo sem paciente</h2>
-      <p>Isso significa que seus horários fixos já têm paciente marcado ou ainda não foram liberados para você.</p>
+      <h2>Nenhum horário aberto sem paciente</h2>
+      <p>Seus horários reservados j? t?m paciente marcado ou ainda não há horários liberados para você.</p>
     </section>
     {% endif %}
   </main>

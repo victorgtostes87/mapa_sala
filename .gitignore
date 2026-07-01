@@ -1,9 +1,24 @@
+# Python
 __pycache__/
+*.py[cod]
 *.pyc
-mapa_salas.db
 
-*.xlsx
-*.pyc
-__pycache__/
+# Banco de dados
+*.db
+*.db-*
+*.db-shm
+*.db-wal
+
+# Ambiente virtual
+.venv/
+venv/
+
+# Variaveis de ambiente
 .env
+
+# Logs
+*.log
+
+# Excel e backups
+*.xlsx
 *.bak

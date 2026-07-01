@@ -1,5 +1,6 @@
 ﻿import os
 import tempfile
+import io
 import unittest
 from datetime import datetime, timedelta
 
@@ -66,6 +67,22 @@ class MapaSalasTestCase(unittest.TestCase):
             sess['_user_id'] = str(row['id'])
             sess['_fresh'] = True
         return self.client.get('/')
+
+    def _capturar_emails(self):
+        emails = []
+        enviar_email_original = mapa.enviar_email
+
+        def enviar_email_fake(destinatario, assunto, corpo):
+            emails.append({
+                'destinatario': destinatario,
+                'assunto': assunto,
+                'corpo': corpo,
+            })
+            return True
+
+        mapa.enviar_email = enviar_email_fake
+        self.addCleanup(lambda: setattr(mapa, 'enviar_email', enviar_email_original))
+        return emails
 
     def _criar_agendamento_api(self, estagiario='aluno1', sala='Consultório 1'):
         return self.client.post(
@@ -164,6 +181,31 @@ class MapaSalasTestCase(unittest.TestCase):
             conn.close()
 
         self.assertIsNone(row)
+
+    def test_excluir_agendamento_notifica_aluno_por_email(self):
+        emails = self._capturar_emails()
+        conn = mapa.get_db()
+        try:
+            conn.execute('UPDATE usuarios SET email=? WHERE id=?', ('aluno1@example.com', self.aluno1_id))
+            conn.commit()
+        finally:
+            conn.close()
+
+        self._login('recepcao')
+        criado = self._criar_agendamento_api(estagiario='aluno1')
+        self.assertEqual(criado.status_code, 201)
+        ag_id = criado.get_json()['id']
+        emails.clear()
+
+        resp = self.client.delete(
+            f'/api/agendamentos/{ag_id}',
+            headers={'X-CSRFToken': self.csrf}
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(any(e['destinatario'] == 'aluno1@example.com' for e in emails))
+        self.assertTrue(any('Agendamento excluído' in e['assunto'] for e in emails))
+        self.assertFalse(any('Paciente Teste' in e['corpo'] for e in emails))
 
     def test_professor_entra_na_tela_de_supervisao(self):
         resp = self._login('professor1')
@@ -525,6 +567,73 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertIsNotNone(row)
         self.assertEqual(row['status'], 'pendente')
         self.assertEqual(row['instrumento'], 'HTP')
+
+    def test_solicitar_reserva_notifica_recepcao_por_email(self):
+        emails = self._capturar_emails()
+        data_uso = self._data_util_com_antecedencia()
+        conn = mapa.get_db()
+        try:
+            conn.execute('UPDATE usuarios SET email=? WHERE id=?', ('recepcao@example.com', self.recepcao_id))
+            conn.commit()
+        finally:
+            conn.close()
+
+        self._login('aluno1')
+        resp = self.client.post(
+            '/reservas/instrumento',
+            data={
+                'csrf_token': self.csrf,
+                'data_uso': data_uso,
+                'horario_inicio': '08:00',
+                'instrumento': 'HTP',
+                'finalidade': 'Avaliação psicológica',
+                'observacao': ''
+            }
+        )
+
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(any(e['destinatario'] == 'recepcao@example.com' for e in emails))
+        self.assertTrue(any(e['assunto'] == 'Nova reserva aguardando análise - Mapa de Sala' for e in emails))
+
+    def test_status_instrumento_separado_notifica_aluno(self):
+        emails = self._capturar_emails()
+        data_uso = self._data_util_com_antecedencia()
+        conn = mapa.get_db()
+        try:
+            conn.execute('UPDATE usuarios SET email=? WHERE id=?', ('aluno1@example.com', self.aluno1_id))
+            conn.commit()
+        finally:
+            conn.close()
+
+        self._login('aluno1')
+        self.client.post(
+            '/reservas/instrumento',
+            data={
+                'csrf_token': self.csrf,
+                'data_uso': data_uso,
+                'horario_inicio': '08:00',
+                'instrumento': 'HTP',
+                'finalidade': 'Avaliação psicológica',
+                'observacao': ''
+            }
+        )
+        emails.clear()
+        conn = mapa.get_db()
+        try:
+            reserva = conn.execute("SELECT id FROM reservas WHERE tipo='instrumento'").fetchone()
+        finally:
+            conn.close()
+
+        self.client.get('/logout')
+        self._login('recepcao')
+        resp = self.client.post(
+            f'/reservas/{reserva["id"]}/status',
+            data={'csrf_token': self.csrf, 'status': 'separado'}
+        )
+
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(any(e['destinatario'] == 'aluno1@example.com' for e in emails))
+        self.assertTrue(any('instrumento separado' in e['corpo'] for e in emails))
 
     def test_aluno_solicita_reserva_de_sala_com_sugestao(self):
         data_uso = self._data_util_com_antecedencia()
@@ -937,6 +1046,28 @@ class MapaSalasTestCase(unittest.TestCase):
 
         self.assertEqual(row['email'], 'novo.aluno@example.com')
 
+    def test_cria_usuario_com_senha_envia_aviso_por_email(self):
+        emails = self._capturar_emails()
+        self._login('coordenador')
+
+        resp = self.client.post(
+            '/api/usuarios',
+            json={
+                'username': 'novo_com_email',
+                'email': 'novo.email@example.com',
+                'password': 'senha123',
+                'role': 'aluno',
+                'ativo': True
+            },
+            headers={'X-CSRFToken': self.csrf}
+        )
+
+        self.assertEqual(resp.status_code, 201)
+        self.assertTrue(resp.get_json()['email_enviado'])
+        self.assertEqual(len(emails), 1)
+        self.assertEqual(emails[0]['destinatario'], 'novo.email@example.com')
+        self.assertEqual(emails[0]['assunto'], 'Conta criada no Mapa de Sala')
+
     def test_cria_usuario_com_convite_por_email(self):
         self._login('coordenador')
 
@@ -996,6 +1127,31 @@ class MapaSalasTestCase(unittest.TestCase):
 
         self.assertIsNotNone(token)
 
+    def test_trocar_senha_envia_email_de_confirmacao(self):
+        emails = self._capturar_emails()
+        conn = mapa.get_db()
+        try:
+            conn.execute('UPDATE usuarios SET email=? WHERE id=?', ('aluno1@example.com', self.aluno1_id))
+            conn.commit()
+        finally:
+            conn.close()
+
+        self._login('aluno1')
+        resp = self.client.post(
+            '/trocar-senha',
+            data={
+                'csrf_token': self.csrf,
+                'senha_atual': 'senha123',
+                'nova_senha': 'senha1234',
+                'confirmar_senha': 'senha1234'
+            }
+        )
+
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(len(emails), 1)
+        self.assertEqual(emails[0]['destinatario'], 'aluno1@example.com')
+        self.assertEqual(emails[0]['assunto'], 'Senha alterada - Mapa de Sala')
+
     def test_backup_sem_confirmacao_mostra_pagina_amigavel(self):
         self._login('coordenador')
 
@@ -1003,6 +1159,91 @@ class MapaSalasTestCase(unittest.TestCase):
 
         self.assertEqual(resp.status_code, 200)
         self.assertIn('Backup do banco de dados', resp.get_data(as_text=True))
+
+    def test_backup_confirmado_baixa_sqlite_e_registra_log(self):
+        self._login('coordenador')
+
+        resp = self.client.get('/api/backup?confirmar=sim')
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('attachment;', resp.headers.get('Content-Disposition', ''))
+        self.assertTrue(resp.data.startswith(b'SQLite format 3'))
+
+        conn = mapa.get_db()
+        try:
+            row = conn.execute("SELECT * FROM historico WHERE acao='BACKUP'").fetchone()
+        finally:
+            conn.close()
+
+        self.assertIsNotNone(row)
+
+    def test_aluno_nao_pode_baixar_backup_nem_ver_saude(self):
+        self._login('aluno1')
+
+        backup = self.client.get('/api/backup?confirmar=sim')
+        saude = self.client.get('/saude')
+
+        self.assertEqual(backup.status_code, 403)
+        self.assertEqual(saude.status_code, 302)
+
+    def test_pagina_saude_mostra_banco_ok_e_versao(self):
+        self._login('coordenador')
+
+        resp = self.client.get('/saude')
+        html = resp.get_data(as_text=True)
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('Saúde do Sistema', html)
+        self.assertIn('Banco de dados', html)
+        self.assertIn(mapa.VERSAO, html)
+
+    def test_log_de_agendamento_nao_expoe_nome_do_paciente(self):
+        self._login('recepcao')
+
+        resp = self._criar_agendamento_api(estagiario='aluno1', sala='Consultório 1')
+
+        self.assertEqual(resp.status_code, 201)
+        conn = mapa.get_db()
+        try:
+            row = conn.execute("SELECT dados FROM historico WHERE acao='CRIAR' ORDER BY id DESC LIMIT 1").fetchone()
+        finally:
+            conn.close()
+
+        self.assertIsNotNone(row)
+        self.assertNotIn('Paciente Teste', row['dados'])
+        self.assertIn('Consultório 1', row['dados'])
+
+    def test_importacao_csv_cria_agendamento(self):
+        self._login('coordenador')
+        conteudo = (
+            'Dia,Horário,Sala,Estagiário,Paciente,Categoria\n'
+            'SEGUNDA,15:00,Consultório 8,aluno1,Paciente CSV,ESTAGIÁRIO 9°\n'
+        ).encode('utf-8-sig')
+
+        resp = self.client.post(
+            '/api/import',
+            data={
+                'file': (io.BytesIO(conteudo), 'mapa.csv')
+            },
+            headers={'X-CSRFToken': self.csrf},
+            content_type='multipart/form-data'
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.get_json()['inseridos'], 1)
+
+    def test_recepcao_nao_pode_importar_csv(self):
+        self._login('recepcao')
+        conteudo = b'Dia,Horario,Sala\n'
+
+        resp = self.client.post(
+            '/api/import',
+            data={'file': (io.BytesIO(conteudo), 'mapa.csv')},
+            headers={'X-CSRFToken': self.csrf},
+            content_type='multipart/form-data'
+        )
+
+        self.assertEqual(resp.status_code, 403)
 
     def test_aluno_nao_abre_detalhe_de_outro_aluno_por_id(self):
         conn = mapa.get_db()

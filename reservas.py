@@ -293,7 +293,7 @@ def registrar_rotas_reservas(app, deps):
         ]
         aprovadas_instrumentos = [
             r for r in minhas_reservas
-            if r.get('tipo') == 'instrumento' and r.get('status') in ('aprovada', 'separado', 'retirado')
+            if r.get('tipo') == 'instrumento' and r.get('status') in ('aprovada', 'separado', 'retirado', 'devolvido', 'guardado')
         ]
 
         return render_template(
@@ -628,12 +628,64 @@ def registrar_rotas_reservas(app, deps):
         flash('Reserva reaberta para correção. Ela voltou para a lista de pendentes.', 'success')
         return redirect(url_for('reservas'))
 
+    @app.route('/reservas/<int:rid>/corrigir-sala', methods=['POST'])
+    @login_required
+    @requer_papel('coordenador', 'recepcao')
+    def corrigir_reserva_sala(rid):
+        acao = request.form.get('acao', '').strip()
+        if acao not in ('pendente', 'recusada'):
+            flash('Escolha o que deseja corrigir na reserva de sala.', 'error')
+            return redirect(url_for('reservas'))
+
+        conn = get_db()
+        try:
+            reserva = conn.execute("SELECT * FROM reservas WHERE id=?", (rid,)).fetchone()
+            if not reserva or reserva['tipo'] != 'sala':
+                flash('Reserva de sala não encontrada.', 'error')
+                return redirect(url_for('reservas'))
+
+            ids = ids_agendamentos_reserva(reserva)
+            if ids:
+                placeholders = ','.join('?' for _ in ids)
+                conn.execute(f'DELETE FROM agendamentos WHERE id IN ({placeholders})', ids)
+
+            if acao == 'pendente':
+                conn.execute(
+                    """
+                    UPDATE reservas
+                    SET status='pendente', resposta='', agendamento_ids='',
+                        analisado_por=?, updated_at=CURRENT_TIMESTAMP
+                    WHERE id=?
+                    """,
+                    (current_user.username, rid)
+                )
+                mensagem = 'Reserva voltou para pendentes.'
+            else:
+                conn.execute(
+                    """
+                    UPDATE reservas
+                    SET status='recusada', agendamento_ids='',
+                        analisado_por=?, updated_at=CURRENT_TIMESTAMP
+                    WHERE id=?
+                    """,
+                    (current_user.username, rid)
+                )
+                mensagem = 'Reserva marcada como recusada.'
+
+            conn.commit()
+        finally:
+            conn.close()
+
+        registrar_log('CORRIGIR_RESERVA_SALA', f'Reserva #{rid} ajustada para {acao} por {current_user.username}')
+        flash(mensagem, 'success')
+        return redirect(url_for('reservas'))
+
     @app.route('/reservas/<int:rid>/status', methods=['POST'])
     @login_required
     @requer_papel('coordenador', 'recepcao')
     def atualizar_status_reserva(rid):
         novo_status = request.form.get('status', '').strip()
-        status_validos = ('aprovada', 'separado', 'retirado', 'devolvido', 'guardado')
+        status_validos = ('pendente', 'aprovada', 'separado', 'retirado', 'devolvido', 'guardado', 'recusada')
         if novo_status not in status_validos:
             flash('Status inválido.', 'error')
             return redirect(url_for('reservas'))
@@ -645,10 +697,6 @@ def registrar_rotas_reservas(app, deps):
             if not reserva or reserva['tipo'] != 'instrumento':
                 flash('Reserva de instrumento não encontrada.', 'error')
                 return redirect(url_for('reservas'))
-            if reserva['status'] == 'recusada':
-                flash('Uma reserva recusada não pode mudar de status.', 'error')
-                return redirect(url_for('reservas'))
-
             conn.execute(
                 """
                 UPDATE reservas

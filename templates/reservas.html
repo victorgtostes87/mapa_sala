@@ -66,9 +66,19 @@
       </form>
     </div>
     {% elif modo == 'corrigir' %}
-    <form class="inline-action" method="post" action="/reservas/{{ r.id }}/reabrir">
+    <form class="correction-box" method="post" action="/reservas/{{ r.id }}/corrigir-sala">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button class="btn correction" type="submit"><i data-lucide="rotate-ccw"></i> Corrigir</button>
+      <label>Corrigir reserva</label>
+      <div class="correction-line">
+        <select name="acao" required>
+          <option value="">Escolha o ajuste</option>
+          <option value="pendente">Voltar para pendentes</option>
+          {% if r.status != 'recusada' %}
+          <option value="recusada">Marcar como recusada</option>
+          {% endif %}
+        </select>
+        <button class="btn correction" type="submit"><i data-lucide="save"></i> Salvar correção</button>
+      </div>
     </form>
     {% endif %}
   </article>
@@ -110,31 +120,22 @@
       </form>
     </div>
     {% elif modo == 'corrigir' %}
-    <div class="button-row">
-      {% if r.status == 'aprovada' %}
-      <form method="post" action="/reservas/{{ r.id }}/status">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="status" value="separado">
-        <button class="btn secondary" type="submit"><i data-lucide="archive"></i> Separado</button>
-      </form>
-      {% elif r.status == 'separado' %}
-      <form method="post" action="/reservas/{{ r.id }}/status">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="status" value="retirado">
-        <button class="btn secondary" type="submit"><i data-lucide="hand"></i> Retirado</button>
-      </form>
-      {% elif r.status == 'retirado' %}
-      <form method="post" action="/reservas/{{ r.id }}/status">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="status" value="devolvido">
-        <button class="btn secondary" type="submit"><i data-lucide="undo-2"></i> Devolvido</button>
-      </form>
-      {% endif %}
-      <form method="post" action="/reservas/{{ r.id }}/reabrir">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button class="btn correction" type="submit"><i data-lucide="rotate-ccw"></i> Corrigir</button>
-      </form>
-    </div>
+    <form class="correction-box" method="post" action="/reservas/{{ r.id }}/status">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Corrigir status do teste</label>
+      <div class="correction-line">
+        <select name="status" required>
+          <option value="">Escolha o status correto</option>
+          <option value="pendente" {% if r.status == 'pendente' %}selected{% endif %}>Pendente</option>
+          <option value="aprovada" {% if r.status == 'aprovada' %}selected{% endif %}>Aprovado</option>
+          <option value="separado" {% if r.status == 'separado' %}selected{% endif %}>Separado</option>
+          <option value="retirado" {% if r.status == 'retirado' %}selected{% endif %}>Retirado</option>
+          <option value="devolvido" {% if r.status == 'devolvido' %}selected{% endif %}>Devolvido</option>
+          <option value="recusada" {% if r.status == 'recusada' %}selected{% endif %}>Recusado</option>
+        </select>
+        <button class="btn correction" type="submit"><i data-lucide="save"></i> Salvar correção</button>
+      </div>
+    </form>
     {% endif %}
   </article>
   {% endmacro %}

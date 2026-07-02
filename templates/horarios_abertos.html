@@ -34,21 +34,6 @@
       <a class="hero-action" href="/mapa"><i data-lucide="layout-grid"></i> Abrir mapa</a>
     </section>
 
-    <section class="quick-guide">
-      <div>
-        <i data-lucide="mouse-pointer-click"></i>
-        <span>1. Escolha o tipo de horário</span>
-      </div>
-      <div>
-        <i data-lucide="calendar-clock"></i>
-        <span>2. Veja dia, sala e aluno</span>
-      </div>
-      <div>
-        <i data-lucide="user-plus"></i>
-        <span>3. Marque o paciente</span>
-      </div>
-    </section>
-
     <section class="filter-panel" aria-label="Filtros de horários">
       <button class="filter-btn active" type="button" data-filter="todos">
         <i data-lucide="list-filter"></i>
@@ -78,7 +63,7 @@
         {% if dia.itens %}
         <div class="slot-list">
           {% for ag in dia.itens %}
-          <article class="slot-card {{ ag.tipo_codigo }}" data-slot-type="{{ ag.tipo_codigo }}">
+          <a class="slot-card {{ ag.tipo_codigo }}" data-slot-type="{{ ag.tipo_codigo }}" href="/mapa?dia_semana={{ ag.dia_semana|urlencode }}&horario={{ ag.horario|urlencode }}&sala={{ ag.sala|urlencode }}&abrir_agendamento={{ ag.id }}">
             <div class="slot-action">
               <span class="action-pill {{ ag.tipo_codigo }}">{{ ag.acao_recepcao }}</span>
               <span class="type-text">{{ ag.tipo_abertura }}</span>
@@ -98,7 +83,7 @@
             </div>
 
             <p>{{ ag.aviso }}</p>
-          </article>
+          </a>
           {% endfor %}
         </div>
         <div class="empty filtered-empty" hidden>

@@ -474,7 +474,45 @@ function showToast(msg,type='success'){
   t.textContent=msg; t.className='toast show '+type;
   setTimeout(()=>t.className='toast',3000);
 }
-renderGrid();
+
+function aplicarParametrosMapaInicial(){
+  const params = new URLSearchParams(window.location.search);
+  const dia = params.get('dia_semana');
+  const horario = params.get('horario');
+  const sala = params.get('sala');
+  const data = params.get('data');
+  if(dia && DIAS.includes(dia)){
+    currentDay = dia;
+    setActiveDayByIndex(DIAS.indexOf(dia));
+  }
+  if(horario && HORARIOS.includes(horario)){
+    document.getElementById('filterHorario').value = horario;
+  }
+  if(sala && SALAS.includes(sala)){
+    document.getElementById('filterSala').value = sala;
+  }
+  if(data){
+    document.getElementById('filterData').value = data;
+    syncDayWithDate(data);
+  }
+}
+
+function abrirAgendamentoInicial(){
+  const params = new URLSearchParams(window.location.search);
+  const abrirId = params.get('abrir_agendamento');
+  const horario = params.get('horario');
+  const sala = params.get('sala');
+  if(abrirId){
+    openModal(parseInt(abrirId, 10));
+    return;
+  }
+  if(params.get('novo') === '1' && horario && sala){
+    openModalNew(horario, sala);
+  }
+}
+
+aplicarParametrosMapaInicial();
+renderGrid().then(abrirAgendamentoInicial);
 document.getElementById('importForm')?.addEventListener('submit', submitImportExcel);
 
 function toggleMenu(e){

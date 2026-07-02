@@ -74,29 +74,7 @@ h3{font-size:15px;color:#f8fafc}
 }
 
 .hero-action i,
-.filter-btn i,
-.quick-guide i{width:17px;height:17px}
-
-.quick-guide{
-  display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:10px;
-  margin-bottom:12px;
-}
-
-.quick-guide div{
-  display:flex;
-  align-items:center;
-  gap:9px;
-  background:var(--surface);
-  border:1px solid var(--border);
-  border-radius:var(--radius);
-  padding:12px;
-  color:#cbd5e1;
-  font-weight:800;
-}
-
-.quick-guide i{color:#93c5fd;flex:0 0 auto}
+.filter-btn i{width:17px;height:17px}
 
 .filter-panel{
   display:flex;
@@ -106,7 +84,7 @@ h3{font-size:15px;color:#f8fafc}
   border:1px solid var(--border);
   border-radius:var(--radius);
   padding:10px;
-  margin-bottom:14px;
+  margin-bottom:12px;
 }
 
 .filter-btn{
@@ -140,8 +118,8 @@ h3{font-size:15px;color:#f8fafc}
   background:var(--surface);
   border:1px solid var(--border);
   border-radius:var(--radius);
-  padding:16px;
-  min-height:180px;
+  padding:12px;
+  min-height:130px;
 }
 
 .day-head{
@@ -149,12 +127,12 @@ h3{font-size:15px;color:#f8fafc}
   align-items:flex-start;
   justify-content:space-between;
   gap:12px;
-  margin-bottom:12px;
+  margin-bottom:9px;
 }
 
 .slot-list{
   display:grid;
-  gap:9px;
+  gap:7px;
 }
 
 .slot-card{
@@ -162,9 +140,18 @@ h3{font-size:15px;color:#f8fafc}
   border:1px solid var(--border);
   border-left:4px solid #65a30d;
   border-radius:var(--radius);
-  padding:11px;
+  padding:9px 10px;
   display:grid;
-  gap:9px;
+  gap:7px;
+  color:var(--text);
+  text-decoration:none;
+  transition:border-color .15s ease,background .15s ease,transform .15s ease;
+}
+
+.slot-card:hover{
+  border-color:#60a5fa;
+  background:#172033;
+  transform:translateY(-1px);
 }
 
 .slot-card.triagem{border-left-color:#0ea5e9}
@@ -181,8 +168,8 @@ h3{font-size:15px;color:#f8fafc}
   display:inline-flex;
   align-items:center;
   border-radius:999px;
-  padding:5px 9px;
-  font-size:11px;
+  padding:4px 8px;
+  font-size:10px;
   font-weight:900;
   text-transform:uppercase;
   letter-spacing:.3px;
@@ -193,20 +180,20 @@ h3{font-size:15px;color:#f8fafc}
 
 .type-text{
   color:#bfdbfe;
-  font-size:12px;
+  font-size:11px;
   font-weight:900;
 }
 
 .slot-main{
   display:grid;
-  grid-template-columns:72px 1fr;
-  gap:10px;
+  grid-template-columns:64px 1fr;
+  gap:8px;
   align-items:center;
 }
 
 .slot-main strong{
   color:#93c5fd;
-  font-size:22px;
+  font-size:20px;
   line-height:1;
 }
 
@@ -221,7 +208,7 @@ h3{font-size:15px;color:#f8fafc}
   flex-wrap:wrap;
   gap:7px 12px;
   color:#cbd5e1;
-  font-size:12px;
+  font-size:11px;
 }
 
 .slot-details span{
@@ -239,7 +226,7 @@ h3{font-size:15px;color:#f8fafc}
 .slot-card p{
   color:var(--text2);
   line-height:1.35;
-  font-size:12px;
+  font-size:11px;
 }
 
 .empty{
@@ -281,7 +268,6 @@ h3{font-size:15px;color:#f8fafc}
   h1{font-size:22px}
   .hero-action,
   .filter-btn{width:100%}
-  .quick-guide,
   .open-week{grid-template-columns:1fr}
   .filter-panel{display:grid;grid-template-columns:1fr}
   .day-panel{padding:14px}

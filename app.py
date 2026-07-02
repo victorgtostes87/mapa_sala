@@ -1096,6 +1096,54 @@ def criar_usuario_coordenador_padrao(conn):
     )
 
 
+SUPERVISORES_PADRAO = (
+    ('fabio.nogueira', 'Fabio Nogueira Pereira'),
+    ('roger.machado', 'Roger Elias Bernabé Machado'),
+    ('eduardo.lopes', 'Eduardo Barbosa Lopes'),
+    ('rodrigo.salgado', 'Rodrigo Cruvinel Salgado'),
+    ('luanza.mai', 'Luanza Pavesi Mai'),
+    ('cleilson.reis', 'Cleilson Teobaldo Reis'),
+    ('simone.pylro', 'Simone Chabudee Pylro'),
+    ('hildiceia.affonso', 'Hildiceia Dos Santos Affonso'),
+    ('christiane.ronchete', 'Christiane Furlan Ronchete'),
+    ('jaqueline.bagalho', 'Jaqueline Oliveira Bagalho'),
+)
+
+
+def criar_supervisores_padrao(conn):
+    for username, nome_completo in SUPERVISORES_PADRAO:
+        existente_por_nome = conn.execute(
+            """
+            SELECT id
+            FROM usuarios
+            WHERE role='professor'
+              AND LOWER(TRIM(nome_completo))=LOWER(TRIM(?))
+            """,
+            (nome_completo,)
+        ).fetchone()
+        if existente_por_nome:
+            conn.execute(
+                "UPDATE usuarios SET ativo=1 WHERE id=?",
+                (existente_por_nome['id'],)
+            )
+            continue
+
+        username_final = username
+        sufixo = 2
+        while conn.execute('SELECT id FROM usuarios WHERE username=?', (username_final,)).fetchone():
+            username_final = f'{username}.{sufixo}'
+            sufixo += 1
+
+        senha_aleatoria = secrets.token_urlsafe(24)
+        conn.execute(
+            """
+            INSERT INTO usuarios(username, nome_completo, password_hash, role, ativo)
+            VALUES(?,?,?,?,1)
+            """,
+            (username_final, nome_completo, generate_password_hash(senha_aleatoria), 'professor')
+        )
+
+
 def adicionar_coluna_se_ausente(conn, tabela, coluna, sql_alter):
     cols = [r[1] for r in conn.execute(f"PRAGMA table_info({tabela})").fetchall()]
     if coluna in cols:
@@ -1175,6 +1223,12 @@ def aplicar_migracoes_dados(conn):
         '2026-07-01-recalcular-ocupacao-sala',
         'Recalcula ocupa_sala com regra centralizada',
         recalcular_ocupacao_sala_agendamentos
+    )
+    executar_migration(
+        conn,
+        '2026-07-02-supervisores-padrao',
+        'Cadastra professores supervisores padrao',
+        criar_supervisores_padrao
     )
 
 

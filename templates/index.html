@@ -77,6 +77,12 @@
     {% for s in salas %}<option>{{s}}</option>{% endfor %}</select>
   <select id="filterCat" onchange="renderGrid()"><option value="">Todas categorias</option>
     {% for c in categorias %}<option>{{c}}</option>{% endfor %}</select>
+  <select id="filterSupervisor" onchange="renderGrid()">
+    <option value="">Todos supervisores</option>
+    {% for prof in professores %}
+    <option value="{{ prof.id }}">{{ prof.nome_completo or prof.username }}</option>
+    {% endfor %}
+  </select>
   <select id="filterOcupacao" onchange="renderGrid()">
     <option value="">Todas ocupaÃ§Ãµes</option>
     <option value="1">Somente salas ocupadas</option>
@@ -141,6 +147,7 @@
       <div class="form-row"><label>EstagiÃ¡rio / ConteÃºdo</label>
         <div class="ac-wrap"><input type="text" id="fEstagiario" placeholder="Digite o nome do estagiÃ¡rio..." autocomplete="off" oninput="atualizarOcupacaoPreview()">
         <div id="estSuggestions" class="ac-box"></div></div></div>
+      <div class="occupancy-hint" id="supervisorHint">Supervisor: nÃ£o definido</div>
       <div class="form-row"><label>Paciente</label>
         <input type="text" id="fPaciente" placeholder="Nome do paciente" oninput="atualizarOcupacaoPreview();verificarConflito()"></div>
       <div class="form-grid">
@@ -251,6 +258,7 @@ window.MAPA_CONFIG = {
   salas: {{ salas | tojson }},
   horarios: {{ horarios | tojson }},
   dias: {{ dias | tojson }},
+  professores: {{ professores | tojson }},
   papel: {{ papel | tojson }},
   csrfToken: {{ csrf_token() | tojson }}
 };

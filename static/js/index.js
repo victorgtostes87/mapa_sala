@@ -1,6 +1,7 @@
 const SALAS = window.MAPA_CONFIG.salas;
 const HORARIOS = window.MAPA_CONFIG.horarios;
 const DIAS = window.MAPA_CONFIG.dias;
+const PROFESSORES = window.MAPA_CONFIG.professores || [];
 const PAPEL = window.MAPA_CONFIG.papel;
 const CSRF_TOKEN = window.MAPA_CONFIG.csrfToken;
 const PODE_EDITAR = ['coordenador','recepcao'].includes(PAPEL);
@@ -65,6 +66,7 @@ async function loadData() {
   const horario = document.getElementById('filterHorario').value;
   const sala    = document.getElementById('filterSala').value;
   const cat     = document.getElementById('filterCat').value;
+  const supervisor = document.getElementById('filterSupervisor')?.value || '';
   const ocupacao= document.getElementById('filterOcupacao').value;
   const busca   = document.getElementById('searchInput').value.trim();
   const data    = document.getElementById('filterData').value;
@@ -72,6 +74,7 @@ async function loadData() {
   if (horario) p.set('horario', horario);
   if (sala)    p.set('sala', sala);
   if (cat)     p.set('categoria', cat);
+  if (supervisor) p.set('supervisor_id', supervisor);
   if (ocupacao !== '') p.set('ocupa_sala', ocupacao);
   if (busca)   p.set('busca', busca);
   if (data)    p.set('data', data);
@@ -80,7 +83,10 @@ async function loadData() {
   return await res.json();
 }
 async function loadStats() {
-  const res = await fetch('/api/stats?dia_semana='+currentDay);
+  const p = new URLSearchParams({dia_semana: currentDay});
+  const supervisor = document.getElementById('filterSupervisor')?.value || '';
+  if (supervisor) p.set('supervisor_id', supervisor);
+  const res = await fetch('/api/stats?'+p);
   if (!res.ok) return;
   const d = await res.json();
   document.getElementById('stTotal').textContent = d.total;
@@ -149,12 +155,14 @@ function renderAgendamentoCell(ag, cellTemOcupacao=false){
   const estadoSala = statusLabel ? 'cell-atendimento-cancelado' : (temPaciente ? 'cell-com-paciente' : 'cell-fixo-sem-paciente');
   const tipoData = ag.data_especifica ? 'cell-pontual' : 'cell-fixo';
   const obsHtml = ag.observacao ? '<div class="obs">'+esc(ag.observacao)+'</div>' : '';
+  const supervisorHtml = ag.supervisor_nome ? '<div class="obs">Supervisor: '+esc(ag.supervisor_nome)+'</div>' : '';
   const editBtn   = PODE_EDITAR ? `<button class="edit-btn" onclick="event.stopPropagation();openModal(${ag.id})">Editar</button>` : '';
   const usarBtn = PODE_EDITAR && !ocupa && !cellTemOcupacao ? `<button class="use-room-btn" onclick="event.stopPropagation();openUsoPontual('${escAttr(ag.horario)}','${escAttr(ag.sala)}')">+ Usar sala</button>` : '';
   return `<div class="cell ${cls} ${estadoSala} ${tipoData}" onclick="openModal(${ag.id})">
     ${editBtn}
     <div class="intern">${esc(ag.estagiario)}</div>
     ${ag.paciente ? '<div class="patient">'+esc(ag.paciente)+'</div>' : ''}
+    ${supervisorHtml}
     ${obsHtml}
     <div style="display:flex;gap:3px;flex-wrap:wrap">${statusHtml}${badgeHtml}${dataHtml}</div>
     ${usarBtn}
@@ -182,7 +190,7 @@ function formatarDataCurta(data){
 function esc(t){ if(!t)return''; return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function escAttr(t){ return esc(t).replace(/'/g,'&#39;').replace(/"/g,'&quot;'); }
 function debounceRender(){ clearTimeout(debTimer); debTimer=setTimeout(renderGrid,300); }
-function clearFilters(){ document.getElementById('searchInput').value=''; document.getElementById('filterData').value=''; document.getElementById('filterHorario').value=''; document.getElementById('filterSala').value=''; document.getElementById('filterCat').value=''; document.getElementById('filterOcupacao').value=''; renderGrid(); }
+function clearFilters(){ document.getElementById('searchInput').value=''; document.getElementById('filterData').value=''; document.getElementById('filterHorario').value=''; document.getElementById('filterSala').value=''; document.getElementById('filterCat').value=''; if(document.getElementById('filterSupervisor')) document.getElementById('filterSupervisor').value=''; document.getElementById('filterOcupacao').value=''; renderGrid(); }
 function calcularOcupaSalaLocal(){
   const status = document.getElementById('fStatusAtendimento')?.value || '';
   if(status) return false;
@@ -303,6 +311,7 @@ async function openModal(id){
       if (!r.ok) throw new Error(d.erro || 'Não foi possível abrir o agendamento.');
       setF('fDia',d.dia_semana); setF('fHorario',d.horario); setF('fSala',d.sala);
       document.getElementById('fEstagiario').value=d.estagiario||'';
+      atualizarSupervisorHint(d.supervisor_nome || '');
       document.getElementById('fPaciente').value=d.paciente||'';
       setF('fCategoria',d.categoria); setF('fTriagem',d.triagem);
       setF('fStatusAtendimento',d.status_atendimento || '');
@@ -316,6 +325,7 @@ async function openModal(id){
   } else {
     setF('fDia',currentDay); setF('fCategoria',''); setF('fTriagem',0); setF('fStatusAtendimento',''); setF('fOcupaSala','');
     ['fEstagiario','fPaciente','fData','fObs'].forEach(id=>document.getElementById(id).value='');
+    atualizarSupervisorHint('');
     document.getElementById('fObs').placeholder='Ex: estudar, lançar prontuário, professor não liberou, uso interno...';
     document.getElementById('fData').value=document.getElementById('filterData').value||'';
   }
@@ -481,6 +491,7 @@ function aplicarParametrosMapaInicial(){
   const horario = params.get('horario');
   const sala = params.get('sala');
   const data = params.get('data');
+  const supervisor = params.get('supervisor_id');
   if(dia && DIAS.includes(dia)){
     currentDay = dia;
     setActiveDayByIndex(DIAS.indexOf(dia));
@@ -494,6 +505,9 @@ function aplicarParametrosMapaInicial(){
   if(data){
     document.getElementById('filterData').value = data;
     syncDayWithDate(data);
+  }
+  if(supervisor && document.getElementById('filterSupervisor')){
+    document.getElementById('filterSupervisor').value = supervisor;
   }
 }
 
@@ -528,10 +542,23 @@ document.addEventListener('click', function(){
 
 var _estList = [];
 fetch('/api/estagiarios').then(function(r){return r.json();}).then(function(users){
-  _estList = users.map(function(u){return u.username;});
+  _estList = users || [];
 }).catch(function(){
   _estList = [];
 });
+
+function supervisorNomeDoAluno(username){
+  var alvo = String(username || '').trim().toLowerCase();
+  if(!alvo) return '';
+  var aluno = _estList.find(function(u){ return String(u.username || '').toLowerCase() === alvo; });
+  return aluno ? (aluno.supervisor_nome || '') : '';
+}
+
+function atualizarSupervisorHint(nome){
+  var hint = document.getElementById('supervisorHint');
+  if(!hint) return;
+  hint.textContent = nome ? ('Supervisor: ' + nome) : 'Supervisor: nao definido';
+}
 
 document.addEventListener('DOMContentLoaded', function() {
   if(window.lucide) lucide.createIcons();
@@ -542,16 +569,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
   fEst.addEventListener('input', function() {
     var val = this.value.trim().toLowerCase();
+    atualizarSupervisorHint(supervisorNomeDoAluno(this.value));
     acBox.innerHTML = '';
     acIdx = -1;
     if (!val || !_estList.length) { acBox.style.display='none'; return; }
-    var matches = _estList.filter(function(n){ return n.toLowerCase().includes(val); });
+    var matches = _estList.filter(function(u){ return String(u.username || '').toLowerCase().includes(val); });
     if (!matches.length) { acBox.style.display='none'; return; }
-    matches.forEach(function(name) {
+    matches.forEach(function(user) {
       var d = document.createElement('div');
       d.className = 'ac-item';
-      d.textContent = name;
-      d.addEventListener('mousedown', function() { fEst.value = name; acBox.style.display='none'; });
+      d.textContent = user.supervisor_nome ? `${user.username} - ${user.supervisor_nome}` : user.username;
+      d.addEventListener('mousedown', function() {
+        fEst.value = user.username;
+        atualizarSupervisorHint(user.supervisor_nome || '');
+        acBox.style.display='none';
+      });
       acBox.appendChild(d);
     });
     acBox.style.display = 'block';
@@ -561,7 +593,13 @@ document.addEventListener('DOMContentLoaded', function() {
     var items = acBox.querySelectorAll('.ac-item');
     if (e.key==='ArrowDown'){acIdx=Math.min(acIdx+1,items.length-1);items.forEach(function(el,i){el.classList.toggle('active',i===acIdx);});e.preventDefault();}
     else if(e.key==='ArrowUp'){acIdx=Math.max(acIdx-1,0);items.forEach(function(el,i){el.classList.toggle('active',i===acIdx);});e.preventDefault();}
-    else if(e.key==='Enter'&&acIdx>=0){fEst.value=items[acIdx].textContent;acBox.style.display='none';e.preventDefault();}
+    else if(e.key==='Enter'&&acIdx>=0){
+      var texto = items[acIdx].textContent.split(' - ')[0];
+      fEst.value=texto;
+      atualizarSupervisorHint(supervisorNomeDoAluno(texto));
+      acBox.style.display='none';
+      e.preventDefault();
+    }
     else if(e.key==='Escape'){acBox.style.display='none';}
   });
 

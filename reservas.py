@@ -199,6 +199,14 @@ def registrar_rotas_reservas(app, deps):
             salas_reservaveis=salas_reservaveis,
         )
 
+    reserva_select = """
+        SELECT r.*,
+               COALESCE(NULLIF(p.nome_completo, ''), p.username, '') AS supervisor_nome
+        FROM reservas r
+        LEFT JOIN usuarios u ON u.id = r.usuario_id
+        LEFT JOIN usuarios p ON p.id = u.supervisor_id
+    """
+
     def limpar_salas_vencidas(conn):
         vencidas = conn.execute(
             """
@@ -229,37 +237,31 @@ def registrar_rotas_reservas(app, deps):
                 conn.commit()
             if current_user.role == 'aluno':
                 rows = conn.execute(
-                    """
-                    SELECT *
-                    FROM reservas
-                    WHERE usuario_id=?
-                      AND (tipo!='sala' OR data_uso>=?)
+                    reserva_select + """
+                    WHERE r.usuario_id=?
+                      AND (r.tipo!='sala' OR r.data_uso>=?)
                     ORDER BY
-                      CASE status WHEN 'pendente' THEN 1 WHEN 'aprovada' THEN 2 ELSE 3 END,
-                      data_uso,
-                      horario_inicio
+                      CASE r.status WHEN 'pendente' THEN 1 WHEN 'aprovada' THEN 2 ELSE 3 END,
+                      r.data_uso,
+                      r.horario_inicio
                     """,
                     (current_user.id, data_hoje_iso())
                 ).fetchall()
                 pendentes = []
             elif current_user.role in ('coordenador', 'recepcao'):
                 pendentes = conn.execute(
-                    """
-                    SELECT *
-                    FROM reservas
-                    WHERE status='pendente'
-                      AND (tipo!='sala' OR data_uso>=?)
-                    ORDER BY created_at, data_uso, horario_inicio
+                    reserva_select + """
+                    WHERE r.status='pendente'
+                      AND (r.tipo!='sala' OR r.data_uso>=?)
+                    ORDER BY r.created_at, r.data_uso, r.horario_inicio
                     """,
                     (data_hoje_iso(),)
                 ).fetchall()
                 rows = conn.execute(
-                    """
-                    SELECT *
-                    FROM reservas
-                    WHERE status!='pendente'
-                      AND (tipo!='sala' OR data_uso>=?)
-                    ORDER BY updated_at DESC
+                    reserva_select + """
+                    WHERE r.status!='pendente'
+                      AND (r.tipo!='sala' OR r.data_uso>=?)
+                    ORDER BY r.updated_at DESC
                     """,
                     (data_hoje_iso(),)
                 ).fetchall()
@@ -268,16 +270,14 @@ def registrar_rotas_reservas(app, deps):
                 return redirect(url_for('index'))
 
             caderno_rows = conn.execute(
-                """
-                SELECT *
-                FROM reservas
-                WHERE tipo='instrumento'
-                  AND status!='recusada'
-                  AND status!='guardado'
-                  AND status!='retirado'
-                  AND status!='devolvido'
-                  AND data_uso>=?
-                ORDER BY data_uso, horario_inicio, usuario
+                reserva_select + """
+                WHERE r.tipo='instrumento'
+                  AND r.status!='recusada'
+                  AND r.status!='guardado'
+                  AND r.status!='retirado'
+                  AND r.status!='devolvido'
+                  AND r.data_uso>=?
+                ORDER BY r.data_uso, r.horario_inicio, r.usuario
                 """,
                 (data_hoje_iso(),)
             ).fetchall()

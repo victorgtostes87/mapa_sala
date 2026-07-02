@@ -34,6 +34,21 @@
       </div>
     </section>
 
+    <form method="get" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:16px">
+      <label style="display:grid;gap:6px;font-size:12px;font-weight:700">
+        Supervisor
+        <select name="supervisor_id" onchange="this.form.submit()" style="min-width:220px">
+          <option value="">Todos</option>
+          {% for prof in professores %}
+          <option value="{{ prof.id }}" {% if supervisor_id == prof.id %}selected{% endif %}>{{ prof.nome_completo or prof.username }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      {% if supervisor_id %}
+      <a class="app-btn app-btn-ghost" href="{{ url_for('relatorio_semanal') }}">Limpar</a>
+      {% endif %}
+    </form>
+
     <section class="summary-grid compact-summary">
       <div class="summary-card neutral">
         <span>Uso de sala</span>
@@ -65,6 +80,24 @@
           </div>
           {% endfor %}
         </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Supervisores</p>
+            <h2>Uso por supervisor</h2>
+          </div>
+        </div>
+        {% if por_supervisor %}
+        <div class="task-list">
+          {% for item in por_supervisor %}
+          <div class="task-row"><strong>{{ item.supervisor }}</strong><span>{{ item.total }} uso(s)</span></div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty positive"><i data-lucide="users"></i><span>Nenhum uso de sala encontrado.</span></div>
+        {% endif %}
       </article>
 
       <article class="panel">

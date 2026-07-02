@@ -37,6 +37,9 @@
 
     <div class="meta-list">
       <span><i data-lucide="user"></i>{{ r.usuario }}</span>
+      {% if papel in ['coordenador', 'recepcao'] and r.supervisor_nome %}
+      <span><i data-lucide="graduation-cap"></i>{{ r.supervisor_nome }}</span>
+      {% endif %}
       <span><i data-lucide="calendar"></i>{{ r.data_label }}</span>
       <span><i data-lucide="clock"></i>{{ r.horario_inicio }}{% if r.horario_fim %} até {{ r.horario_fim }}{% endif %}</span>
       {% if r.tipo_sala_label %}<span><i data-lucide="monitor"></i>{{ r.tipo_sala_label }}</span>{% endif %}
@@ -97,6 +100,9 @@
 
     <div class="meta-list">
       <span><i data-lucide="user"></i>{{ r.usuario }}</span>
+      {% if papel in ['coordenador', 'recepcao'] and r.supervisor_nome %}
+      <span><i data-lucide="graduation-cap"></i>{{ r.supervisor_nome }}</span>
+      {% endif %}
       <span><i data-lucide="calendar"></i>{{ r.data_label }}</span>
       <span><i data-lucide="clock"></i>{{ r.horario_inicio }}</span>
     </div>
@@ -272,7 +278,7 @@
     {% else %}
     <section class="board">
       <div class="board-title">
-        <h2><i data-lucide="door-open"></i> Salas pendentes</h2>
+        <h2><i data-lucide="door-open"></i> Reservas de sala pendentes</h2>
       </div>
       <div class="list">
         {% if pendentes_sala %}
@@ -311,7 +317,7 @@
 
     <section class="board tests">
       <div class="board-title">
-        <h2><i data-lucide="clipboard-list"></i> Testes pendentes</h2>
+        <h2><i data-lucide="clipboard-list"></i> Reservas de testes e instrumentos</h2>
       </div>
       <div class="list">
         {% if pendentes_instrumento %}

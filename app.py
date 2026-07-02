@@ -9,7 +9,7 @@ import sqlite3
 import tempfile
 import unicodedata
 from email.message import EmailMessage
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from contextlib import contextmanager
 from functools import wraps
 import click
@@ -426,6 +426,18 @@ def buscar_usuario_id_aluno(username, conn):
     return row['id'] if row else None
 
 
+def listar_professores_ativos(conn):
+    rows = conn.execute(
+        """
+        SELECT id, username, nome_completo
+        FROM usuarios
+        WHERE role='professor' AND ativo=1
+        ORDER BY COALESCE(NULLIF(nome_completo, ''), username) COLLATE NOCASE
+        """
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def vincular_aluno_do_agendamento(dados_ag, conn):
     aluno_id = buscar_usuario_id_aluno(dados_ag.get('estagiario'), conn)
     if aluno_id:
@@ -581,7 +593,7 @@ def hash_token(token):
 
 def criar_token_email(conn, usuario_id, tipo, horas=24):
     token = secrets.token_urlsafe(32)
-    expira_em = (datetime.now() + timedelta(hours=horas)).strftime('%Y-%m-%d %H:%M:%S')
+    expira_em = (datetime.now(timezone.utc) + timedelta(hours=horas)).strftime('%Y-%m-%d %H:%M:%S')
     conn.execute(
         """
         INSERT INTO tokens_email(usuario_id, tipo, token_hash, expira_em)
@@ -782,6 +794,22 @@ def notificar_agendamento_email(dados_ag, acao, dados_antes=None):
 def notificar_reserva_solicitada_email(reserva):
     if not reserva:
         return 0
+    supervisor_nome = ''
+    if reserva.get('usuario_id'):
+        conn = get_db()
+        try:
+            supervisor = conn.execute(
+                """
+                SELECT COALESCE(NULLIF(p.nome_completo, ''), p.username, '') AS nome
+                FROM usuarios u
+                LEFT JOIN usuarios p ON p.id = u.supervisor_id
+                WHERE u.id=?
+                """,
+                (reserva.get('usuario_id'),)
+            ).fetchone()
+            supervisor_nome = supervisor['nome'] if supervisor else ''
+        finally:
+            conn.close()
     tipo = 'sala' if reserva.get('tipo') == 'sala' else 'teste/instrumento'
     detalhe = reserva.get('tipo_sala') if reserva.get('tipo') == 'sala' else reserva.get('instrumento')
     corpo = corpo_email_padrao(
@@ -790,6 +818,7 @@ def notificar_reserva_solicitada_email(reserva):
         'Informações da reserva',
         [
             ('Aluno', reserva.get('usuario')),
+            ('Supervisor', supervisor_nome or '-'),
             ('Data', formatar_data_email({'data_especifica': reserva.get('data_uso')})),
             ('Horário', f'{reserva.get("horario_inicio")}{(" até " + reserva.get("horario_fim")) if reserva.get("horario_fim") else ""}'),
             ('Detalhe', detalhe or '-'),
@@ -1602,12 +1631,15 @@ def mapa_sala():
 
 
 def renderizar_mapa_sala():
+    with db_connection() as conn:
+        professores = listar_professores_ativos(conn)
     return render_template(
         'index.html',
         salas=SALAS,
         horarios=HORARIOS,
         categorias=CATEGORIAS,
         dias=DIAS,
+        professores=professores,
         usuario=current_user.username,
         papel=current_user.role
     )
@@ -2108,38 +2140,63 @@ def relatorio_semanal():
     fim_dt = inicio_dt + timedelta(days=6)
     inicio = inicio_dt.strftime('%Y-%m-%d')
     fim = fim_dt.strftime('%Y-%m-%d')
+    supervisor_id = normalizar_supervisor_id(request.args.get('supervisor_id'))
+    if supervisor_id == 'invalido':
+        flash('Supervisor inválido.', 'error')
+        return redirect(url_for('relatorio_semanal'))
+
+    joins_supervisor = (
+        " LEFT JOIN usuarios aluno ON aluno.id = a.usuario_id "
+        " LEFT JOIN usuarios aluno_por_nome ON aluno_por_nome.username = a.estagiario "
+        "      AND aluno_por_nome.role='aluno' AND a.usuario_id IS NULL "
+        " LEFT JOIN usuarios prof ON prof.id = COALESCE(aluno.supervisor_id, aluno_por_nome.supervisor_id) "
+    )
+    filtro_supervisor = ''
+    params_supervisor = []
+    if supervisor_id:
+        filtro_supervisor = " AND COALESCE(aluno.supervisor_id, aluno_por_nome.supervisor_id)=?"
+        params_supervisor.append(supervisor_id)
 
     conn = get_db()
     try:
+        professores = listar_professores_ativos(conn)
         total_ocupados = conn.execute(
-            """
+            f"""
             SELECT COUNT(*) AS total
-            FROM agendamentos
-            WHERE ocupa_sala=1
+            FROM agendamentos a
+            {joins_supervisor}
+            WHERE a.ocupa_sala=1
               AND (
-                (data_especifica BETWEEN ? AND ?)
-                OR (data_especifica IS NULL OR data_especifica='')
+                (a.data_especifica BETWEEN ? AND ?)
+                OR (a.data_especifica IS NULL OR a.data_especifica='')
               )
+              {filtro_supervisor}
             """,
-            (inicio, fim)
+            [inicio, fim] + params_supervisor
         ).fetchone()['total']
         pontuais = conn.execute(
-            """
+            f"""
             SELECT COUNT(*) AS total
-            FROM agendamentos
-            WHERE ocupa_sala=1
-              AND data_especifica BETWEEN ? AND ?
+            FROM agendamentos a
+            {joins_supervisor}
+            WHERE a.ocupa_sala=1
+              AND a.data_especifica BETWEEN ? AND ?
+              {filtro_supervisor}
             """,
-            (inicio, fim)
+            [inicio, fim] + params_supervisor
         ).fetchone()['total']
         abertos = conn.execute(
-            """
+            f"""
             SELECT COUNT(*) AS total
-            FROM agendamentos
-            WHERE (data_especifica IS NULL OR data_especifica='')
-              AND TRIM(COALESCE(paciente, ''))=''
-              AND (categoria='MARCAR' OR triagem=1)
+            FROM agendamentos a
+            {joins_supervisor}
+            WHERE (a.data_especifica IS NULL OR a.data_especifica='')
+              AND TRIM(COALESCE(a.paciente, ''))=''
+              AND (a.categoria='MARCAR' OR a.triagem=1)
+              {filtro_supervisor}
             """
+            ,
+            params_supervisor
         ).fetchone()['total']
         reservas_sala = conn.execute(
             """
@@ -2160,11 +2217,30 @@ def relatorio_semanal():
             (inicio, fim)
         ).fetchall()
         por_dia = conn.execute(
+            f"""
+            SELECT a.dia_semana, COUNT(*) AS total
+            FROM agendamentos a
+            {joins_supervisor}
+            WHERE a.ocupa_sala=1
+              {filtro_supervisor}
+            GROUP BY a.dia_semana
             """
-            SELECT dia_semana, COUNT(*) AS total
-            FROM agendamentos
-            WHERE ocupa_sala=1
-            GROUP BY dia_semana
+            ,
+            params_supervisor
+        ).fetchall()
+        por_supervisor = conn.execute(
+            """
+            SELECT COALESCE(NULLIF(prof.nome_completo, ''), prof.username, 'Sem supervisor') AS supervisor,
+                   COUNT(*) AS total
+            FROM agendamentos a
+            LEFT JOIN usuarios aluno ON aluno.id = a.usuario_id
+            LEFT JOIN usuarios aluno_por_nome ON aluno_por_nome.username = a.estagiario
+                 AND aluno_por_nome.role='aluno' AND a.usuario_id IS NULL
+            LEFT JOIN usuarios prof ON prof.id = COALESCE(aluno.supervisor_id, aluno_por_nome.supervisor_id)
+            WHERE a.ocupa_sala=1
+            GROUP BY supervisor
+            ORDER BY total DESC, supervisor COLLATE NOCASE
+            LIMIT 10
             """
         ).fetchall()
     finally:
@@ -2189,7 +2265,10 @@ def relatorio_semanal():
         abertos=abertos,
         reservas_sala=preparar_status(reservas_sala),
         reservas_instrumento=preparar_status(reservas_instrumento),
-        dias_relatorio=dias_relatorio
+        dias_relatorio=dias_relatorio,
+        professores=professores,
+        supervisor_id=supervisor_id,
+        por_supervisor=[dict(r) for r in por_supervisor]
     )
 
 
@@ -2573,9 +2652,7 @@ def usuarios_page():
             ORDER BY u.created_at
             """
         ).fetchall()
-        professores = conn.execute(
-            "SELECT id, username, nome_completo FROM usuarios WHERE role='professor' AND ativo=1 ORDER BY username"
-        ).fetchall()
+        professores = listar_professores_ativos(conn)
     finally:
         conn.close()
     return render_template(
@@ -2593,7 +2670,16 @@ def usuarios_page():
 def api_list_estagiarios():
     conn = get_db()
     try:
-        rows = conn.execute("SELECT id, username FROM usuarios WHERE role='aluno' AND ativo=1 ORDER BY username").fetchall()
+        rows = conn.execute(
+            """
+            SELECT u.id, u.username, u.supervisor_id,
+                   COALESCE(NULLIF(p.nome_completo, ''), p.username, '') AS supervisor_nome
+            FROM usuarios u
+            LEFT JOIN usuarios p ON p.id = u.supervisor_id
+            WHERE u.role='aluno' AND u.ativo=1
+            ORDER BY u.username
+            """
+        ).fetchall()
     finally:
         conn.close()
     return jsonify([dict(r) for r in rows])
@@ -2862,6 +2948,9 @@ def list_ag():
     ocupa_sala = request.args.get('ocupa_sala', '').strip()
     busca = request.args.get('busca', '').strip()
     data_ref = request.args.get('data', '').strip()
+    supervisor_id = normalizar_supervisor_id(request.args.get('supervisor_id'))
+    if supervisor_id == 'invalido':
+        return jsonify({'erro': 'Supervisor inválido.'}), 400
 
     dia_ref = None
     if data_ref:
@@ -2881,39 +2970,55 @@ def list_ag():
         return jsonify({'erro': erro_validacao}), 400
 
     if data_ref:
-        q = ('SELECT * FROM agendamentos WHERE ('
-             '(dia_semana=? AND (data_especifica IS NULL OR data_especifica = \'\'))'
-             ' OR data_especifica=?'
+        q = ('SELECT a.*, COALESCE(aluno.supervisor_id, aluno_por_nome.supervisor_id) AS supervisor_id, '
+             "COALESCE(NULLIF(prof.nome_completo, ''), prof.username, '') AS supervisor_nome "
+             'FROM agendamentos a '
+             'LEFT JOIN usuarios aluno ON aluno.id = a.usuario_id '
+             "LEFT JOIN usuarios aluno_por_nome ON aluno_por_nome.username = a.estagiario AND aluno_por_nome.role='aluno' AND a.usuario_id IS NULL "
+             'LEFT JOIN usuarios prof ON prof.id = COALESCE(aluno.supervisor_id, aluno_por_nome.supervisor_id) '
+             'WHERE ('
+             '(a.dia_semana=? AND (a.data_especifica IS NULL OR a.data_especifica = \'\'))'
+             ' OR a.data_especifica=?'
              ')')
         p = [dia_busca, data_ref]
     else:
         q = (
-            'SELECT * FROM agendamentos WHERE ('
-            '(dia_semana=? AND (data_especifica IS NULL OR data_especifica = \'\')) '
-            'OR (data_especifica IS NOT NULL AND data_especifica != \'\' '
-            'AND data_especifica >= ? AND strftime(\'%w\', data_especifica)=?)'
+            'SELECT a.*, COALESCE(aluno.supervisor_id, aluno_por_nome.supervisor_id) AS supervisor_id, '
+            "COALESCE(NULLIF(prof.nome_completo, ''), prof.username, '') AS supervisor_nome "
+            'FROM agendamentos a '
+            'LEFT JOIN usuarios aluno ON aluno.id = a.usuario_id '
+            "LEFT JOIN usuarios aluno_por_nome ON aluno_por_nome.username = a.estagiario AND aluno_por_nome.role='aluno' AND a.usuario_id IS NULL "
+            'LEFT JOIN usuarios prof ON prof.id = COALESCE(aluno.supervisor_id, aluno_por_nome.supervisor_id) '
+            'WHERE ('
+            '(a.dia_semana=? AND (a.data_especifica IS NULL OR a.data_especifica = \'\')) '
+            'OR (a.data_especifica IS NOT NULL AND a.data_especifica != \'\' '
+            'AND a.data_especifica >= ? AND strftime(\'%w\', a.data_especifica)=?)'
             ')'
         )
         p = [dia_busca, data_hoje_iso(), numero_semana_sqlite(dia_busca)]
     if horario:
-        q += ' AND horario=?'
+        q += ' AND a.horario=?'
         p.append(horario)
     if sala:
-        q += ' AND sala=?'
+        q += ' AND a.sala=?'
         p.append(sala)
     if cat:
-        q += ' AND categoria=?'
+        q += ' AND a.categoria=?'
         p.append(cat)
     if ocupa_sala in ('0', '1'):
-        q += ' AND ocupa_sala=?'
+        q += ' AND a.ocupa_sala=?'
         p.append(int(ocupa_sala))
+    if supervisor_id:
+        q += ' AND COALESCE(aluno.supervisor_id, aluno_por_nome.supervisor_id)=?'
+        p.append(supervisor_id)
     if busca:
-        q += ' AND (estagiario LIKE ? OR paciente LIKE ? OR observacao LIKE ?)'
+        q += ' AND (a.estagiario LIKE ? OR a.paciente LIKE ? OR a.observacao LIKE ? OR prof.nome_completo LIKE ? OR prof.username LIKE ?)'
         p += [f'%{busca}%'] * 3
+        p += [f'%{busca}%'] * 2
     if current_user.role == 'aluno':
-        q += ' AND (usuario_id = ? OR (usuario_id IS NULL AND estagiario = ?))'
+        q += ' AND (a.usuario_id = ? OR (a.usuario_id IS NULL AND a.estagiario = ?))'
         p += [current_user.id, current_user.username]
-    q += ' ORDER BY horario, sala, data_especifica'
+    q += ' ORDER BY a.horario, a.sala, a.data_especifica'
     conn = get_db()
     try:
         rows = conn.execute(q, p).fetchall()
@@ -2927,7 +3032,19 @@ def list_ag():
 def get_ag(aid):
     conn = get_db()
     try:
-        r = conn.execute('SELECT * FROM agendamentos WHERE id=?', (aid,)).fetchone()
+        r = conn.execute(
+            """
+            SELECT a.*, COALESCE(aluno.supervisor_id, aluno_por_nome.supervisor_id) AS supervisor_id,
+                   COALESCE(NULLIF(prof.nome_completo, ''), prof.username, '') AS supervisor_nome
+            FROM agendamentos a
+            LEFT JOIN usuarios aluno ON aluno.id = a.usuario_id
+            LEFT JOIN usuarios aluno_por_nome ON aluno_por_nome.username = a.estagiario
+                 AND aluno_por_nome.role='aluno' AND a.usuario_id IS NULL
+            LEFT JOIN usuarios prof ON prof.id = COALESCE(aluno.supervisor_id, aluno_por_nome.supervisor_id)
+            WHERE a.id=?
+            """,
+            (aid,)
+        ).fetchone()
     finally:
         conn.close()
     if not usuario_pode_ver_agendamento(r):
@@ -3074,23 +3191,38 @@ def delete_ag(aid):
 @login_required
 def stats():
     dia = request.args.get('dia_semana', 'SEGUNDA')
+    supervisor_id = normalizar_supervisor_id(request.args.get('supervisor_id'))
     if dia not in DIAS:
         return jsonify({'erro': 'Escolha um dia da semana válido.'}), 400
+    if supervisor_id == 'invalido':
+        return jsonify({'erro': 'Supervisor inválido.'}), 400
     filtro_visao = (
-        "((dia_semana=? AND (data_especifica IS NULL OR data_especifica = '')) "
-        "OR (data_especifica IS NOT NULL AND data_especifica != '' "
-        "AND data_especifica >= ? AND strftime('%w', data_especifica)=?))"
+        "((a.dia_semana=? AND (a.data_especifica IS NULL OR a.data_especifica = '')) "
+        "OR (a.data_especifica IS NOT NULL AND a.data_especifica != '' "
+        "AND a.data_especifica >= ? AND strftime('%w', a.data_especifica)=?))"
     )
-    params = (dia, data_hoje_iso(), numero_semana_sqlite(dia))
+    joins_supervisor = (
+        " LEFT JOIN usuarios aluno ON aluno.id = a.usuario_id "
+        " LEFT JOIN usuarios aluno_por_nome ON aluno_por_nome.username = a.estagiario "
+        "      AND aluno_por_nome.role='aluno' AND a.usuario_id IS NULL "
+    )
+    filtro_supervisor = ''
+    params = [dia, data_hoje_iso(), numero_semana_sqlite(dia)]
+    if supervisor_id:
+        filtro_supervisor = " AND COALESCE(aluno.supervisor_id, aluno_por_nome.supervisor_id)=?"
+        params.append(supervisor_id)
     conn = get_db()
     try:
-        total = conn.execute(f'SELECT COUNT(*) FROM agendamentos WHERE {filtro_visao}', params).fetchone()[0]
+        total = conn.execute(
+            f'SELECT COUNT(*) FROM agendamentos a {joins_supervisor} WHERE {filtro_visao}{filtro_supervisor}',
+            params
+        ).fetchone()[0]
         livre = conn.execute(
-            f"SELECT COUNT(*) FROM agendamentos WHERE {filtro_visao} AND categoria='LIVRE'",
+            f"SELECT COUNT(*) FROM agendamentos a {joins_supervisor} WHERE {filtro_visao} AND a.categoria='LIVRE'{filtro_supervisor}",
             params
         ).fetchone()[0]
         por_cat = conn.execute(
-            f'SELECT categoria, COUNT(*) as n FROM agendamentos WHERE {filtro_visao} GROUP BY categoria ORDER BY n DESC',
+            f'SELECT a.categoria, COUNT(*) as n FROM agendamentos a {joins_supervisor} WHERE {filtro_visao}{filtro_supervisor} GROUP BY a.categoria ORDER BY n DESC',
             params
         ).fetchall()
     finally:
@@ -3113,10 +3245,15 @@ def export_xlsx():
     conn = get_db()
     try:
         rows = conn.execute(
-            'SELECT a.*, COALESCE(u.nome_completo, a.estagiario) as nome_real '
-            'FROM agendamentos a '
-            'LEFT JOIN usuarios u ON a.usuario_id = u.id '
-            'ORDER BY a.dia_semana, a.horario, a.sala'
+            """
+            SELECT a.*, COALESCE(u.nome_completo, a.estagiario) as nome_real,
+                   COALESCE(NULLIF(p.nome_completo, ''), p.username, '') AS supervisor_nome
+            FROM agendamentos a
+            LEFT JOIN usuarios u ON a.usuario_id = u.id
+            LEFT JOIN usuarios u_nome ON u_nome.username = a.estagiario AND u_nome.role='aluno' AND a.usuario_id IS NULL
+            LEFT JOIN usuarios p ON p.id = COALESCE(u.supervisor_id, u_nome.supervisor_id)
+            ORDER BY a.dia_semana, a.horario, a.sala
+            """
         ).fetchall()
     finally:
         conn.close()
@@ -3124,7 +3261,7 @@ def export_xlsx():
     wb = Workbook()
     ws = wb.active
     ws.title = 'Mapa de Salas'
-    headers = ['ID', 'Dia', 'Horário', 'Sala', 'Estagiário (usuário)', 'Nome Completo', 'Paciente',
+    headers = ['ID', 'Dia', 'Horário', 'Sala', 'Estagiário (usuário)', 'Nome Completo', 'Supervisor', 'Paciente',
                'Categoria', 'Status Atendimento', 'Semestre', 'Triagem', 'Ocupa Sala', 'Data Esp.', 'Obs.']
     ws.append(headers)
 
@@ -3137,7 +3274,7 @@ def export_xlsx():
     for r in rows:
         ws.append([
             r['id'], r['dia_semana'], r['horario'], r['sala'],
-            r['estagiario'], r['nome_real'], r['paciente'],
+            r['estagiario'], r['nome_real'], r['supervisor_nome'], r['paciente'],
             r['categoria'], STATUS_ATENDIMENTO.get(r['status_atendimento'], ''),
             r['semestre'], 'Sim' if r['triagem'] else 'Não',
             'Sim' if r['ocupa_sala'] else 'Não', r['data_especifica'], r['observacao']

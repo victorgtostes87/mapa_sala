@@ -1121,16 +1121,16 @@ def criar_usuario_coordenador_padrao(conn):
 
 
 SUPERVISORES_PADRAO = (
-    ('Fabio Nogueira Pereira', 'Fabio Nogueira Pereira'),
-    ('Roger Elias Bernabé Machado', 'Roger Elias Bernabé Machado'),
-    ('Eduardo Barbosa Lopes', 'Eduardo Barbosa Lopes'),
-    ('Rodrigo Cruvinel Salgado', 'Rodrigo Cruvinel Salgado'),
-    ('Luanza Pavesi Mai', 'Luanza Pavesi Mai'),
-    ('Cleilson Teobaldo Reis', 'Cleilson Teobaldo Reis'),
-    ('Simone Chabudee Pylro', 'Simone Chabudee Pylro'),
-    ('Hildiceia Dos Santos Affonso', 'Hildiceia Dos Santos Affonso'),
-    ('Christiane Furlan Ronchete', 'Christiane Furlan Ronchete'),
-    ('Jaqueline Oliveira Bagalho', 'Jaqueline Oliveira Bagalho'),
+    ('fabio.pereira', 'Fabio Nogueira Pereira'),
+    ('roger.machado', 'Roger Elias Bernabé Machado'),
+    ('eduardo.lopes', 'Eduardo Barbosa Lopes'),
+    ('rodrigo.salgado', 'Rodrigo Cruvinel Salgado'),
+    ('luanza.mai', 'Luanza Pavesi Mai'),
+    ('cleilson.reis', 'Cleilson Teobaldo Reis'),
+    ('simone.pylro', 'Simone Chabudee Pylro'),
+    ('hildiceia.affonso', 'Hildiceia dos Santos Affonso'),
+    ('christiane.ronchete', 'Christiane Furlan Ronchete'),
+    ('jaqueline.bagalho', 'Jaqueline Oliveira Bagalho'),
 )
 
 
@@ -1152,13 +1152,13 @@ def criar_supervisores_padrao(conn):
             ).fetchone()
             if not username_em_uso:
                 conn.execute(
-                    "UPDATE usuarios SET username=?, ativo=1 WHERE id=?",
-                    (username, existente_por_nome['id'])
+                    "UPDATE usuarios SET username=?, nome_completo=?, ativo=1 WHERE id=?",
+                    (username, nome_completo, existente_por_nome['id'])
                 )
                 continue
             conn.execute(
-                "UPDATE usuarios SET ativo=1 WHERE id=?",
-                (existente_por_nome['id'],)
+                "UPDATE usuarios SET nome_completo=?, ativo=1 WHERE id=?",
+                (nome_completo, existente_por_nome['id'])
             )
             continue
 
@@ -1268,6 +1268,12 @@ def aplicar_migracoes_dados(conn):
         conn,
         '2026-07-02-supervisores-nomes-completos',
         'Atualiza usernames dos supervisores para nomes completos',
+        criar_supervisores_padrao
+    )
+    executar_migration(
+        conn,
+        '2026-07-02-supervisores-usuarios-curtos',
+        'Atualiza usernames dos supervisores para primeiro.ultimo',
         criar_supervisores_padrao
     )
 
@@ -2883,8 +2889,8 @@ def usuarios_page():
     try:
         rows = conn.execute(
             """
-            SELECT u.id, u.username, u.email, u.role, u.supervisor_id, u.ativo, u.created_at,
-                   p.username AS supervisor_nome
+            SELECT u.id, u.username, u.nome_completo, u.email, u.role, u.supervisor_id, u.ativo, u.created_at,
+                   COALESCE(NULLIF(p.nome_completo, ''), p.username) AS supervisor_nome
             FROM usuarios u
             LEFT JOIN usuarios p ON p.id = u.supervisor_id
             ORDER BY u.created_at
@@ -2931,8 +2937,8 @@ def api_list_usuarios():
     try:
         rows = conn.execute(
             """
-            SELECT u.id, u.username, u.email, u.role, u.supervisor_id, u.ativo, u.created_at,
-                   p.username AS supervisor_nome
+            SELECT u.id, u.username, u.nome_completo, u.email, u.role, u.supervisor_id, u.ativo, u.created_at,
+                   COALESCE(NULLIF(p.nome_completo, ''), p.username) AS supervisor_nome
             FROM usuarios u
             LEFT JOIN usuarios p ON p.id = u.supervisor_id
             ORDER BY u.created_at
@@ -2953,6 +2959,7 @@ def api_criar_usuario():
         return jsonify({'erro': 'Não consegui ler os dados enviados. Recarregue a página e tente novamente.'}), 400
 
     username = (d.get('username') or '').strip()
+    nome_completo = (d.get('nome_completo') or '').strip()
     email = (d.get('email') or '').strip()
     password = (d.get('password') or '').strip()
     enviar_convite = bool(d.get('enviar_convite'))
@@ -2987,8 +2994,8 @@ def api_criar_usuario():
                 if not professor:
                     return jsonify({'erro': 'Supervisor professor não encontrado'}), 400
             conn.execute(
-                'INSERT INTO usuarios(username, email, password_hash, role, supervisor_id, ativo) VALUES(?,?,?,?,?,?)',
-                (username, email, generate_password_hash(senha_inicial), role, supervisor_id, ativo)
+                'INSERT INTO usuarios(username, nome_completo, email, password_hash, role, supervisor_id, ativo) VALUES(?,?,?,?,?,?,?)',
+                (username, nome_completo, email, generate_password_hash(senha_inicial), role, supervisor_id, ativo)
             )
             usuario_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
             email_enviado = False
@@ -3026,6 +3033,7 @@ def api_editar_usuario(uid):
         if not row:
             return jsonify({'erro': 'Usuário não encontrado'}), 404
         new_username = (d.get('username', row['username']) or '').strip()
+        new_nome_completo = (d.get('nome_completo', row['nome_completo']) or '').strip()
         new_email = (d.get('email', row['email']) or '').strip()
         if not new_username:
             return jsonify({'erro': 'Informe o nome de usuário.'}), 400
@@ -3055,13 +3063,13 @@ def api_editar_usuario(uid):
             return jsonify({'erro': 'A senha deve ter no mínimo 8 caracteres'}), 400
         if new_pass:
             conn.execute(
-                'UPDATE usuarios SET username=?, email=?, role=?, supervisor_id=?, ativo=?, password_hash=? WHERE id=?',
-                (new_username, new_email, new_role, supervisor_id, ativo, generate_password_hash(new_pass), uid)
+                'UPDATE usuarios SET username=?, nome_completo=?, email=?, role=?, supervisor_id=?, ativo=?, password_hash=? WHERE id=?',
+                (new_username, new_nome_completo, new_email, new_role, supervisor_id, ativo, generate_password_hash(new_pass), uid)
             )
         else:
             conn.execute(
-                'UPDATE usuarios SET username=?, email=?, role=?, supervisor_id=?, ativo=? WHERE id=?',
-                (new_username, new_email, new_role, supervisor_id, ativo, uid)
+                'UPDATE usuarios SET username=?, nome_completo=?, email=?, role=?, supervisor_id=?, ativo=? WHERE id=?',
+                (new_username, new_nome_completo, new_email, new_role, supervisor_id, ativo, uid)
             )
         email_convite = None
         if enviar_convite:

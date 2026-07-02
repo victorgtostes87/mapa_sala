@@ -11,14 +11,21 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
 .btn-secondary{background:transparent;color:var(--text2);border:1px solid var(--border)}.btn-secondary:hover{background:var(--surface2);color:var(--text)}
 .btn-danger{background:#dc2626;color:#fff}.btn-danger:hover{background:#b91c1c}
+.btn-inativar{background:#d97706;color:#111827}.btn-inativar:hover{background:#f59e0b;color:#111827}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-top:18px}
 h1{font-size:18px;color:#f8fafc}
 table{width:100%;border-collapse:collapse;margin-top:16px}
 th,td{text-align:left;padding:11px 10px;border-bottom:1px solid var(--border)}
 th{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--text2);background:#162036}
 td{font-size:12px;color:var(--text)}
+.user-full-name{display:block;color:#f8fafc;font-size:13px;line-height:1.25}
+.user-login{display:inline-flex;align-items:center;border:1px solid var(--border);border-radius:999px;background:#111827;color:#bfdbfe;padding:3px 8px;font-weight:800}
 tr:hover td{background:#1a2744}
-.actions{display:flex;gap:8px;flex-wrap:wrap}
+.actions{display:flex;gap:6px;flex-wrap:nowrap;align-items:center;white-space:nowrap}
+.actions .btn{min-width:0;padding:7px 10px;font-size:11px;line-height:1}
+.user-toast{position:fixed;right:18px;bottom:18px;z-index:400;background:#16a34a;color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:var(--radius);box-shadow:0 18px 45px rgba(0,0,0,.35);padding:12px 14px;font-weight:700;font-size:13px;opacity:0;transform:translateY(10px);pointer-events:none;transition:opacity .18s,transform .18s}
+.user-toast.show{opacity:1;transform:translateY(0)}
+.user-toast.error{background:#dc2626}
 .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;padding:16px;z-index:200}
 .modal{width:100%;max-width:520px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;box-shadow:0 20px 50px rgba(0,0,0,.35)}
 .modal h2{color:#f8fafc;font-size:17px}
@@ -37,4 +44,5 @@ input:focus,select:focus{border-color:var(--accent)}
   table{min-width:900px}
   .modal{padding:18px}
   .nav .btn,.actions .btn{padding:8px 10px}
+  .actions{flex-wrap:wrap;white-space:normal}
 }

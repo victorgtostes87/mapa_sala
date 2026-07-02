@@ -165,17 +165,17 @@ textarea:focus{
 
 .todo-board{
   display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+  grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
   gap:14px;
   padding:14px;
 }
 
 .todo-note{
-  min-height:220px;
+  min-height:250px;
   display:flex;
   flex-direction:column;
-  background:#fef3c7;
-  border:1px solid #f59e0b;
+  background:#172033;
+  border:1px solid #334155;
   border-radius:var(--radius);
   box-shadow:0 12px 22px rgba(0,0,0,.22);
   overflow:hidden;
@@ -183,7 +183,7 @@ textarea:focus{
 }
 
 .todo-note.has-detail{
-  border-color:#d97706;
+  border-color:#475569;
 }
 
 .todo-note:hover{
@@ -192,9 +192,9 @@ textarea:focus{
 }
 
 .note-status{
-  background:rgba(245,158,11,.24);
-  border-bottom:1px solid rgba(180,83,9,.28);
-  padding:9px 10px;
+  background:linear-gradient(135deg,#f59e0b,#b45309);
+  border-bottom:1px solid rgba(251,191,36,.46);
+  padding:10px 12px;
   display:flex;
   align-items:center;
   justify-content:space-between;
@@ -205,9 +205,9 @@ textarea:focus{
   align-items:center;
   gap:6px;
   border-radius:999px;
-  background:#fff7ed;
-  color:#92400e;
-  border:1px solid #f59e0b;
+  background:rgba(255,247,237,.92);
+  color:#78350f;
+  border:1px solid rgba(255,247,237,.58);
   padding:5px 8px;
   font-size:10px;
   font-weight:900;
@@ -222,34 +222,34 @@ textarea:focus{
   flex:1;
   display:flex;
   flex-direction:column;
-  gap:9px;
-  padding:12px;
+  gap:10px;
+  padding:14px;
 }
 
 .todo-main h2{
-  font-size:16px;
+  font-size:17px;
   line-height:1.28;
-  color:#422006;
+  color:#f8fafc;
   overflow-wrap:anywhere;
 }
 
 .todo-main > span{
   margin-top:auto;
-  color:#92400e;
+  color:#93c5fd;
   font-size:11px;
   font-weight:800;
 }
 
 .detail-box{
-  background:#fffbeb;
-  border:1px solid rgba(217,119,6,.32);
+  background:#0f172a;
+  border:1px solid #334155;
   border-radius:6px;
-  padding:8px;
+  padding:9px;
 }
 
 .detail-box strong{
   display:block;
-  color:#92400e;
+  color:#fbbf24;
   font-size:10px;
   text-transform:uppercase;
   letter-spacing:.35px;
@@ -257,14 +257,14 @@ textarea:focus{
 }
 
 .detail-box p{
-  color:#713f12;
+  color:#cbd5e1;
   line-height:1.35;
   font-size:13px;
   overflow-wrap:anywhere;
 }
 
 .note-action{
-  padding:0 12px 12px;
+  padding:0 14px 14px;
   display:flex;
   align-items:flex-end;
   justify-content:stretch;
@@ -331,7 +331,7 @@ textarea:focus{
   textarea{min-height:88px}
   .todo-create button{width:100%;min-height:44px}
   .todo-board{grid-template-columns:1fr;gap:10px;padding:10px}
-  .todo-note{min-height:190px}
+  .todo-note{min-height:220px}
   .note-status{padding:9px 10px}
   .todo-main{padding:11px}
   .note-action{padding:0 11px 11px}

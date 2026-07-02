@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Backup do Banco</title>
   <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/voltar.js') }}"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/backup.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
 </head>
@@ -18,7 +19,8 @@
       <span class="role-badge role-{{ papel }}">{{ (papeis_label|default({})).get(papel, papel) }}</span>
     </div>
     <div class="app-nav-actions">
-      <a href="{{ url_for('logs_page') }}" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Voltar</a>
+      <a href="{{ url_for('logs_page') }}" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Logs</a>
+      <a href="{{ url_for('saude_sistema') }}" class="app-btn app-btn-ghost"><i data-lucide="activity"></i> Saúde</a>
       <a href="{{ url_for('perfil') }}" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
       <a href="{{ url_for('logout') }}" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
     </div>
@@ -37,7 +39,7 @@
 
       <div class="actions">
         <a class="btn btn-primary" href="{{ url_for('backup_db', confirmar='sim') }}">Baixar backup agora</a>
-        <a class="btn btn-secondary" href="{{ url_for('logs_page') }}">Voltar para logs</a>
+        <a class="btn btn-secondary" href="/" onclick="voltarAbaAnterior(event, '/')">Voltar</a>
       </div>
     </section>
     <div class="version-footer">Versão {{ versao }}</div>

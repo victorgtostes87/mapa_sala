@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Afazeres da Recepção</title>
   <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/voltar.js') }}"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/afazeres.css') }}">
 </head>
@@ -18,7 +19,7 @@
       <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
     </div>
     <div class="app-nav-actions">
-      <a href="/mapa" class="app-btn app-btn-ghost" onclick="voltarPaginaAnterior(event)"><i data-lucide="arrow-left"></i> Voltar</a>
+      <a href="/mapa" class="app-btn app-btn-ghost" onclick="voltarAbaAnterior(event, '/mapa')"><i data-lucide="arrow-left"></i> Voltar</a>
       <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
       <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
     </div>
@@ -98,18 +99,6 @@
   </main>
 
   <script>
-    function voltarPaginaAnterior(event){
-      event.preventDefault();
-      try {
-        const origem = document.referrer ? new URL(document.referrer) : null;
-        if (origem && origem.origin === window.location.origin && origem.pathname !== window.location.pathname && origem.pathname !== '/painel') {
-          history.back();
-          return;
-        }
-      } catch (err) {}
-      window.location.href = '/mapa';
-    }
-
     lucide.createIcons();
 
     document.querySelectorAll('.todo-complete-form').forEach(function(form){

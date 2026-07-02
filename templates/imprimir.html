@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Lista de Pacientes – {{ dia_nome }}</title>
+<script src="{{ url_for('static', filename='js/voltar.js') }}"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; font-size: 13px; color: #111; background: #fff; padding: 24px; }
@@ -36,7 +37,7 @@
 <body>
 
 <div class="no-print">
-  <a href="/" class="btn btn-back">← Voltar</a>
+  <a href="/" class="btn btn-back" onclick="voltarAbaAnterior(event, '/')">← Voltar</a>
   <button class="btn btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
 </div>
 

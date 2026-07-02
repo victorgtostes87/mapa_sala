@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Logs do Sistema</title>
 <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/voltar.js') }}"></script>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/logs.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
 </head>
@@ -18,57 +19,70 @@
     <span class="role-badge role-{{ papel }}">{{ (papeis_label|default({})).get(papel, papel) }}</span>
   </div>
   <div class="app-nav-actions">
-    <a href="/painel" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Voltar</a>
+    <a href="/" class="app-btn app-btn-ghost" onclick="voltarAbaAnterior(event, '/')"><i data-lucide="arrow-left"></i> Voltar</a>
+    <a href="/saude" class="app-btn app-btn-ghost"><i data-lucide="activity"></i> Saúde</a>
     <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
     <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
   </div>
 </nav>
 
-<div class="container">
-  <div class="filters">
-    <input type="text" id="busca" placeholder="Filtrar por usuario, acao ou dados..." oninput="filtrar()">
-    <select id="filtroAcao" onchange="filtrar()">
-      <option value="">Todas as acoes</option>
-      <option>LOGIN</option><option>LOGOUT</option>
+<main class="container">
+  <section class="log-summary">
+    <article><span>Total filtrado</span><strong id="sumTotal">0</strong></article>
+    <article><span>Logins na página</span><strong id="sumLogin">0</strong></article>
+    <article><span>Alterações na página</span><strong id="sumChanges">0</strong></article>
+    <article><span>Backups na página</span><strong id="sumBackup">0</strong></article>
+  </section>
+
+  <section class="filters">
+    <input type="text" id="busca" placeholder="Buscar por usuário">
+    <select id="filtroAcao">
+      <option value="">Todas as ações</option>
+      <option>LOGIN</option><option>LOGOUT</option><option>BACKUP</option>
       <option>CRIAR</option><option>EDITAR</option><option>EXCLUIR</option>
       <option>CRIAR_USUARIO</option><option>EDITAR_USUARIO</option><option>EXCLUIR_USUARIO</option>
-      <option>EXPORTAR</option>
+      <option>IMPORTAR_CSV</option><option>IMPORTAR_XLSX</option><option>EXPORTAR</option>
     </select>
+    <button type="button" class="btn-secondary" id="btnFiltrar">Filtrar</button>
+    <button type="button" class="btn-secondary" id="btnLimpar">Limpar</button>
     <a href="/api/backup" class="btn-secondary">Backup</a>
-    <button type="button" class="btn-danger" id="btnApagarLogs">Apagar logs dos ultimos 15 dias</button>
-  </div>
+    <button type="button" class="btn-danger" id="btnApagarLogs">Apagar logs recentes</button>
+  </section>
 
-  <table>
-    <thead><tr><th>Data/Hora</th><th>Usuario</th><th>Acao</th><th>IP</th><th>Navegador</th><th>Detalhes</th></tr></thead>
-    <tbody id="tbody"></tbody>
-  </table>
-  <div class="empty" id="empty" style="display:none">Nenhum log encontrado.</div>
+  <section class="table-wrap">
+    <table>
+      <thead><tr><th>Data/Hora</th><th>Usuário</th><th>Ação</th><th>IP</th><th>Navegador</th><th>Detalhes</th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="empty" id="empty" style="display:none">Nenhum log encontrado.</div>
+  </section>
 
   <div class="pag-bar" id="pagBar" style="display:none">
     <div class="pag-info" id="pagInfo"></div>
-    <div style="display:flex;align-items:center;gap:12px">
-      <div style="display:flex;align-items:center;gap:6px">
-        <span style="font-size:12px;color:var(--text2)">Linhas por pagina:</span>
+    <div class="pag-right">
+      <label>
+        <span>Linhas por página:</span>
         <select class="pag-size" id="pagSize" onchange="mudarTamanho()">
           <option value="25">25</option>
           <option value="50" selected>50</option>
           <option value="100">100</option>
-          <option value="200">200</option>
         </select>
-      </div>
+      </label>
       <div class="pag-controls" id="pagControls"></div>
     </div>
   </div>
-</div>
+</main>
 
 <script>
-let todos    = [];
-let filtrado = [];
 let pagAtual = 1;
+let totalRegistros = 0;
+let ultimaBusca = '';
+let ultimaAcao = '';
 
 const CORES = {
   CRIAR:'acao-criar', EDITAR:'acao-editar', EXCLUIR:'acao-excluir',
   LOGIN:'acao-login', LOGOUT:'acao-logout', EXPORTAR:'acao-exportar',
+  BACKUP:'acao-backup', IMPORTAR_CSV:'acao-importar', IMPORTAR_XLSX:'acao-importar',
   CRIAR_USUARIO:'acao-criar', EDITAR_USUARIO:'acao-editar',
   EXCLUIR_USUARIO:'acao-excluir', INATIVAR_USUARIO:'acao-excluir'
 };
@@ -84,16 +98,24 @@ function esc(t){
   return String(t || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-function porPagina(){ return parseInt(document.getElementById('pagSize').value) || 50; }
+function porPagina(){ return Math.min(100, parseInt(document.getElementById('pagSize').value) || 50); }
+function totalPags(){ return Math.max(1, Math.ceil(totalRegistros / porPagina())); }
 
-function totalPags(){ return Math.max(1, Math.ceil(filtrado.length / porPagina())); }
+function atualizarResumo(logs){
+  document.getElementById('sumTotal').textContent = totalRegistros;
+  document.getElementById('sumLogin').textContent = logs.filter(r => r.acao === 'LOGIN').length;
+  document.getElementById('sumBackup').textContent = logs.filter(r => r.acao === 'BACKUP').length;
+  document.getElementById('sumChanges').textContent = logs.filter(r => ['CRIAR','EDITAR','EXCLUIR','CRIAR_USUARIO','EDITAR_USUARIO','EXCLUIR_USUARIO','INATIVAR_USUARIO'].includes(r.acao)).length;
+}
 
-function render(){
+function render(logs){
   const tbody  = document.getElementById('tbody');
   const empty  = document.getElementById('empty');
   const pagBar = document.getElementById('pagBar');
+  logs = logs || [];
+  atualizarResumo(logs);
 
-  if(!filtrado.length){
+  if(!logs.length){
     tbody.innerHTML = '';
     empty.style.display = 'block';
     pagBar.style.display = 'none';
@@ -103,14 +125,10 @@ function render(){
   empty.style.display = 'none';
   pagBar.style.display = 'flex';
 
-  const pp    = porPagina();
-  const total = totalPags();
-  pagAtual    = Math.min(pagAtual, total);
-
+  const pp = porPagina();
   const inicio = (pagAtual - 1) * pp;
-  const fatia  = filtrado.slice(inicio, inicio + pp);
 
-  tbody.innerHTML = fatia.map(r=>`
+  tbody.innerHTML = logs.map(r=>`
     <tr>
       <td class="ts">${formatTs(r.ts)}</td>
       <td>${esc(r.usuario)||'-'}</td>
@@ -121,96 +139,74 @@ function render(){
     </tr>
   `).join('');
 
-  const de  = inicio + 1;
-  const ate = Math.min(inicio + pp, filtrado.length);
+  const de = inicio + 1;
+  const ate = Math.min(inicio + logs.length, totalRegistros);
   document.getElementById('pagInfo').innerHTML =
-    `Mostrando <strong>${de}-${ate}</strong> de <strong>${filtrado.length}</strong> registros`;
-
-  renderControles(total);
+    `Mostrando <strong>${de}-${ate}</strong> de <strong>${totalRegistros}</strong> registros`;
+  renderControles(totalPags());
 }
 
 function renderControles(total){
   const ctrl = document.getElementById('pagControls');
   if(total <= 1){ ctrl.innerHTML = ''; return; }
-
-  const MAX_BTNS = 5;
-  let inicio = Math.max(1, pagAtual - Math.floor(MAX_BTNS / 2));
-  let fim    = Math.min(total, inicio + MAX_BTNS - 1);
-  if(fim - inicio < MAX_BTNS - 1) inicio = Math.max(1, fim - MAX_BTNS + 1);
-
-  let html = `<button class="pag-btn" onclick="irPara(${pagAtual-1})" ${pagAtual===1?'disabled':''}>&#8592;</button>`;
-
-  if(inicio > 1){
-    html += `<button class="pag-btn" onclick="irPara(1)">1</button>`;
-    if(inicio > 2) html += `<span class="pag-sep">...</span>`;
-  }
-
-  for(let i = inicio; i <= fim; i++){
-    html += `<button class="pag-btn ${i===pagAtual?'active':''}" onclick="irPara(${i})">${i}</button>`;
-  }
-
-  if(fim < total){
-    if(fim < total - 1) html += `<span class="pag-sep">...</span>`;
-    html += `<button class="pag-btn" onclick="irPara(${total})">${total}</button>`;
-  }
-
-  html += `<button class="pag-btn" onclick="irPara(${pagAtual+1})" ${pagAtual===total?'disabled':''}>&#8594;</button>`;
-  ctrl.innerHTML = html;
+  ctrl.innerHTML = `
+    <button class="pag-btn" onclick="irPara(${pagAtual-1})" ${pagAtual===1?'disabled':''}>Anterior</button>
+    <span class="pag-sep">Página ${pagAtual} de ${total}</span>
+    <button class="pag-btn" onclick="irPara(${pagAtual+1})" ${pagAtual===total?'disabled':''}>Próxima</button>
+  `;
 }
 
 function irPara(pag){
   const total = totalPags();
   if(pag < 1 || pag > total) return;
   pagAtual = pag;
-  render();
-  document.querySelector('.container').scrollIntoView({behavior:'smooth', block:'start'});
+  carregar();
 }
 
 function mudarTamanho(){
   pagAtual = 1;
-  render();
+  carregar();
 }
 
-function filtrar(){
-  const busca = document.getElementById('busca').value.toLowerCase();
-  const acao  = document.getElementById('filtroAcao').value;
-  filtrado = todos.filter(r=>{
-    const ok_acao  = !acao  || r.acao === acao;
-    const ok_busca = !busca || (r.usuario||'').toLowerCase().includes(busca)
-                            || (r.acao||'').toLowerCase().includes(busca)
-                            || (r.dados||'').toLowerCase().includes(busca);
-    return ok_acao && ok_busca;
-  });
+function aplicarFiltros(){
+  ultimaBusca = document.getElementById('busca').value.trim();
+  ultimaAcao = document.getElementById('filtroAcao').value;
   pagAtual = 1;
-  render();
+  carregar();
+}
+
+function limparFiltros(){
+  document.getElementById('busca').value = '';
+  document.getElementById('filtroAcao').value = '';
+  aplicarFiltros();
 }
 
 async function carregar(){
   try {
-    const res = await fetch('/api/logs');
+    const params = new URLSearchParams({pagina: pagAtual, por_pagina: porPagina()});
+    if(ultimaBusca) params.set('usuario', ultimaBusca);
+    if(ultimaAcao) params.set('acao', ultimaAcao);
+    const res = await fetch('/api/logs?' + params.toString());
     const data = await res.json();
-    if (!res.ok) throw new Error(data.erro || 'Nao foi possivel carregar os logs.');
-    todos = data.logs || [];
-    filtrado = todos;
-    render();
+    if (!res.ok) throw new Error(data.erro || 'Não foi possível carregar os logs.');
+    totalRegistros = data.total || 0;
+    render(data.logs || []);
   } catch (err) {
-    todos = [];
-    filtrado = [];
-    render();
+    totalRegistros = 0;
+    render([]);
     document.getElementById('empty').textContent = err.message || 'Falha ao carregar os logs. Tente novamente.';
   }
 }
 
 async function apagarLogsRecentes(){
-  if(!confirm('Apagar os logs dos ultimos 15 dias? Esta acao nao pode ser desfeita.')) return;
-
+  if(!confirm('Apagar os logs recentes? Esta ação não pode ser desfeita.')) return;
   try {
     const res = await fetch('/api/admin/apagar-logs-recentes', {
       method: 'POST',
       headers: {'X-CSRFToken': {{ csrf_token() | tojson }}}
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.erro || 'Nao foi possivel apagar os logs.');
+    if (!res.ok) throw new Error(data.erro || 'Não foi possível apagar os logs.');
     alert(data.message || 'Logs apagados com sucesso.');
     carregar();
   } catch (err) {
@@ -219,9 +215,14 @@ async function apagarLogsRecentes(){
 }
 
 document.getElementById('btnApagarLogs').addEventListener('click', apagarLogsRecentes);
+document.getElementById('btnFiltrar').addEventListener('click', aplicarFiltros);
+document.getElementById('btnLimpar').addEventListener('click', limparFiltros);
+document.getElementById('busca').addEventListener('keydown', function(ev){
+  if(ev.key === 'Enter') aplicarFiltros();
+});
 carregar();
 </script>
 <script>lucide.createIcons();</script>
-<div style="margin:18px 0;text-align:center;color:#6b7280;font-size:12px">Versao {{ versao }}</div>
+<div class="version-footer">Versão {{ versao }}</div>
 </body>
 </html>

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Perfil</title>
   <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/voltar.js') }}"></script>
   
 <link rel="stylesheet" href="{{ url_for('static', filename='css/perfil.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
@@ -19,7 +20,7 @@
       <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
     </div>
     <div class="app-nav-actions">
-      <a href="/" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Voltar</a>
+      <a href="/" class="app-btn app-btn-ghost" onclick="voltarAbaAnterior(event, '/')"><i data-lucide="arrow-left"></i> Voltar</a>
       <a href="/trocar-senha" class="app-btn app-btn-ghost"><i data-lucide="key-round"></i> Senha</a>
       <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
     </div>
@@ -37,9 +38,9 @@
     <div class="grid">
       <div class="card">
         <h2 class="title"><i data-lucide="user-circle-2"></i> Perfil</h2>
-        <p class="muted">Suas informaÃ§Ãµes pessoais cadastradas no sistema.</p>
+        <p class="muted">Suas informações pessoais cadastradas no sistema.</p>
 
-        <div class="info"><strong>UsuÃ¡rio</strong><span>{{ usuario }}</span></div>
+        <div class="info"><strong>Usuário</strong><span>{{ usuario }}</span></div>
         <div class="info"><strong>Cargo / Papel</strong><span class="badge">{{ papel_label }}</span></div>
         <div class="info"><strong>Nome completo</strong><span>{{ nome_completo or 'â€”' }}</span></div>
         <div class="info"><strong>E-mail</strong><span>{{ email or 'â€”' }}</span></div>
@@ -51,7 +52,7 @@
 
       <div class="card">
         <h2 class="title"><i data-lucide="pencil-line"></i> Atualizar dados</h2>
-        <p class="muted">Preencha seus dados pessoais. Campos obrigatÃ³rios.</p>
+        <p class="muted">Preencha seus dados pessoais. Campos obrigatórios.</p>
 
         <form method="post">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -66,7 +67,7 @@
           </div>
 
           <div class="actions">
-            <button class="btn primary" type="submit"><i data-lucide="save"></i> Salvar alteraÃ§Ãµes</button>
+            <button class="btn primary" type="submit"><i data-lucide="save"></i> Salvar alterações</button>
           </div>
         </form>
       </div>
@@ -74,6 +75,6 @@
   </div>
 
   <script>lucide.createIcons();</script>
-<div style="margin:18px 0;text-align:center;color:#6b7280;font-size:12px">VersÃ£o {{ versao }}</div>
+<div style="margin:18px 0;text-align:center;color:#6b7280;font-size:12px">Versão {{ versao }}</div>
 </body>
 </html>

@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>Imprimir Lista de Pacientes</title>
 <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/voltar.js') }}"></script>
 <style>
 :root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#e2e8f0;--text2:#94a3b8;--accent:#3b82f6;--radius:8px}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -40,7 +41,7 @@ a.back:hover{color:var(--text)}
     <span class="role-badge role-{{ papel }}">{{ (papeis_label|default({})).get(papel, papel) }}</span>
   </div>
   <div class="app-nav-actions">
-    <a href="/painel" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Voltar</a>
+    <a href="/" class="app-btn app-btn-ghost" onclick="voltarAbaAnterior(event, '/')"><i data-lucide="arrow-left"></i> Voltar</a>
     <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
     <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
   </div>
@@ -55,7 +56,7 @@ a.back:hover{color:var(--text)}
       <a class="dia-btn" href="/imprimir/{{ d }}" target="_blank">{{ dias_pt[d] }}</a>
       {% endfor %}
     </div>
-    <a class="back" href="/"><i data-lucide="arrow-left"></i> Voltar ao mapa</a>
+    <a class="back" href="/" onclick="voltarAbaAnterior(event, '/')"><i data-lucide="arrow-left"></i> Voltar</a>
   </div>
 </div>
 

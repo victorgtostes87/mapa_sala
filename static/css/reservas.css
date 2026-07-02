@@ -36,6 +36,17 @@ textarea{min-height:74px;resize:vertical}input:focus,select:focus,textarea:focus
 .empty-state{padding:32px 18px;text-align:center;color:var(--text2)}
 .compact-empty{padding:24px 18px}
 .empty-state i{width:40px;height:40px;color:#93c5fd;margin-bottom:10px}.empty-state h2{display:block;margin-bottom:6px}
+.approved-overview{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0 4px}
+.approved-panel{background:#111827;border:1px solid var(--border);border-radius:var(--radius);padding:13px}
+.tight-head{margin:0 0 10px}
+.approved-list{display:grid;gap:8px}
+.approved-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px}
+.approved-row strong{display:block;color:#f8fafc;margin-bottom:3px}
+.approved-row span{display:block;color:var(--text2);font-size:12px;line-height:1.35}
+.approved-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.btn.correction{border:1px solid #d97706;background:#2a1b0b;color:#fcd34d}
+.btn.correction:hover{background:#78350f;color:#fff}
+.empty-mini{border:1px dashed var(--border);border-radius:var(--radius);padding:18px 12px;color:var(--text2);text-align:center}
 .instrument-list{display:grid;gap:8px}
 .instrument-list.notebook{background:rgba(14,116,144,.08);border:1px solid rgba(14,116,144,.35);border-radius:var(--radius);padding:10px}
 .instrument-row{display:grid;grid-template-columns:1fr minmax(280px,360px);gap:14px;align-items:start;background:var(--surface);border:1px solid #0e7490;border-radius:var(--radius);padding:14px}
@@ -73,6 +84,10 @@ textarea{min-height:74px;resize:vertical}input:focus,select:focus,textarea:focus
   .approval-area{grid-template-columns:1fr}
   .approval-area form{grid-template-columns:1fr}
   .approval-area .btn{width:100%}
+  .approved-overview{grid-template-columns:1fr}
+  .approved-row{grid-template-columns:1fr}
+  .approved-actions{justify-content:stretch}
+  .approved-actions form,.approved-row form{width:100%}
   .instrument-list.notebook{padding:8px}
   .instrument-row{grid-template-columns:1fr}
   .instrument-main h3{font-size:18px;line-height:1.2}

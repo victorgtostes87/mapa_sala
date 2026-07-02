@@ -10,7 +10,7 @@
 </head>
 <body>
   <nav class="app-nav">
-    <a class="app-nav-brand" href="/afazeres"><i data-lucide="list-checks"></i><span>Afazeres</span></a>
+    <a class="app-nav-brand" href="/mapa" title="Voltar para o mapa"><img class="app-nav-logo" src="{{ url_for('static', filename='img/mapa-sala-logo.png') }}" alt=""><span>Mapa de Sala</span></a>
     <div class="app-nav-title">Lista compartilhada da recepção</div>
     <div class="app-nav-spacer"></div>
     <div class="app-nav-user">
@@ -18,7 +18,7 @@
       <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
     </div>
     <div class="app-nav-actions">
-      <a href="/painel" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Voltar</a>
+      <a href="/mapa" class="app-btn app-btn-ghost" onclick="voltarPaginaAnterior(event)"><i data-lucide="arrow-left"></i> Voltar</a>
       <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
       <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
     </div>
@@ -76,6 +76,17 @@
   </main>
 
   <script>
+    function voltarPaginaAnterior(event){
+      event.preventDefault();
+      try {
+        const origem = document.referrer ? new URL(document.referrer) : null;
+        if (origem && origem.origin === window.location.origin && origem.pathname !== window.location.pathname && origem.pathname !== '/painel') {
+          window.location.href = origem.href;
+          return;
+        }
+      } catch (err) {}
+      window.location.href = '/mapa';
+    }
     lucide.createIcons();
     document.querySelectorAll('.todo-complete-form').forEach(function(form){
       form.addEventListener('submit', function(ev){

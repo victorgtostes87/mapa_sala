@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-br">
 <head>
   <meta charset="utf-8">
@@ -10,7 +10,7 @@
 </head>
 <body>
   <nav class="app-nav">
-    <a class="app-nav-brand" href="/"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
+    <a class="app-nav-brand" href="/"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>PoliclÃ­nica Psicologia UVV</span></span></a>
     <div class="app-nav-title">Reservas</div>
     <div class="app-nav-spacer"></div>
     <div class="app-nav-user">
@@ -18,7 +18,7 @@
       <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
     </div>
     <div class="app-nav-actions">
-      <a href="/painel" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Voltar</a>
+      <a href="/" class="app-btn app-btn-ghost" onclick="event.preventDefault(); if (window.history.length > 1) { history.back(); } else { window.location.href='/'; }"><i data-lucide="arrow-left"></i> Voltar</a>
       <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
       <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
     </div>
@@ -37,7 +37,7 @@
       <div>
         <p class="eyebrow">Salas e instrumentos</p>
         <h1>Reservas</h1>
-        <p>Solicitações devem ser feitas com não mínimo 24h de antecedência.</p>
+        <p>SolicitaÃ§Ãµes devem ser feitas com no mÃ­nimo 24h de antecedÃªncia.</p>
       </div>
       {% if papel in ['coordenador', 'recepcao'] %}
       <div class="pending-pill"><i data-lucide="bell"></i>{{ pendentes|length }} pendente(s)</div>
@@ -49,7 +49,7 @@
       <form class="card" method="post" action="/reservas/sala">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <h2><i data-lucide="door-open"></i> Reservar sala</h2>
-        <p class="muted">Escolha o tipo de sala, data e intervalo. O sistema verifica se existe sala disponível.</p>
+        <p class="muted">Escolha o tipo de sala, data e intervalo. O sistema verifica se existe sala disponÃ­vel.</p>
 
         <label>Tipo de sala</label>
         <select name="tipo_sala" required>
@@ -63,7 +63,7 @@
             <input type="date" name="data_uso" required>
           </div>
           <div>
-            <label>Início</label>
+            <label>InÃ­cio</label>
             <select name="horario_inicio" required>
               {% for h in horarios %}<option value="{{ h }}">{{ h }}</option>{% endfor %}
             </select>
@@ -76,21 +76,21 @@
         </select>
 
         <label>Finalidade</label>
-        <input name="finalidade" placeholder="Ex: estudo, prontuário, atendimento pontual" required>
+        <input name="finalidade" placeholder="Ex: estudo, prontuÃ¡rio, atendimento pontual" required>
 
-        <label>Observação</label>
-        <textarea name="observacao" placeholder="Detalhe algo importante para a recepção, se precisar."></textarea>
+        <label>ObservaÃ§Ã£o</label>
+        <textarea name="observacao" placeholder="Detalhe algo importante para a recepÃ§Ã£o, se precisar."></textarea>
 
-        <button class="btn primary" type="submit"><i data-lucide="send"></i> Enviar solicitação</button>
+        <button class="btn primary" type="submit"><i data-lucide="send"></i> Enviar solicitaÃ§Ã£o</button>
       </form>
 
       <form class="card" method="post" action="/reservas/instrumento">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <h2><i data-lucide="clipboard-list"></i> Reservar teste/instrumento</h2>
-        <p class="muted">Funciona como o cadernão da recepção, só que registrado não sistema.</p>
+        <p class="muted">Funciona como o caderno virtual da recepÃ§Ã£o, sÃ³ que registrado no sistema.</p>
 
         <label>Teste ou instrumento</label>
-        <input name="instrumento" placeholder="Ex: HTP, WISC, Bender, palográfico..." required>
+        <input name="instrumento" placeholder="Ex: HTP, WISC, Bender, palogrÃ¡fico..." required>
 
         <div class="two-cols">
           <div>
@@ -98,7 +98,7 @@
             <input type="date" name="data_uso" required>
           </div>
           <div>
-            <label>Horário</label>
+            <label>HorÃ¡rio</label>
             <select name="horario_inicio" required>
               {% for h in horarios %}<option value="{{ h }}">{{ h }}</option>{% endfor %}
             </select>
@@ -106,18 +106,18 @@
         </div>
 
         <label>Finalidade</label>
-        <input name="finalidade" placeholder="Ex: avaliação, triagem, estudo supervisionado">
+        <input name="finalidade" placeholder="Ex: avaliaÃ§Ã£o, triagem, estudo supervisionado">
 
-        <label>Observação</label>
-        <textarea name="observacao" placeholder="Quantidade, professor responsável ou outra informação útil."></textarea>
+        <label>ObservaÃ§Ã£o</label>
+        <textarea name="observacao" placeholder="Quantidade, professor responsÃ¡vel ou outra informaÃ§Ã£o Ãºtil."></textarea>
 
-        <button class="btn primary" type="submit"><i data-lucide="send"></i> Enviar solicitação</button>
+        <button class="btn primary" type="submit"><i data-lucide="send"></i> Enviar solicitaÃ§Ã£o</button>
       </form>
     </section>
 
     <section class="section-head">
       <div>
-        <p class="eyebrow">Cadernão virtual</p>
+        <p class="eyebrow">Caderno virtual</p>
         <h2>Testes e instrumentos reservados</h2>
       </div>
       <span class="count-label">{{ caderno_instrumentos|length }} registro(s)</span>
@@ -144,8 +144,8 @@
     {% else %}
     <section class="empty-state compact-empty">
       <i data-lucide="clipboard-list"></i>
-      <h2>Nenhum instrumento não caderno</h2>
-      <p>Quando algum solicitar um teste ou instrumento, ele aparecer? aqui.</p>
+      <h2>Nenhum instrumento no caderno</h2>
+      <p>Quando algum aluno solicitar um teste ou instrumento, ele aparecerÃ¡ aqui.</p>
     </section>
     {% endif %}
 
@@ -178,7 +178,7 @@
           <div><i data-lucide="calendar"></i>{{ r.data_label }}</div>
           <div><i data-lucide="clock"></i>{{ r.horario_inicio }}{% if r.horario_fim %} s {{ r.horario_fim }}{% endif %}</div>
           {% if r.tipo == 'sala' and r.sala_atribuida %}
-          <div><i data-lucide="map-pin"></i>Sugestão: {{ r.sala_atribuida }}</div>
+          <div><i data-lucide="map-pin"></i>SugestÃ£o: {{ r.sala_atribuida }}</div>
           {% endif %}
         </div>
         {% if r.finalidade %}<p><strong>Finalidade:</strong> {{ r.finalidade }}</p>{% endif %}
@@ -193,7 +193,7 @@
             <label>Sala para aprovar</label>
             <select name="sala_atribuida" required>
               {% for sala in r.salas_aprovacao %}
-              <option value="{{ sala }}" {% if sala == r.sala_atribuida %}selected{% endif %}>{{ sala }}{% if sala == r.sala_atribuida %} (sugestão){% endif %}</option>
+              <option value="{{ sala }}" {% if sala == r.sala_atribuida %}selected{% endif %}>{{ sala }}{% if sala == r.sala_atribuida %} (sugestÃ£o){% endif %}</option>
               {% endfor %}
             </select>
             {% endif %}
@@ -213,14 +213,14 @@
     {% else %}
     <section class="empty-state">
       <i data-lucide="inbox"></i>
-      <h2>Nenhuma solicitação por aqui</h2>
-      <p>Quando você enviar uma reserva de sala, ela aparecer? nesta lista.</p>
+      <h2>Nenhuma solicitaÃ§Ã£o por aqui</h2>
+      <p>Quando vocÃª enviar uma reserva de sala, ela aparecerÃ¡ nesta lista.</p>
     </section>
     {% endif %}
     {% else %}
     <section class="section-head">
       <div>
-        <p class="eyebrow">Solicitações de sala</p>
+        <p class="eyebrow">SolicitaÃ§Ãµes de sala</p>
         <h2>Reservas de sala pendentes</h2>
       </div>
       <span class="count-label">{{ pendentes_sala|length }} pendente(s)</span>
@@ -242,7 +242,7 @@
           <div><i data-lucide="calendar"></i>{{ r.data_label }}</div>
           <div><i data-lucide="clock"></i>{{ r.horario_inicio }}{% if r.horario_fim %} s {{ r.horario_fim }}{% endif %}</div>
           {% if r.sala_atribuida %}
-          <div><i data-lucide="map-pin"></i>Sugestão: {{ r.sala_atribuida }}</div>
+          <div><i data-lucide="map-pin"></i>SugestÃ£o: {{ r.sala_atribuida }}</div>
           {% endif %}
         </div>
         {% if r.finalidade %}<p><strong>Finalidade:</strong> {{ r.finalidade }}</p>{% endif %}
@@ -254,7 +254,7 @@
             <label>Sala para aprovar</label>
             <select name="sala_atribuida" required>
               {% for sala in r.salas_aprovacao %}
-              <option value="{{ sala }}" {% if sala == r.sala_atribuida %}selected{% endif %}>{{ sala }}{% if sala == r.sala_atribuida %} (sugestão){% endif %}</option>
+              <option value="{{ sala }}" {% if sala == r.sala_atribuida %}selected{% endif %}>{{ sala }}{% if sala == r.sala_atribuida %} (sugestÃ£o){% endif %}</option>
               {% endfor %}
             </select>
             <input name="resposta" placeholder="Mensagem opcional para o aluno">
@@ -273,21 +273,88 @@
     <section class="empty-state compact-empty">
       <i data-lucide="door-open"></i>
       <h2>Nenhuma reserva de sala pendente</h2>
-      <p>Quando um alunão solicitar sala, a solicitação aparecer? aqui.</p>
+      <p>Quando um aluno solicitar sala, a solicitaÃ§Ã£o aparecerÃ¡ aqui.</p>
     </section>
     {% endif %}
 
-    <section class="section-head">
-      <div>
-        <p class="eyebrow">Cadernão virtual</p>
-        <h2>Reservas de testes e instrumentos</h2>
-      </div>
-      <span class="count-label">{{ caderno_instrumentos|length }} registro(s)</span>
+    <section class="approved-overview">
+      <article class="approved-panel">
+        <div class="section-head tight-head">
+          <div>
+            <p class="eyebrow">Ja aprovadas</p>
+            <h2>Salas aprovadas</h2>
+          </div>
+          <span class="count-label">{{ aprovadas_sala|length }}</span>
+        </div>
+        {% if aprovadas_sala %}
+        <div class="approved-list">
+          {% for r in aprovadas_sala %}
+          <div class="approved-row">
+            <div>
+              <strong>{{ r.sala_atribuida or r.tipo_sala_label }}</strong>
+              <span>{{ r.usuario }} · {{ r.data_label }} · {{ r.horario_inicio }}{% if r.horario_fim %} ate {{ r.horario_fim }}{% endif %}</span>
+            </div>
+            <form method="post" action="/reservas/{{ r.id }}/reabrir">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn small correction" type="submit">Corrigir aprovacao</button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-mini">Nenhuma sala aprovada no momento.</div>
+        {% endif %}
+      </article>
+
+      <article class="approved-panel">
+        <div class="section-head tight-head">
+          <div>
+            <p class="eyebrow">Ja aprovados</p>
+            <h2>Testes aprovados</h2>
+          </div>
+          <span class="count-label">{{ aprovadas_instrumentos|length }}</span>
+        </div>
+        {% if aprovadas_instrumentos %}
+        <div class="approved-list">
+          {% for r in aprovadas_instrumentos %}
+          <div class="approved-row">
+            <div>
+              <strong>{{ r.instrumento }}</strong>
+              <span>{{ r.usuario }} · {{ r.data_label }} · {{ r.horario_inicio }} · {{ r.status_label }}</span>
+            </div>
+            <div class="approved-actions">
+              {% if r.status == 'aprovada' %}
+              <form method="post" action="/reservas/{{ r.id }}/status">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="status" value="separado">
+                <button class="btn small" type="submit">Separado</button>
+              </form>
+              {% endif %}
+              <form method="post" action="/reservas/{{ r.id }}/reabrir">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn small correction" type="submit">Corrigir</button>
+              </form>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-mini">Nenhum teste aprovado no momento.</div>
+        {% endif %}
+      </article>
     </section>
 
-    {% if caderno_instrumentos %}
+    <section class="section-head">
+      <div>
+        <p class="eyebrow">Caderno virtual</p>
+        <h2>Reservas de testes e instrumentos</h2>
+      </div>
+      <span class="count-label">{{ pendentes_instrumento|length }} registro(s)</span>
+    </section>
+
+    {% if pendentes_instrumento %}
     <section class="instrument-list notebook">
-      {% for r in caderno_instrumentos %}
+      {% for r in pendentes_instrumento %}
       <article class="instrument-row">
         <div class="instrument-main">
           <span class="status {{ r.status }}">{{ r.status_label }}</span>
@@ -344,7 +411,7 @@
     <section class="empty-state compact-empty">
       <i data-lucide="clipboard-list"></i>
       <h2>Nenhum instrumento pendente</h2>
-      <p>Quando um alunão pedir teste ou instrumento, ele entra nesta lista como não cadernão da recepção.</p>
+      <p>Quando um aluno pedir teste ou instrumento, ele entra nesta lista como no caderno virtual da recepÃ§Ã£o.</p>
     </section>
     {% endif %}
     {% endif %}
@@ -352,8 +419,8 @@
     {% if papel in ['coordenador', 'recepcao'] and minhas_reservas %}
     <section class="section-head">
       <div>
-        <p class="eyebrow">Últimas análises</p>
-        <h2>Solicitações recentes</h2>
+        <p class="eyebrow">Ãšltimas anÃ¡lises</p>
+        <h2>SolicitaÃ§Ãµes recentes</h2>
       </div>
     </section>
     <section class="request-list compact">

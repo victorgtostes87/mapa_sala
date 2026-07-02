@@ -129,6 +129,20 @@ def preparar_reserva(row, candidatos_sala):
     return r
 
 
+def ids_agendamentos_reserva(reserva):
+    ids = []
+    reserva_dict = dict(reserva)
+    for valor in str(reserva_dict.get('agendamento_ids') or '').split(','):
+        valor = valor.strip()
+        if not valor:
+            continue
+        try:
+            ids.append(int(valor))
+        except ValueError:
+            continue
+    return ids
+
+
 def registrar_rotas_reservas(app, deps):
     get_db = deps['get_db']
     login_required = deps['login_required']
@@ -240,6 +254,14 @@ def registrar_rotas_reservas(app, deps):
         minhas_reservas = [preparar_reserva(r, candidatos_sala) for r in rows]
         pendentes = [preparar_reserva(r, candidatos_sala) for r in pendentes]
         caderno_instrumentos = [preparar_reserva(r, candidatos_sala) for r in caderno_rows]
+        aprovadas_sala = [
+            r for r in minhas_reservas
+            if r.get('tipo') == 'sala' and r.get('status') == 'aprovada'
+        ]
+        aprovadas_instrumentos = [
+            r for r in minhas_reservas
+            if r.get('tipo') == 'instrumento' and r.get('status') in ('aprovada', 'separado')
+        ]
 
         return render_template(
             'reservas.html',
@@ -256,6 +278,8 @@ def registrar_rotas_reservas(app, deps):
             caderno_instrumentos=caderno_instrumentos,
             recentes_sala=[r for r in minhas_reservas if r.get('tipo') == 'sala'],
             recentes_instrumento=[r for r in minhas_reservas if r.get('tipo') == 'instrumento'],
+            aprovadas_sala=aprovadas_sala,
+            aprovadas_instrumentos=aprovadas_instrumentos,
         )
 
     @app.route('/reservas/sala', methods=['POST'])
@@ -447,7 +471,7 @@ def registrar_rotas_reservas(app, deps):
                         'sala': sala_atribuida,
                         'estagiario': reserva['usuario'],
                         'paciente': '',
-                        'categoria': 'PRONTURIO/ESTUDAR',
+                        'categoria': 'PRONTUÁRIO/ESTUDAR',
                         'semestre': detect_sem(reserva['usuario']),
                         'triagem': 0,
                         'observacao': f'Reserva aprovada: {reserva["finalidade"]}',
@@ -512,6 +536,43 @@ def registrar_rotas_reservas(app, deps):
         if callable(notificar_reserva_email):
             notificar_reserva_email(reserva_email, 'recusada', resposta)
         flash('Reserva recusada.', 'success')
+        return redirect(url_for('reservas'))
+
+    @app.route('/reservas/<int:rid>/reabrir', methods=['POST'])
+    @login_required
+    @requer_papel('coordenador', 'recepcao')
+    def reabrir_reserva(rid):
+        conn = get_db()
+        try:
+            reserva = conn.execute("SELECT * FROM reservas WHERE id=?", (rid,)).fetchone()
+            if not reserva:
+                flash('Reserva não encontrada.', 'error')
+                return redirect(url_for('reservas'))
+            if reserva['status'] == 'pendente':
+                flash('Esta reserva já está pendente.', 'error')
+                return redirect(url_for('reservas'))
+
+            if reserva['tipo'] == 'sala':
+                ids = ids_agendamentos_reserva(reserva)
+                if ids:
+                    placeholders = ','.join('?' for _ in ids)
+                    conn.execute(f'DELETE FROM agendamentos WHERE id IN ({placeholders})', ids)
+
+            conn.execute(
+                """
+                UPDATE reservas
+                SET status='pendente', resposta='', agendamento_ids='',
+                    analisado_por=?, updated_at=CURRENT_TIMESTAMP
+                WHERE id=?
+                """,
+                (current_user.username, rid)
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        registrar_log('REABRIR_RESERVA', f'Reserva #{rid} reaberta por {current_user.username}')
+        flash('Reserva reaberta para correção. Ela voltou para a lista de pendentes.', 'success')
         return redirect(url_for('reservas'))
 
     @app.route('/reservas/<int:rid>/status', methods=['POST'])

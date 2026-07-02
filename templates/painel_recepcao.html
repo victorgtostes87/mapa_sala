@@ -3,27 +3,23 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Painel da Recepção</title>
+  <title>Painel da RecepÃ§Ã£o</title>
   <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/painel_recepcao.css') }}">
 </head>
 <body>
   <nav class="app-nav">
-    <a class="app-nav-brand" href="/painel"><i data-lucide="layout-dashboard"></i><span>Painel da Recepção</span></a>
-    <div class="app-nav-title">Mapa de Sala - Policlínica Psicologia UVV</div>
+    <a class="app-nav-brand" href="/mapa" title="Voltar para o mapa"><img class="app-nav-logo" src="{{ url_for('static', filename='img/mapa-sala-logo.png') }}" alt=""><span>Mapa de Sala</span></a>
+    <div class="app-nav-title">Mapa de Sala - PoliclÃ­nica Psicologia UVV</div>
     <div class="app-nav-spacer"></div>
     <div class="app-nav-user">
       <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
       <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
     </div>
     <div class="app-nav-actions">
-      <a href="/afazeres" class="app-btn app-btn-ghost"><i data-lucide="list-checks"></i> Afazeres</a>
-      <a href="/reservas" class="app-btn app-btn-ghost"><i data-lucide="bell"></i> Reservas</a>
-      <a href="/api/export" class="app-btn app-btn-ghost"><i data-lucide="download"></i> Exportar</a>
-      <a href="/imprimir" target="_blank" class="app-btn app-btn-ghost"><i data-lucide="printer"></i> Imprimir</a>
+      <a href="/" class="app-btn app-btn-ghost" onclick="event.preventDefault(); if (window.history.length > 1) { history.back(); } else { window.location.href='/'; }"><i data-lucide="arrow-left"></i> Voltar</a>
       <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
-      <a href="/sobre" class="app-btn app-btn-ghost"><i data-lucide="info"></i> Sobre</a>
       <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
     </div>
   </nav>
@@ -32,7 +28,7 @@
     <section class="hero">
       <div>
         <p class="eyebrow">Hoje, {{ hoje_label }}</p>
-        <h1>Painel da recepção</h1>
+        <h1>Painel da recepÃ§Ã£o</h1>
         <p class="muted">Foco no que precisa ser resolvido: reservas pendentes, instrumentos pendentes e afazeres do turno.</p>
       </div>
       <a class="quick-map" href="/afazeres"><i data-lucide="list-checks"></i> Abrir afazeres</a>
@@ -53,12 +49,33 @@
       </a>
     </section>
 
+    <section class="action-today">
+      <div>
+        <p class="eyebrow">Precisa de aÃ§Ã£o hoje</p>
+        <h2>{{ (pendentes_sala|length) + (pendentes_instrumento|length) + (tarefas_manuais|length) }} item(ns) para conferir</h2>
+      </div>
+      <div class="action-links">
+        {% if pendentes_sala %}
+        <a href="/reservas"><i data-lucide="door-open"></i><span>{{ pendentes_sala|length }} reserva(s) de sala aguardando anÃ¡lise</span></a>
+        {% endif %}
+        {% if pendentes_instrumento %}
+        <a href="/reservas"><i data-lucide="clipboard-list"></i><span>{{ pendentes_instrumento|length }} instrumento(s) aguardando anÃ¡lise</span></a>
+        {% endif %}
+        {% if tarefas_manuais %}
+        <a href="/afazeres"><i data-lucide="list-checks"></i><span>{{ tarefas_manuais|length }} afazer(es) anotado(s)</span></a>
+        {% endif %}
+        {% if not pendentes_sala and not pendentes_instrumento and not tarefas_manuais %}
+        <span class="all-clear"><i data-lucide="check-circle-2"></i> Nada urgente registrado agora.</span>
+        {% endif %}
+      </div>
+    </section>
+
     <section class="panel-grid">
       <article class="panel wide checklist-panel">
         <div class="panel-head">
           <div>
             <p class="eyebrow">Rotina do turno</p>
-            <h2>Pendências e afazeres</h2>
+            <h2>PendÃªncias e afazeres</h2>
           </div>
           <a href="/afazeres">Abrir afazeres</a>
         </div>
@@ -75,14 +92,14 @@
               {% endfor %}
             </div>
             {% else %}
-            <div class="empty positive"><i data-lucide="badge-check"></i><span>Nenhuma pendência automática no momento.</span></div>
+            <div class="empty positive"><i data-lucide="badge-check"></i><span>Nenhuma pendÃªncia automÃ¡tica no momento.</span></div>
             {% endif %}
           </div>
 
           <a class="todo-shortcut" href="/afazeres">
             <i data-lucide="list-checks"></i>
             <strong>{{ tarefas_manuais|length }} afazer(es) anotado(s)</strong>
-            <span>Abrir lista compartilhada da recepção</span>
+            <span>Abrir lista compartilhada da recepÃ§Ã£o</span>
           </a>
         </div>
       </article>
@@ -100,13 +117,13 @@
           {% for r in pendentes_sala %}
           <div class="task-row">
             <strong>{{ r.usuario }}</strong>
-            <span>{{ r.data_label }} às {{ r.horario_inicio }}{% if r.horario_fim %} - {{ r.horario_fim }}{% endif %}</span>
+            <span>{{ r.data_label }} Ã s {{ r.horario_inicio }}{% if r.horario_fim %} - {{ r.horario_fim }}{% endif %}</span>
             <em>{{ r.finalidade or 'Sem finalidade informada' }}</em>
           </div>
           {% endfor %}
         </div>
         {% else %}
-        <div class="empty positive"><i data-lucide="check-circle-2"></i><span>Nenhuma reserva de sala pendente. Não há nada para aprovar agora.</span></div>
+        <div class="empty positive"><i data-lucide="check-circle-2"></i><span>Nenhuma reserva de sala pendente. NÃ£o hÃ¡ nada para aprovar agora.</span></div>
         {% endif %}
       </article>
 
@@ -123,8 +140,8 @@
           {% for r in pendentes_instrumento %}
           <div class="task-row status-pendente">
             <strong>{{ r.instrumento }}</strong>
-            <span>{{ r.usuario }} · {{ r.data_label }} às {{ r.horario_inicio }}</span>
-            <em>Pendente de aprovação</em>
+            <span>{{ r.usuario }} Â· {{ r.data_label }} Ã s {{ r.horario_inicio }}</span>
+            <em>Pendente de aprovaÃ§Ã£o</em>
           </div>
           {% endfor %}
         </div>
@@ -135,6 +152,16 @@
     </section>
   </main>
 
-  <script>lucide.createIcons();</script>
+  <script>
+    lucide.createIcons();
+    function togglePainelMenu(ev){
+      ev.stopPropagation();
+      document.getElementById('painelDropdownMenu').classList.toggle('open');
+    }
+    document.addEventListener('click', function(){
+      var menu = document.getElementById('painelDropdownMenu');
+      if(menu) menu.classList.remove('open');
+    });
+  </script>
 </body>
 </html>

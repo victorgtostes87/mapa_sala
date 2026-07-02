@@ -17,6 +17,10 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .btn-logout{background:transparent;color:#f87171;border:1px solid #7f1d1d;font-size:10px;padding:2px 8px;border-radius:var(--radius);cursor:pointer;font-weight:600;transition:all .15s}
 .btn-logout:hover{background:#7f1d1d;color:#fff}
 .uvv-top-logo{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-height:44px;max-width:340px;opacity:.56;pointer-events:none;filter:invert(1) grayscale(1) brightness(1.55)}
+.main-map-nav{flex-wrap:nowrap}
+.main-map-brand{min-width:0}
+.main-map-logo{width:30px;height:30px;border-radius:7px}
+.main-map-brand span{font-size:14px}
 .tabs{display:flex;gap:0;padding:0 20px;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto}
 .tab{padding:10px 20px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
 .tab:hover{color:var(--text)}.tab.active{color:var(--accent);border-bottom-color:var(--accent)}

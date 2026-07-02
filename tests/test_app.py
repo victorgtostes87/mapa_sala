@@ -1031,6 +1031,53 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertEqual(reserva_atualizada['status'], 'aprovada')
         self.assertEqual(total_agendamentos, 2)
 
+    def test_reabrir_reserva_de_sala_remove_agendamentos_criados(self):
+        data_uso = self._data_util_com_antecedencia()
+        self._login('aluno1')
+        self.client.post(
+            '/reservas/sala',
+            data={
+                'csrf_token': self.csrf,
+                'data_uso': data_uso,
+                'horario_inicio': '14:00',
+                'horario_fim': '16:00',
+                'tipo_sala': 'comum',
+                'finalidade': 'Estudo de prontuário',
+                'observacao': ''
+            }
+        )
+        conn = mapa.get_db()
+        try:
+            reserva = conn.execute("SELECT * FROM reservas WHERE tipo='sala'").fetchone()
+        finally:
+            conn.close()
+
+        self.client.get('/logout')
+        self._login('recepcao')
+        self.client.post(
+            f'/reservas/{reserva["id"]}/aprovar',
+            data={'csrf_token': self.csrf, 'resposta': 'Aprovado'}
+        )
+        reabrir = self.client.post(
+            f'/reservas/{reserva["id"]}/reabrir',
+            data={'csrf_token': self.csrf}
+        )
+
+        self.assertEqual(reabrir.status_code, 302)
+        conn = mapa.get_db()
+        try:
+            reserva_reaberta = conn.execute('SELECT * FROM reservas WHERE id=?', (reserva['id'],)).fetchone()
+            total_agendamentos = conn.execute(
+                'SELECT COUNT(*) AS total FROM agendamentos WHERE data_especifica=? AND usuario_id=?',
+                (data_uso, self.aluno1_id)
+            ).fetchone()['total']
+        finally:
+            conn.close()
+
+        self.assertEqual(reserva_reaberta['status'], 'pendente')
+        self.assertEqual(reserva_reaberta['agendamento_ids'], '')
+        self.assertEqual(total_agendamentos, 0)
+
     def test_aprovar_reserva_permite_escolher_sala_com_computador(self):
         data_uso = self._data_util_com_antecedencia()
         self._login('aluno1')

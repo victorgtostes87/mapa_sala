@@ -157,19 +157,23 @@ textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(59,130,246,.
 }
 
 .todo-note{
-  background:var(--surface3);
-  border:1px solid var(--border);
-  border-left:4px solid var(--warning);
-  border-radius:var(--radius);
-  padding:11px;
+  background:linear-gradient(180deg,#352710,#221b12);
+  border:1px solid #a16207;
+  border-left:0;
+  border-radius:6px;
+  padding:12px;
   display:grid;
   grid-template-columns:1fr auto;
   gap:10px;
   align-items:start;
+  box-shadow:0 10px 22px rgba(0,0,0,.18), inset 0 3px 0 rgba(250,204,21,.22);
+  position:relative;
   transition:transform .16s ease,opacity .2s ease,border-color .16s ease,background .16s ease;
 }
 
-.todo-note.has-detail{border-left-color:#3b82f6}
+.todo-note.has-detail{
+  border-color:#ca8a04;
+}
 
 .todo-main{
   display:grid;
@@ -177,28 +181,47 @@ textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(59,130,246,.
   min-width:0;
 }
 
+.pending-pill{
+  width:max-content;
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  border-radius:999px;
+  background:#78350f;
+  color:#fde68a;
+  border:1px solid #b45309;
+  padding:4px 8px;
+  font-size:10px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.35px;
+}
+
+.pending-pill i{width:13px;height:13px}
+
 .todo-main h2{
-  font-size:15px;
+  font-size:16px;
   line-height:1.25;
+  color:#fff7ed;
   overflow-wrap:anywhere;
 }
 
 .todo-main span{
-  color:#93c5fd;
+  color:#fcd34d;
   font-size:11px;
   font-weight:800;
 }
 
 .detail-box{
-  background:rgba(37,99,235,.12);
-  border:1px solid rgba(96,165,250,.32);
-  border-radius:var(--radius);
+  background:rgba(15,23,42,.44);
+  border:1px solid rgba(252,211,77,.35);
+  border-radius:6px;
   padding:8px 9px;
 }
 
 .detail-box strong{
   display:block;
-  color:#bfdbfe;
+  color:#fde68a;
   font-size:11px;
   text-transform:uppercase;
   letter-spacing:.35px;
@@ -206,22 +229,23 @@ textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(59,130,246,.
 }
 
 .detail-box p{
-  color:#cbd5e1;
+  color:#ffedd5;
   line-height:1.35;
   font-size:13px;
   overflow-wrap:anywhere;
 }
 
 .todo-complete-form button{
-  min-height:36px;
-  background:#052e16;
-  border:1px solid #16a34a;
-  color:#bbf7d0;
-  padding:8px 10px;
+  min-height:38px;
+  background:#16a34a;
+  border:1px solid #22c55e;
+  color:#fff;
+  padding:9px 12px;
+  box-shadow:0 6px 14px rgba(22,163,74,.18);
 }
 
 .todo-complete-form button:hover{
-  background:#15803d;
+  background:#22c55e;
   color:#fff;
 }
 

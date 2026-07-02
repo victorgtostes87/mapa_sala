@@ -45,11 +45,11 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div>
         <label>O que precisa ser feito?</label>
-        <input name="titulo" placeholder="Ex: separar teste HTP para 14h" required>
+        <input name="titulo" placeholder="Ex: ligar para aluno para avisar que o paciente desmarcou" required>
       </div>
       <div>
         <label>Detalhes, se precisar</label>
-        <textarea name="detalhe" placeholder="Ex: aluno, professor, sala, horário ou qualquer recado importante"></textarea>
+        <textarea name="detalhe" placeholder="Ex: nome do aluno, telefone, horário do atendimento ou orientação da coordenação"></textarea>
       </div>
       <button type="submit"><i data-lucide="plus"></i> Adicionar afazer</button>
     </form>
@@ -67,6 +67,7 @@
           {% for t in tarefas %}
           <article class="todo-note {% if t.detalhe %}has-detail{% endif %}">
             <div class="todo-main">
+              <span class="pending-pill"><i data-lucide="clock-3"></i> Pendente</span>
               <h2>{{ t.titulo }}</h2>
               {% if t.detalhe %}
               <div class="detail-box">

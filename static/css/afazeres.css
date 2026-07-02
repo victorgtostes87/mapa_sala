@@ -165,33 +165,39 @@ textarea:focus{
 
 .todo-board{
   display:grid;
-  gap:8px;
-  padding:12px;
+  grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+  gap:14px;
+  padding:14px;
 }
 
 .todo-note{
-  display:grid;
-  grid-template-columns:132px minmax(0,1fr) auto;
-  gap:12px;
-  align-items:stretch;
-  background:linear-gradient(180deg,#211c14,#17130e);
-  border:1px solid rgba(180,83,9,.7);
+  min-height:220px;
+  display:flex;
+  flex-direction:column;
+  background:#fef3c7;
+  border:1px solid #f59e0b;
   border-radius:var(--radius);
-  box-shadow:0 8px 18px rgba(0,0,0,.18);
+  box-shadow:0 12px 22px rgba(0,0,0,.22);
   overflow:hidden;
-  transition:transform .16s ease,opacity .2s ease,border-color .16s ease,background .16s ease;
+  transition:transform .16s ease,opacity .2s ease,border-color .16s ease,box-shadow .16s ease;
 }
 
 .todo-note.has-detail{
   border-color:#d97706;
 }
 
+.todo-note:hover{
+  transform:translateY(-2px);
+  box-shadow:0 16px 26px rgba(0,0,0,.26);
+}
+
 .note-status{
-  background:rgba(120,53,15,.42);
-  border-right:1px solid rgba(180,83,9,.52);
-  padding:12px;
+  background:rgba(245,158,11,.24);
+  border-bottom:1px solid rgba(180,83,9,.28);
+  padding:9px 10px;
   display:flex;
-  align-items:flex-start;
+  align-items:center;
+  justify-content:space-between;
 }
 
 .pending-pill{
@@ -199,10 +205,10 @@ textarea:focus{
   align-items:center;
   gap:6px;
   border-radius:999px;
-  background:#78350f;
-  color:#fde68a;
-  border:1px solid #b45309;
-  padding:6px 9px;
+  background:#fff7ed;
+  color:#92400e;
+  border:1px solid #f59e0b;
+  padding:5px 8px;
   font-size:10px;
   font-weight:900;
   text-transform:uppercase;
@@ -213,35 +219,37 @@ textarea:focus{
 
 .todo-main{
   min-width:0;
-  display:grid;
-  align-content:center;
-  gap:7px;
-  padding:11px 0;
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  gap:9px;
+  padding:12px;
 }
 
 .todo-main h2{
   font-size:16px;
-  line-height:1.25;
-  color:#fff7ed;
+  line-height:1.28;
+  color:#422006;
   overflow-wrap:anywhere;
 }
 
 .todo-main > span{
-  color:#fcd34d;
+  margin-top:auto;
+  color:#92400e;
   font-size:11px;
   font-weight:800;
 }
 
 .detail-box{
-  background:rgba(15,23,42,.48);
-  border:1px solid rgba(252,211,77,.30);
+  background:#fffbeb;
+  border:1px solid rgba(217,119,6,.32);
   border-radius:6px;
-  padding:8px 9px;
+  padding:8px;
 }
 
 .detail-box strong{
   display:block;
-  color:#fde68a;
+  color:#92400e;
   font-size:10px;
   text-transform:uppercase;
   letter-spacing:.35px;
@@ -249,25 +257,26 @@ textarea:focus{
 }
 
 .detail-box p{
-  color:#ffedd5;
+  color:#713f12;
   line-height:1.35;
   font-size:13px;
   overflow-wrap:anywhere;
 }
 
 .note-action{
-  padding:12px;
+  padding:0 12px 12px;
   display:flex;
-  align-items:center;
-  justify-content:flex-end;
+  align-items:flex-end;
+  justify-content:stretch;
 }
 
 .todo-complete-form button{
-  min-height:38px;
+  width:100%;
+  min-height:36px;
   background:#16a34a;
   border:1px solid #22c55e;
   color:#fff;
-  padding:9px 12px;
+  padding:8px 10px;
   box-shadow:0 6px 14px rgba(22,163,74,.18);
 }
 
@@ -285,7 +294,7 @@ textarea:focus{
 
 .todo-note.completing .note-status{
   background:rgba(5,46,22,.8);
-  border-right-color:#22c55e;
+  border-bottom-color:#22c55e;
 }
 
 .empty{
@@ -321,9 +330,10 @@ textarea:focus{
   input,textarea{font-size:16px;min-height:44px}
   textarea{min-height:88px}
   .todo-create button{width:100%;min-height:44px}
-  .todo-note{grid-template-columns:1fr;gap:0}
-  .note-status{border-right:0;border-bottom:1px solid rgba(180,83,9,.52);padding:10px 11px}
+  .todo-board{grid-template-columns:1fr;gap:10px;padding:10px}
+  .todo-note{min-height:190px}
+  .note-status{padding:9px 10px}
   .todo-main{padding:11px}
-  .note-action{padding:0 11px 11px;justify-content:stretch}
+  .note-action{padding:0 11px 11px}
   .todo-complete-form,.todo-complete-form button{width:100%;min-height:42px}
 }

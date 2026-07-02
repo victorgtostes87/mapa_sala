@@ -66,8 +66,10 @@
         {% if tarefas %}
           {% for t in tarefas %}
           <article class="todo-note {% if t.detalhe %}has-detail{% endif %}">
-            <div class="todo-main">
+            <div class="note-status">
               <span class="pending-pill"><i data-lucide="clock-3"></i> Pendente</span>
+            </div>
+            <div class="todo-main">
               <h2>{{ t.titulo }}</h2>
               {% if t.detalhe %}
               <div class="detail-box">
@@ -77,10 +79,12 @@
               {% endif %}
               <span>Criado por {{ t.criado_por or 'recepção' }}</span>
             </div>
-            <form class="todo-complete-form" method="post" action="/painel/tarefas/{{ t.id }}/concluir">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit"><i data-lucide="check"></i> Concluir tarefa</button>
-            </form>
+            <div class="note-action">
+              <form class="todo-complete-form" method="post" action="/painel/tarefas/{{ t.id }}/concluir">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit"><i data-lucide="check"></i> Concluir tarefa</button>
+              </form>
+            </div>
           </article>
           {% endfor %}
         {% else %}

@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="pt-br">
 <head>
   <meta charset="utf-8">
@@ -10,7 +10,7 @@
 </head>
 <body>
   <nav class="app-nav">
-    <a class="app-nav-brand" href="/"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>PoliclÃ­nica Psicologia UVV</span></span></a>
+    <a class="app-nav-brand" href="/"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
     <div class="app-nav-title">Reservas</div>
     <div class="app-nav-spacer"></div>
     <div class="app-nav-user">
@@ -24,6 +24,128 @@
     </div>
   </nav>
 
+  {% macro sala_card(r, modo='leitura') %}
+  <article class="reserva-card {{ r.status }}">
+    <div class="card-top">
+      <div>
+        <span class="kind">Sala</span>
+        <h3>{{ r.sala_atribuida or r.tipo_sala_label }}</h3>
+      </div>
+      <span class="status {{ r.status }}">{{ r.status_label }}</span>
+    </div>
+
+    <div class="meta-list">
+      <span><i data-lucide="user"></i>{{ r.usuario }}</span>
+      <span><i data-lucide="calendar"></i>{{ r.data_label }}</span>
+      <span><i data-lucide="clock"></i>{{ r.horario_inicio }}{% if r.horario_fim %} até {{ r.horario_fim }}{% endif %}</span>
+      {% if r.tipo_sala_label %}<span><i data-lucide="monitor"></i>{{ r.tipo_sala_label }}</span>{% endif %}
+    </div>
+
+    {% if r.finalidade %}<p><strong>Finalidade:</strong> {{ r.finalidade }}</p>{% endif %}
+    {% if r.observacao %}<p><strong>Observação:</strong> {{ r.observacao }}</p>{% endif %}
+    {% if r.resposta %}<p><strong>Resposta:</strong> {{ r.resposta }}</p>{% endif %}
+
+    {% if modo == 'aprovar' %}
+    <div class="actions-grid">
+      <form method="post" action="/reservas/{{ r.id }}/aprovar">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>Sala para aprovar</label>
+        <select name="sala_atribuida" required>
+          {% for sala in r.salas_aprovacao %}
+          <option value="{{ sala }}" {% if sala == r.sala_atribuida %}selected{% endif %}>{{ sala }}{% if sala == r.sala_atribuida %} (sugestão){% endif %}</option>
+          {% endfor %}
+        </select>
+        <input name="resposta" placeholder="Mensagem opcional para o aluno">
+        <button class="btn primary" type="submit"><i data-lucide="check"></i> Aprovar</button>
+      </form>
+      <form method="post" action="/reservas/{{ r.id }}/recusar">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>Recusar</label>
+        <input name="resposta" placeholder="Motivo da recusa">
+        <button class="btn danger" type="submit"><i data-lucide="x"></i> Recusar</button>
+      </form>
+    </div>
+    {% elif modo == 'corrigir' %}
+    <form class="inline-action" method="post" action="/reservas/{{ r.id }}/reabrir">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn correction" type="submit"><i data-lucide="rotate-ccw"></i> Corrigir</button>
+    </form>
+    {% endif %}
+  </article>
+  {% endmacro %}
+
+  {% macro teste_card(r, modo='leitura') %}
+  <article class="reserva-card teste {{ r.status }}">
+    <div class="card-top">
+      <div>
+        <span class="kind">Teste / instrumento</span>
+        <h3>{{ r.instrumento }}</h3>
+      </div>
+      <span class="status {{ r.status }}">{{ r.status_label }}</span>
+    </div>
+
+    <div class="meta-list">
+      <span><i data-lucide="user"></i>{{ r.usuario }}</span>
+      <span><i data-lucide="calendar"></i>{{ r.data_label }}</span>
+      <span><i data-lucide="clock"></i>{{ r.horario_inicio }}</span>
+    </div>
+
+    {% if r.finalidade %}<p><strong>Finalidade:</strong> {{ r.finalidade }}</p>{% endif %}
+    {% if r.observacao %}<p><strong>Observação:</strong> {{ r.observacao }}</p>{% endif %}
+    {% if r.resposta %}<p><strong>Resposta:</strong> {{ r.resposta }}</p>{% endif %}
+
+    {% if modo == 'aprovar' %}
+    <div class="actions-grid">
+      <form method="post" action="/reservas/{{ r.id }}/aprovar">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>Aprovar</label>
+        <input name="resposta" placeholder="Mensagem opcional">
+        <button class="btn primary" type="submit"><i data-lucide="check"></i> Aprovar</button>
+      </form>
+      <form method="post" action="/reservas/{{ r.id }}/recusar">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>Recusar</label>
+        <input name="resposta" placeholder="Motivo da recusa">
+        <button class="btn danger" type="submit"><i data-lucide="x"></i> Recusar</button>
+      </form>
+    </div>
+    {% elif modo == 'corrigir' %}
+    <div class="button-row">
+      {% if r.status == 'aprovada' %}
+      <form method="post" action="/reservas/{{ r.id }}/status">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="status" value="separado">
+        <button class="btn secondary" type="submit"><i data-lucide="archive"></i> Separado</button>
+      </form>
+      {% elif r.status == 'separado' %}
+      <form method="post" action="/reservas/{{ r.id }}/status">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="status" value="retirado">
+        <button class="btn secondary" type="submit"><i data-lucide="hand"></i> Retirado</button>
+      </form>
+      {% elif r.status == 'retirado' %}
+      <form method="post" action="/reservas/{{ r.id }}/status">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="status" value="devolvido">
+        <button class="btn secondary" type="submit"><i data-lucide="undo-2"></i> Devolvido</button>
+      </form>
+      {% endif %}
+      <form method="post" action="/reservas/{{ r.id }}/reabrir">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn correction" type="submit"><i data-lucide="rotate-ccw"></i> Corrigir</button>
+      </form>
+    </div>
+    {% endif %}
+  </article>
+  {% endmacro %}
+
+  {% macro empty_box(texto) %}
+  <div class="empty-box">
+    <i data-lucide="inbox"></i>
+    <span>{{ texto }}</span>
+  </div>
+  {% endmacro %}
+
   <main class="reservas-page">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -33,23 +155,26 @@
       {% endif %}
     {% endwith %}
 
-    <section class="hero">
+    <section class="page-head">
       <div>
-        <p class="eyebrow">Salas e instrumentos</p>
+        <p class="eyebrow">Salas e testes</p>
         <h1>Reservas</h1>
-        <p>SolicitaÃ§Ãµes devem ser feitas com no mÃ­nimo 24h de antecedÃªncia.</p>
+        <p>Solicitações devem ser feitas com no mínimo 24h de antecedência.</p>
       </div>
       {% if papel in ['coordenador', 'recepcao'] %}
-      <div class="pending-pill"><i data-lucide="bell"></i>{{ pendentes|length }} pendente(s)</div>
+      <form method="post" action="/reservas/limpar-salas-vencidas">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn secondary" type="submit"><i data-lucide="trash-2"></i> Limpar salas vencidas</button>
+      </form>
       {% endif %}
     </section>
 
     {% if papel == 'aluno' %}
     <section class="form-grid">
-      <form class="card" method="post" action="/reservas/sala">
+      <form class="form-card" method="post" action="/reservas/sala">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <h2><i data-lucide="door-open"></i> Reservar sala</h2>
-        <p class="muted">Escolha o tipo de sala, data e intervalo. O sistema verifica se existe sala disponÃ­vel.</p>
+        <p>Escolha o tipo de sala, data e intervalo. O sistema verifica a disponibilidade.</p>
 
         <label>Tipo de sala</label>
         <select name="tipo_sala" required>
@@ -63,7 +188,7 @@
             <input type="date" name="data_uso" required>
           </div>
           <div>
-            <label>InÃ­cio</label>
+            <label>Início</label>
             <select name="horario_inicio" required>
               {% for h in horarios %}<option value="{{ h }}">{{ h }}</option>{% endfor %}
             </select>
@@ -76,21 +201,21 @@
         </select>
 
         <label>Finalidade</label>
-        <input name="finalidade" placeholder="Ex: estudo, prontuÃ¡rio, atendimento pontual" required>
+        <input name="finalidade" placeholder="Ex: estudo, prontuário, atendimento pontual" required>
 
-        <label>ObservaÃ§Ã£o</label>
-        <textarea name="observacao" placeholder="Detalhe algo importante para a recepÃ§Ã£o, se precisar."></textarea>
+        <label>Observação</label>
+        <textarea name="observacao" placeholder="Detalhe algo importante para a recepção, se precisar."></textarea>
 
-        <button class="btn primary" type="submit"><i data-lucide="send"></i> Enviar solicitaÃ§Ã£o</button>
+        <button class="btn primary" type="submit"><i data-lucide="send"></i> Enviar solicitação</button>
       </form>
 
-      <form class="card" method="post" action="/reservas/instrumento">
+      <form class="form-card" method="post" action="/reservas/instrumento">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <h2><i data-lucide="clipboard-list"></i> Reservar teste/instrumento</h2>
-        <p class="muted">Funciona como o caderno virtual da recepÃ§Ã£o, sÃ³ que registrado no sistema.</p>
+        <h2><i data-lucide="clipboard-list"></i> Reservar teste</h2>
+        <p>Use para solicitar testes ou instrumentos da recepção.</p>
 
         <label>Teste ou instrumento</label>
-        <input name="instrumento" placeholder="Ex: HTP, WISC, Bender, palogrÃ¡fico..." required>
+        <input name="instrumento" placeholder="Ex: HTP, WISC, Bender, palográfico..." required>
 
         <div class="two-cols">
           <div>
@@ -98,7 +223,7 @@
             <input type="date" name="data_uso" required>
           </div>
           <div>
-            <label>HorÃ¡rio</label>
+            <label>Horário</label>
             <select name="horario_inicio" required>
               {% for h in horarios %}<option value="{{ h }}">{{ h }}</option>{% endfor %}
             </select>
@@ -106,340 +231,119 @@
         </div>
 
         <label>Finalidade</label>
-        <input name="finalidade" placeholder="Ex: avaliaÃ§Ã£o, triagem, estudo supervisionado">
+        <input name="finalidade" placeholder="Ex: avaliação, triagem, estudo supervisionado">
 
-        <label>ObservaÃ§Ã£o</label>
-        <textarea name="observacao" placeholder="Quantidade, professor responsÃ¡vel ou outra informaÃ§Ã£o Ãºtil."></textarea>
+        <label>Observação</label>
+        <textarea name="observacao" placeholder="Quantidade, professor responsável ou outra informação útil."></textarea>
 
-        <button class="btn primary" type="submit"><i data-lucide="send"></i> Enviar solicitaÃ§Ã£o</button>
+        <button class="btn primary" type="submit"><i data-lucide="send"></i> Enviar solicitação</button>
       </form>
     </section>
 
-    <section class="section-head">
-      <div>
-        <p class="eyebrow">Caderno virtual</p>
-        <h2>Testes e instrumentos reservados</h2>
+    <section class="board">
+      <div class="board-title">
+        <h2><i data-lucide="door-open"></i> Minhas reservas de sala</h2>
       </div>
-      <span class="count-label">{{ caderno_instrumentos|length }} registro(s)</span>
-    </section>
-
-    {% if caderno_instrumentos %}
-    <section class="instrument-list notebook">
-      {% for r in caderno_instrumentos %}
-      <article class="instrument-row">
-        <div class="instrument-main">
-          <span class="status {{ r.status }}">{{ r.status_label }}</span>
-          <h3>{{ r.instrumento }}</h3>
-          <div class="request-meta">
-            <div><i data-lucide="user"></i>{{ r.usuario }}</div>
-            <div><i data-lucide="calendar"></i>{{ r.data_label }}</div>
-            <div><i data-lucide="clock"></i>{{ r.horario_inicio }}</div>
-          </div>
-          {% if r.finalidade %}<p><strong>Finalidade:</strong> {{ r.finalidade }}</p>{% endif %}
-          {% if r.observacao %}<p><strong>Obs.:</strong> {{ r.observacao }}</p>{% endif %}
-        </div>
-      </article>
-      {% endfor %}
-    </section>
-    {% else %}
-    <section class="empty-state compact-empty">
-      <i data-lucide="clipboard-list"></i>
-      <h2>Nenhum instrumento no caderno</h2>
-      <p>Quando algum aluno solicitar um teste ou instrumento, ele aparecerÃ¡ aqui.</p>
-    </section>
-    {% endif %}
-
-    <section class="section-head">
-      <div>
-        <p class="eyebrow">Histrico</p>
-        <h2>Minhas reservas de sala</h2>
-      </div>
-    </section>
-    {% set lista = minhas_salas %}
-    {% if lista %}
-    <section class="request-list">
-      {% for r in lista %}
-      <article class="request-card {{ r.status }}">
-        <div class="request-top">
-          <div>
-            <span class="type">{{ r.tipo_label }}</span>
-            <h3>
-              {% if r.tipo == 'sala' %}
-                {{ r.tipo_sala_label }}
-              {% else %}
-                {{ r.instrumento }}
-              {% endif %}
-            </h3>
-          </div>
-          <span class="status {{ r.status }}">{{ r.status_label }}</span>
-        </div>
-        <div class="request-meta">
-          <div><i data-lucide="user"></i>{{ r.usuario }}</div>
-          <div><i data-lucide="calendar"></i>{{ r.data_label }}</div>
-          <div><i data-lucide="clock"></i>{{ r.horario_inicio }}{% if r.horario_fim %} s {{ r.horario_fim }}{% endif %}</div>
-          {% if r.tipo == 'sala' and r.sala_atribuida %}
-          <div><i data-lucide="map-pin"></i>SugestÃ£o: {{ r.sala_atribuida }}</div>
-          {% endif %}
-        </div>
-        {% if r.finalidade %}<p><strong>Finalidade:</strong> {{ r.finalidade }}</p>{% endif %}
-        {% if r.observacao %}<p><strong>Obs.:</strong> {{ r.observacao }}</p>{% endif %}
-        {% if r.resposta %}<p><strong>Resposta:</strong> {{ r.resposta }}</p>{% endif %}
-
-        {% if papel in ['coordenador', 'recepcao'] and r.status == 'pendente' %}
-        <div class="approval-area">
-          <form method="post" action="/reservas/{{ r.id }}/aprovar">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            {% if r.tipo == 'sala' %}
-            <label>Sala para aprovar</label>
-            <select name="sala_atribuida" required>
-              {% for sala in r.salas_aprovacao %}
-              <option value="{{ sala }}" {% if sala == r.sala_atribuida %}selected{% endif %}>{{ sala }}{% if sala == r.sala_atribuida %} (sugestÃ£o){% endif %}</option>
-              {% endfor %}
-            </select>
-            {% endif %}
-            <input name="resposta" placeholder="Mensagem opcional para o aluno">
-            <button class="btn primary" type="submit"><i data-lucide="check"></i> Aprovar</button>
-          </form>
-          <form method="post" action="/reservas/{{ r.id }}/recusar">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input name="resposta" placeholder="Motivo da recusa, se houver">
-            <button class="btn danger" type="submit"><i data-lucide="x"></i> Recusar</button>
-          </form>
-        </div>
+      <div class="list">
+        {% set minhas_salas_visiveis = minhas_salas %}
+        {% if minhas_salas_visiveis %}
+          {% for r in minhas_salas_visiveis %}{{ sala_card(r) }}{% endfor %}
+        {% else %}
+          {{ empty_box('Suas reservas de sala aparecerão aqui.') }}
         {% endif %}
-      </article>
-      {% endfor %}
-    </section>
-    {% else %}
-    <section class="empty-state">
-      <i data-lucide="inbox"></i>
-      <h2>Nenhuma solicitaÃ§Ã£o por aqui</h2>
-      <p>Quando vocÃª enviar uma reserva de sala, ela aparecerÃ¡ nesta lista.</p>
-    </section>
-    {% endif %}
-    {% else %}
-    <section class="section-head">
-      <div>
-        <p class="eyebrow">SolicitaÃ§Ãµes de sala</p>
-        <h2>Reservas de sala pendentes</h2>
       </div>
-      <span class="count-label">{{ pendentes_sala|length }} pendente(s)</span>
     </section>
 
-    {% if pendentes_sala %}
-    <section class="request-list">
-      {% for r in pendentes_sala %}
-      <article class="request-card {{ r.status }}">
-        <div class="request-top">
-          <div>
-            <span class="type">{{ r.tipo_label }}</span>
-            <h3>{{ r.tipo_sala_label }}</h3>
-          </div>
-          <span class="status {{ r.status }}">{{ r.status_label }}</span>
-        </div>
-        <div class="request-meta">
-          <div><i data-lucide="user"></i>{{ r.usuario }}</div>
-          <div><i data-lucide="calendar"></i>{{ r.data_label }}</div>
-          <div><i data-lucide="clock"></i>{{ r.horario_inicio }}{% if r.horario_fim %} s {{ r.horario_fim }}{% endif %}</div>
-          {% if r.sala_atribuida %}
-          <div><i data-lucide="map-pin"></i>SugestÃ£o: {{ r.sala_atribuida }}</div>
-          {% endif %}
-        </div>
-        {% if r.finalidade %}<p><strong>Finalidade:</strong> {{ r.finalidade }}</p>{% endif %}
-        {% if r.observacao %}<p><strong>Obs.:</strong> {{ r.observacao }}</p>{% endif %}
-
-        <div class="approval-area">
-          <form method="post" action="/reservas/{{ r.id }}/aprovar">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <label>Sala para aprovar</label>
-            <select name="sala_atribuida" required>
-              {% for sala in r.salas_aprovacao %}
-              <option value="{{ sala }}" {% if sala == r.sala_atribuida %}selected{% endif %}>{{ sala }}{% if sala == r.sala_atribuida %} (sugestÃ£o){% endif %}</option>
-              {% endfor %}
-            </select>
-            <input name="resposta" placeholder="Mensagem opcional para o aluno">
-            <button class="btn primary" type="submit"><i data-lucide="check"></i> Aprovar</button>
-          </form>
-          <form method="post" action="/reservas/{{ r.id }}/recusar">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input name="resposta" placeholder="Motivo da recusa, se houver">
-            <button class="btn danger" type="submit"><i data-lucide="x"></i> Recusar</button>
-          </form>
-        </div>
-      </article>
-      {% endfor %}
+    <section class="board">
+      <div class="board-title">
+        <h2><i data-lucide="clipboard-list"></i> Meus testes</h2>
+      </div>
+      <div class="list">
+        {% if minhas_instrumentos %}
+          {% for r in minhas_instrumentos %}{{ teste_card(r) }}{% endfor %}
+        {% else %}
+          {{ empty_box('Suas solicitações de testes aparecerão aqui.') }}
+        {% endif %}
+      </div>
     </section>
+
     {% else %}
-    <section class="empty-state compact-empty">
-      <i data-lucide="door-open"></i>
-      <h2>Nenhuma reserva de sala pendente</h2>
-      <p>Quando um aluno solicitar sala, a solicitaÃ§Ã£o aparecerÃ¡ aqui.</p>
+    <section class="board">
+      <div class="board-title">
+        <h2><i data-lucide="door-open"></i> Salas pendentes</h2>
+      </div>
+      <div class="list">
+        {% if pendentes_sala %}
+          {% for r in pendentes_sala %}{{ sala_card(r, 'aprovar') }}{% endfor %}
+        {% else %}
+          {{ empty_box('Nenhuma reserva de sala pendente.') }}
+        {% endif %}
+      </div>
     </section>
-    {% endif %}
 
-    <section class="approved-overview">
-      <article class="approved-panel">
-        <div class="section-head tight-head">
-          <div>
-            <p class="eyebrow">Ja aprovadas</p>
-            <h2>Salas aprovadas</h2>
-          </div>
-          <span class="count-label">{{ aprovadas_sala|length }}</span>
-        </div>
+    <section class="board">
+      <div class="board-title">
+        <h2><i data-lucide="x-circle"></i> Salas recusadas</h2>
+      </div>
+      <div class="list">
+        {% if recusadas_sala %}
+          {% for r in recusadas_sala %}{{ sala_card(r, 'corrigir') }}{% endfor %}
+        {% else %}
+          {{ empty_box('Nenhuma reserva de sala recusada.') }}
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="board">
+      <div class="board-title">
+        <h2><i data-lucide="check-circle-2"></i> Salas aprovadas</h2>
+      </div>
+      <div class="list">
         {% if aprovadas_sala %}
-        <div class="approved-list">
-          {% for r in aprovadas_sala %}
-          <div class="approved-row">
-            <div>
-              <strong>{{ r.sala_atribuida or r.tipo_sala_label }}</strong>
-              <span>{{ r.usuario }} · {{ r.data_label }} · {{ r.horario_inicio }}{% if r.horario_fim %} ate {{ r.horario_fim }}{% endif %}</span>
-            </div>
-            <form method="post" action="/reservas/{{ r.id }}/reabrir">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button class="btn small correction" type="submit">Corrigir aprovacao</button>
-            </form>
-          </div>
-          {% endfor %}
-        </div>
+          {% for r in aprovadas_sala %}{{ sala_card(r, 'corrigir') }}{% endfor %}
         {% else %}
-        <div class="empty-mini">Nenhuma sala aprovada no momento.</div>
+          {{ empty_box('Nenhuma reserva de sala aprovada.') }}
         {% endif %}
-      </article>
+      </div>
+    </section>
 
-      <article class="approved-panel">
-        <div class="section-head tight-head">
-          <div>
-            <p class="eyebrow">Ja aprovados</p>
-            <h2>Testes aprovados</h2>
-          </div>
-          <span class="count-label">{{ aprovadas_instrumentos|length }}</span>
-        </div>
+    <section class="board tests">
+      <div class="board-title">
+        <h2><i data-lucide="clipboard-list"></i> Testes pendentes</h2>
+      </div>
+      <div class="list">
+        {% if pendentes_instrumento %}
+          {% for r in pendentes_instrumento %}{{ teste_card(r, 'aprovar') }}{% endfor %}
+        {% else %}
+          {{ empty_box('Nenhum teste pendente.') }}
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="board tests">
+      <div class="board-title">
+        <h2><i data-lucide="x-circle"></i> Testes recusados</h2>
+      </div>
+      <div class="list">
+        {% if recusadas_instrumento %}
+          {% for r in recusadas_instrumento %}{{ teste_card(r, 'corrigir') }}{% endfor %}
+        {% else %}
+          {{ empty_box('Nenhum teste recusado.') }}
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="board tests">
+      <div class="board-title">
+        <h2><i data-lucide="check-circle-2"></i> Testes aprovados</h2>
+      </div>
+      <div class="list">
         {% if aprovadas_instrumentos %}
-        <div class="approved-list">
-          {% for r in aprovadas_instrumentos %}
-          <div class="approved-row">
-            <div>
-              <strong>{{ r.instrumento }}</strong>
-              <span>{{ r.usuario }} · {{ r.data_label }} · {{ r.horario_inicio }} · {{ r.status_label }}</span>
-            </div>
-            <div class="approved-actions">
-              {% if r.status == 'aprovada' %}
-              <form method="post" action="/reservas/{{ r.id }}/status">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="status" value="separado">
-                <button class="btn small" type="submit">Separado</button>
-              </form>
-              {% endif %}
-              <form method="post" action="/reservas/{{ r.id }}/reabrir">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button class="btn small correction" type="submit">Corrigir</button>
-              </form>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
+          {% for r in aprovadas_instrumentos %}{{ teste_card(r, 'corrigir') }}{% endfor %}
         {% else %}
-        <div class="empty-mini">Nenhum teste aprovado no momento.</div>
+          {{ empty_box('Nenhum teste aprovado.') }}
         {% endif %}
-      </article>
-    </section>
-
-    <section class="section-head">
-      <div>
-        <p class="eyebrow">Caderno virtual</p>
-        <h2>Reservas de testes e instrumentos</h2>
       </div>
-      <span class="count-label">{{ pendentes_instrumento|length }} registro(s)</span>
-    </section>
-
-    {% if pendentes_instrumento %}
-    <section class="instrument-list notebook">
-      {% for r in pendentes_instrumento %}
-      <article class="instrument-row">
-        <div class="instrument-main">
-          <span class="status {{ r.status }}">{{ r.status_label }}</span>
-          <h3>{{ r.instrumento }}</h3>
-          <div class="request-meta">
-            <div><i data-lucide="user"></i>{{ r.usuario }}</div>
-            <div><i data-lucide="calendar"></i>{{ r.data_label }}</div>
-            <div><i data-lucide="clock"></i>{{ r.horario_inicio }}</div>
-          </div>
-          {% if r.finalidade %}<p><strong>Finalidade:</strong> {{ r.finalidade }}</p>{% endif %}
-          {% if r.observacao %}<p><strong>Obs.:</strong> {{ r.observacao }}</p>{% endif %}
-        </div>
-        {% if r.status == 'pendente' %}
-        <div class="instrument-actions">
-          <form method="post" action="/reservas/{{ r.id }}/aprovar">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input name="resposta" placeholder="Mensagem opcional">
-            <button class="btn primary" type="submit"><i data-lucide="check"></i> Aprovar</button>
-          </form>
-          <form method="post" action="/reservas/{{ r.id }}/recusar">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input name="resposta" placeholder="Motivo da recusa">
-            <button class="btn danger" type="submit"><i data-lucide="x"></i> Recusar</button>
-          </form>
-        </div>
-        {% else %}
-        <div class="instrument-actions read-only">
-          <strong>{{ r.status_label }}</strong>
-          {% if r.resposta %}<span>{{ r.resposta }}</span>{% endif %}
-          {% if r.status in ['aprovada', 'separado'] %}
-          <div class="status-actions">
-            {% if r.status == 'aprovada' %}
-            <form method="post" action="/reservas/{{ r.id }}/status">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <input type="hidden" name="status" value="separado">
-              <button class="btn small" type="submit">Marcar separado</button>
-            </form>
-            {% endif %}
-            {% if r.status == 'separado' %}
-            <form method="post" action="/reservas/{{ r.id }}/status">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <input type="hidden" name="status" value="guardado">
-              <button class="btn small" type="submit">Marcar guardado</button>
-            </form>
-            {% endif %}
-          </div>
-          {% endif %}
-        </div>
-        {% endif %}
-      </article>
-      {% endfor %}
-    </section>
-    {% else %}
-    <section class="empty-state compact-empty">
-      <i data-lucide="clipboard-list"></i>
-      <h2>Nenhum instrumento pendente</h2>
-      <p>Quando um aluno pedir teste ou instrumento, ele entra nesta lista como no caderno virtual da recepÃ§Ã£o.</p>
-    </section>
-    {% endif %}
-    {% endif %}
-
-    {% if papel in ['coordenador', 'recepcao'] and minhas_reservas %}
-    <section class="section-head">
-      <div>
-        <p class="eyebrow">Ãšltimas anÃ¡lises</p>
-        <h2>SolicitaÃ§Ãµes recentes</h2>
-      </div>
-    </section>
-    <section class="request-list compact">
-      {% for r in minhas_reservas %}
-      <article class="request-card {{ r.status }}">
-        <div class="request-top">
-          <div>
-            <span class="type">{{ r.tipo_label }}</span>
-            <h3>{% if r.tipo == 'sala' %}{{ r.tipo_sala_label }}{% else %}{{ r.instrumento }}{% endif %}</h3>
-          </div>
-          <span class="status {{ r.status }}">{{ r.status_label }}</span>
-        </div>
-        <div class="request-meta">
-          <div><i data-lucide="user"></i>{{ r.usuario }}</div>
-          <div><i data-lucide="calendar"></i>{{ r.data_label }}</div>
-          <div><i data-lucide="clock"></i>{{ r.horario_inicio }}{% if r.horario_fim %} s {{ r.horario_fim }}{% endif %}</div>
-        </div>
-      </article>
-      {% endfor %}
     </section>
     {% endif %}
   </main>

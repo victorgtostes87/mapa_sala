@@ -12,7 +12,13 @@ def contar_reservas_pendentes(get_db):
         conn = get_db()
         try:
             row = conn.execute(
-                "SELECT COUNT(*) AS total FROM reservas WHERE status='pendente'"
+                """
+                SELECT COUNT(*) AS total
+                FROM reservas
+                WHERE status='pendente'
+                  AND (tipo!='sala' OR data_uso>=?)
+                """,
+                (datetime.now().strftime('%Y-%m-%d'),)
             ).fetchone()
         finally:
             conn.close()
@@ -110,8 +116,8 @@ def label_status_reserva(status):
         'aprovada': 'Aprovada',
         'separado': 'Instrumento separado',
         'guardado': 'Guardado',
-        'retirado': 'Guardado',
-        'devolvido': 'Guardado',
+        'retirado': 'Retirado',
+        'devolvido': 'Devolvido',
         'recusada': 'Recusada'
     }.get(status, status)
 
@@ -193,23 +199,47 @@ def registrar_rotas_reservas(app, deps):
             salas_reservaveis=salas_reservaveis,
         )
 
+    def limpar_salas_vencidas(conn):
+        vencidas = conn.execute(
+            """
+            SELECT *
+            FROM reservas
+            WHERE tipo='sala'
+              AND data_uso < ?
+            """,
+            (data_hoje_iso(),)
+        ).fetchall()
+        total = 0
+        for reserva in vencidas:
+            ids = ids_agendamentos_reserva(reserva)
+            if ids:
+                placeholders = ','.join('?' for _ in ids)
+                conn.execute(f'DELETE FROM agendamentos WHERE id IN ({placeholders})', ids)
+            conn.execute('DELETE FROM reservas WHERE id=?', (reserva['id'],))
+            total += 1
+        return total
+
     @app.route('/reservas')
     @login_required
     def reservas():
         conn = get_db()
         try:
+            removidas = limpar_salas_vencidas(conn)
+            if removidas:
+                conn.commit()
             if current_user.role == 'aluno':
                 rows = conn.execute(
                     """
                     SELECT *
                     FROM reservas
                     WHERE usuario_id=?
+                      AND (tipo!='sala' OR data_uso>=?)
                     ORDER BY
                       CASE status WHEN 'pendente' THEN 1 WHEN 'aprovada' THEN 2 ELSE 3 END,
                       data_uso,
                       horario_inicio
                     """,
-                    (current_user.id,)
+                    (current_user.id, data_hoje_iso())
                 ).fetchall()
                 pendentes = []
             elif current_user.role in ('coordenador', 'recepcao'):
@@ -218,17 +248,20 @@ def registrar_rotas_reservas(app, deps):
                     SELECT *
                     FROM reservas
                     WHERE status='pendente'
+                      AND (tipo!='sala' OR data_uso>=?)
                     ORDER BY created_at, data_uso, horario_inicio
-                    """
+                    """,
+                    (data_hoje_iso(),)
                 ).fetchall()
                 rows = conn.execute(
                     """
                     SELECT *
                     FROM reservas
                     WHERE status!='pendente'
+                      AND (tipo!='sala' OR data_uso>=?)
                     ORDER BY updated_at DESC
-                    LIMIT 50
-                    """
+                    """,
+                    (data_hoje_iso(),)
                 ).fetchall()
             else:
                 flash('Acesso negado.', 'error')
@@ -260,7 +293,7 @@ def registrar_rotas_reservas(app, deps):
         ]
         aprovadas_instrumentos = [
             r for r in minhas_reservas
-            if r.get('tipo') == 'instrumento' and r.get('status') in ('aprovada', 'separado')
+            if r.get('tipo') == 'instrumento' and r.get('status') in ('aprovada', 'separado', 'retirado')
         ]
 
         return render_template(
@@ -275,12 +308,32 @@ def registrar_rotas_reservas(app, deps):
             pendentes=pendentes,
             pendentes_sala=[r for r in pendentes if r.get('tipo') == 'sala'],
             pendentes_instrumento=[r for r in pendentes if r.get('tipo') == 'instrumento'],
+            recusadas_sala=[r for r in minhas_reservas if r.get('tipo') == 'sala' and r.get('status') == 'recusada'],
+            recusadas_instrumento=[r for r in minhas_reservas if r.get('tipo') == 'instrumento' and r.get('status') == 'recusada'],
             caderno_instrumentos=caderno_instrumentos,
             recentes_sala=[r for r in minhas_reservas if r.get('tipo') == 'sala'],
             recentes_instrumento=[r for r in minhas_reservas if r.get('tipo') == 'instrumento'],
             aprovadas_sala=aprovadas_sala,
             aprovadas_instrumentos=aprovadas_instrumentos,
         )
+
+    @app.route('/reservas/limpar-salas-vencidas', methods=['POST'])
+    @login_required
+    @requer_papel('coordenador', 'recepcao')
+    def limpar_salas_vencidas_manual():
+        conn = get_db()
+        try:
+            removidas = limpar_salas_vencidas(conn)
+            conn.commit()
+        finally:
+            conn.close()
+
+        registrar_log('LIMPAR_RESERVAS_SALA_VENCIDAS', f'{removidas} reserva(s) de sala vencida(s) removida(s)')
+        if removidas:
+            flash(f'{removidas} reserva(s) de sala vencida(s) removida(s).', 'success')
+        else:
+            flash('Não havia reservas de sala vencidas para limpar.', 'success')
+        return redirect(url_for('reservas'))
 
     @app.route('/reservas/sala', methods=['POST'])
     @login_required
@@ -580,7 +633,7 @@ def registrar_rotas_reservas(app, deps):
     @requer_papel('coordenador', 'recepcao')
     def atualizar_status_reserva(rid):
         novo_status = request.form.get('status', '').strip()
-        status_validos = ('aprovada', 'separado', 'guardado')
+        status_validos = ('aprovada', 'separado', 'retirado', 'devolvido', 'guardado')
         if novo_status not in status_validos:
             flash('Status inválido.', 'error')
             return redirect(url_for('reservas'))

@@ -1905,14 +1905,26 @@ def horarios_abertos():
             if ag['dia_semana'] != dia:
                 continue
             ag['dia_label'] = DIAS_PT.get(dia, dia.title())
-            ag['tipo_abertura'] = 'Triagem livre' if int(ag.get('triagem') or 0) else 'Aberto para paciente'
+            triagem_livre = int(ag.get('triagem') or 0)
+            ag['tipo_codigo'] = 'triagem' if triagem_livre else 'marcar'
+            ag['tipo_abertura'] = 'Triagem livre' if triagem_livre else 'Aberto para paciente'
+            ag['acao_recepcao'] = 'Procurar paciente para triagem' if triagem_livre else 'Marcar paciente'
             ag['aviso'] = (
                 'Horário reservado para triagem, mas ainda sem paciente marcado.'
-                if int(ag.get('triagem') or 0)
+                if triagem_livre
                 else 'Horário aberto para a recepção marcar paciente.'
             )
             itens.append(ag)
         horarios_por_dia.append({'dia': dia, 'label': DIAS_PT.get(dia, dia.title()), 'itens': itens})
+
+    total_marcar = sum(
+        1 for dia in horarios_por_dia for ag in dia['itens']
+        if ag.get('tipo_codigo') == 'marcar'
+    )
+    total_triagem = sum(
+        1 for dia in horarios_por_dia for ag in dia['itens']
+        if ag.get('tipo_codigo') == 'triagem'
+    )
 
     return render_template(
         'horarios_abertos.html',
@@ -1920,7 +1932,9 @@ def horarios_abertos():
         papel=current_user.role,
         papel_label=PAPEIS_LABEL.get(current_user.role, current_user.role),
         horarios_por_dia=horarios_por_dia,
-        total=sum(len(d['itens']) for d in horarios_por_dia)
+        total=sum(len(d['itens']) for d in horarios_por_dia),
+        total_marcar=total_marcar,
+        total_triagem=total_triagem
     )
 
 

@@ -6,7 +6,7 @@
   <title>Afazeres da Recepção</title>
   <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/painel_recepcao.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/afazeres.css') }}">
 </head>
 <body>
   <nav class="app-nav">
@@ -24,7 +24,7 @@
     </div>
   </nav>
 
-  <main class="dashboard-page">
+  <main class="todo-page">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for cat, msg in messages %}
@@ -37,32 +37,49 @@
       <div>
         <p class="eyebrow">Post-its virtuais</p>
         <h1>Afazeres da recepção</h1>
-        <p class="muted">Uma lista compartilhada para recados do turno. Quando concluir, marque como feito e o item some.</p>
+        <p class="muted">Lista compartilhada de recados do turno. Quando uma tarefa for resolvida, conclua para remover da lista.</p>
       </div>
     </section>
 
-    <section class="todos-layout">
-      <form class="todo-create" method="post" action="/painel/tarefas">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <label>Novo afazer</label>
-        <input name="titulo" placeholder="Ex: ligar para aluno sobre teste" required>
-        <textarea name="detalhe" placeholder="Detalhe opcional"></textarea>
-        <button type="submit"><i data-lucide="plus"></i> Adicionar afazer</button>
-      </form>
+    <form class="todo-create" method="post" action="/painel/tarefas">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div>
+        <label>O que precisa ser feito?</label>
+        <input name="titulo" placeholder="Ex: separar teste HTP para 14h" required>
+      </div>
+      <div>
+        <label>Detalhes, se precisar</label>
+        <textarea name="detalhe" placeholder="Ex: aluno, professor, sala, horário ou qualquer recado importante"></textarea>
+      </div>
+      <button type="submit"><i data-lucide="plus"></i> Adicionar afazer</button>
+    </form>
 
-      <section class="todo-board">
+    <section class="todo-section">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Lista do turno</p>
+          <h2>Tarefas em aberto</h2>
+        </div>
+      </div>
+
+      <div class="todo-board">
         {% if tarefas %}
           {% for t in tarefas %}
-          <article class="todo-note">
-            <form class="todo-complete-form" method="post" action="/painel/tarefas/{{ t.id }}/concluir">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit" title="Concluir e apagar"><i data-lucide="check"></i></button>
-            </form>
-            <div>
+          <article class="todo-note {% if t.detalhe %}has-detail{% endif %}">
+            <div class="todo-main">
               <h2>{{ t.titulo }}</h2>
-              {% if t.detalhe %}<p>{{ t.detalhe }}</p>{% endif %}
+              {% if t.detalhe %}
+              <div class="detail-box">
+                <strong>Detalhes</strong>
+                <p>{{ t.detalhe }}</p>
+              </div>
+              {% endif %}
               <span>Criado por {{ t.criado_por or 'recepção' }}</span>
             </div>
+            <form class="todo-complete-form" method="post" action="/painel/tarefas/{{ t.id }}/concluir">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit"><i data-lucide="check"></i> Concluir tarefa</button>
+            </form>
           </article>
           {% endfor %}
         {% else %}
@@ -71,7 +88,7 @@
           <span>Nenhum afazer anotado. A lista está limpa para o turno.</span>
         </div>
         {% endif %}
-      </section>
+      </div>
     </section>
   </main>
 
@@ -81,20 +98,23 @@
       try {
         const origem = document.referrer ? new URL(document.referrer) : null;
         if (origem && origem.origin === window.location.origin && origem.pathname !== window.location.pathname && origem.pathname !== '/painel') {
-          window.location.href = origem.href;
+          history.back();
           return;
         }
       } catch (err) {}
       window.location.href = '/mapa';
     }
+
     lucide.createIcons();
+
     document.querySelectorAll('.todo-complete-form').forEach(function(form){
       form.addEventListener('submit', function(ev){
         var note = form.closest('.todo-note');
         if(!note || note.classList.contains('completing')) return;
         ev.preventDefault();
+        if(!confirm('Tem certeza que deseja concluir esta tarefa?')) return;
         note.classList.add('completing');
-        setTimeout(function(){ form.submit(); }, 420);
+        setTimeout(function(){ form.submit(); }, 220);
       });
     });
   </script>

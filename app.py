@@ -69,6 +69,13 @@ limiter = Limiter(
 )
 
 PAPEIS_VALIDOS = ('coordenador', 'recepcao', 'professor', 'aluno')
+STATUS_SOLICITACAO_VAGA = {
+    'pendente': 'Pendente',
+    'em_analise': 'Em análise',
+    'atendida_parcial': 'Atendida parcialmente',
+    'atendida': 'Atendida',
+    'recusada': 'Recusada',
+}
 
 
 # ========================================
@@ -1078,6 +1085,23 @@ def criar_tabelas_base(conn):
         "criado_por TEXT DEFAULT '',"
         "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
         ");"
+        "CREATE TABLE IF NOT EXISTS solicitacoes_vagas ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "professor_id INTEGER DEFAULT NULL REFERENCES usuarios(id) ON DELETE SET NULL,"
+        "professor_nome TEXT DEFAULT '',"
+        "aluno_id INTEGER DEFAULT NULL REFERENCES usuarios(id) ON DELETE SET NULL,"
+        "aluno_nome TEXT DEFAULT '',"
+        "vagas_paciente INTEGER DEFAULT 0,"
+        "vagas_triagem INTEGER DEFAULT 0,"
+        "observacao TEXT DEFAULT '',"
+        "status TEXT DEFAULT 'pendente',"
+        "resposta TEXT DEFAULT '',"
+        "analisado_por TEXT DEFAULT '',"
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+        ");"
+        "CREATE INDEX IF NOT EXISTS idx_solicitacoes_vagas_status ON solicitacoes_vagas(status);"
+        "CREATE INDEX IF NOT EXISTS idx_solicitacoes_vagas_professor ON solicitacoes_vagas(professor_id);"
         "CREATE TABLE IF NOT EXISTS schema_migrations ("
         "version TEXT PRIMARY KEY,"
         "description TEXT DEFAULT '',"
@@ -1763,6 +1787,15 @@ def painel_recepcao():
             LIMIT 12
             """
         ).fetchall()
+        solicitacoes_vagas_pendentes = conn.execute(
+            """
+            SELECT *
+            FROM solicitacoes_vagas
+            WHERE status IN ('pendente', 'em_analise', 'atendida_parcial')
+            ORDER BY created_at ASC
+            LIMIT 8
+            """
+        ).fetchall()
         horarios_abertos_rows = conn.execute(
             """
             SELECT *
@@ -1864,6 +1897,13 @@ def painel_recepcao():
             'detalhe': f'{total_horarios_abertos} horário(s) para marcar paciente ou triagem.',
             'url': url_for('horarios_abertos')
         })
+    if solicitacoes_vagas_pendentes:
+        total_vagas = sum((r['vagas_paciente'] or 0) + (r['vagas_triagem'] or 0) for r in solicitacoes_vagas_pendentes)
+        checklist_auto.append({
+            'titulo': 'Responder solicitações de vagas',
+            'detalhe': f'{len(solicitacoes_vagas_pendentes)} pedido(s), somando {total_vagas} vaga(s).',
+            'url': url_for('painel_recepcao') + '#solicitacoes-vagas'
+        })
 
     return render_template(
         'painel_recepcao.html',
@@ -1880,6 +1920,10 @@ def painel_recepcao():
         checklist_auto=checklist_auto,
         horarios_abertos_preview=[dict(r) for r in horarios_abertos_rows],
         total_horarios_abertos=total_horarios_abertos,
+        solicitacoes_vagas=[
+            {**dict(r), 'status_label': STATUS_SOLICITACAO_VAGA.get(r['status'], r['status'])}
+            for r in solicitacoes_vagas_pendentes
+        ],
     )
 
 
@@ -1906,6 +1950,105 @@ def criar_tarefa_painel():
     registrar_log('CRIAR_TAREFA_PAINEL', f'{current_user.username} criou tarefa: {titulo}')
     flash('Tarefa adicionada aos afazeres.', 'success')
     return redirect(url_for('afazeres_recepcao'))
+
+
+@app.route('/minha-supervisao/solicitacoes-vagas', methods=['POST'])
+@login_required
+@requer_papel_page('professor')
+def criar_solicitacao_vagas():
+    aluno_id_raw = request.form.get('aluno_id', '').strip()
+    observacao = request.form.get('observacao', '').strip()
+
+    try:
+        aluno_id = int(aluno_id_raw)
+        vagas_paciente = max(0, int(request.form.get('vagas_paciente') or 0))
+        vagas_triagem = max(0, int(request.form.get('vagas_triagem') or 0))
+    except (TypeError, ValueError):
+        flash('Revise os números da solicitação de vagas.', 'error')
+        return redirect(url_for('minha_supervisao'))
+
+    if vagas_paciente + vagas_triagem <= 0:
+        flash('Informe pelo menos uma vaga de paciente ou de triagem.', 'error')
+        return redirect(url_for('minha_supervisao'))
+    if vagas_paciente > 20 or vagas_triagem > 20:
+        flash('Use até 20 vagas por tipo em cada solicitação.', 'error')
+        return redirect(url_for('minha_supervisao'))
+
+    conn = get_db()
+    try:
+        aluno = conn.execute(
+            """
+            SELECT id, username, nome_completo
+            FROM usuarios
+            WHERE id=? AND role='aluno' AND ativo=1 AND supervisor_id=?
+            """,
+            (aluno_id, current_user.id)
+        ).fetchone()
+        if not aluno:
+            flash('Aluno não encontrado na sua supervisão.', 'error')
+            return redirect(url_for('minha_supervisao'))
+
+        professor_nome = current_user.nome_completo or current_user.username
+        aluno_nome = aluno['nome_completo'] or aluno['username']
+        conn.execute(
+            """
+            INSERT INTO solicitacoes_vagas(
+                professor_id, professor_nome, aluno_id, aluno_nome,
+                vagas_paciente, vagas_triagem, observacao
+            ) VALUES(?,?,?,?,?,?,?)
+            """,
+            (current_user.id, professor_nome, aluno['id'], aluno_nome, vagas_paciente, vagas_triagem, observacao)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    registrar_log(
+        'SOLICITAR_VAGAS',
+        f'{current_user.username} solicitou {vagas_paciente} paciente(s) e {vagas_triagem} triagem(ns) para {aluno_nome}'
+    )
+    flash('Solicitação enviada para recepção/coordenação.', 'success')
+    return redirect(url_for('minha_supervisao') + '#solicitacoes-vagas')
+
+
+@app.route('/solicitacoes-vagas/<int:solicitacao_id>/status', methods=['POST'])
+@login_required
+@requer_papel_page('coordenador', 'recepcao')
+def atualizar_solicitacao_vagas(solicitacao_id):
+    status = request.form.get('status', '').strip()
+    resposta = request.form.get('resposta', '').strip()
+    if status not in STATUS_SOLICITACAO_VAGA:
+        flash('Status inválido para solicitação de vagas.', 'error')
+        return redirect(url_for('painel_recepcao') + '#solicitacoes-vagas')
+
+    conn = get_db()
+    try:
+        row = conn.execute(
+            'SELECT id, aluno_nome FROM solicitacoes_vagas WHERE id=?',
+            (solicitacao_id,)
+        ).fetchone()
+        if not row:
+            flash('Solicitação de vagas não encontrada.', 'error')
+            return redirect(url_for('painel_recepcao') + '#solicitacoes-vagas')
+
+        conn.execute(
+            """
+            UPDATE solicitacoes_vagas
+            SET status=?, resposta=?, analisado_por=?, updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            (status, resposta, current_user.username, solicitacao_id)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    registrar_log(
+        'ATUALIZAR_SOLICITACAO_VAGAS',
+        f'{current_user.username} marcou solicitação #{solicitacao_id} como {status}'
+    )
+    flash('Solicitação de vagas atualizada.', 'success')
+    return redirect(url_for('painel_recepcao') + '#solicitacoes-vagas')
 
 
 @app.route('/painel/tarefas/<int:tid>/concluir', methods=['POST'])
@@ -2093,6 +2236,16 @@ def minha_supervisao():
                 """,
                 (*alunos_ids, *alunos_usernames, hoje)
             ).fetchall()
+        solicitacoes_rows = conn.execute(
+            """
+            SELECT *
+            FROM solicitacoes_vagas
+            WHERE professor_id=?
+            ORDER BY created_at DESC
+            LIMIT 30
+            """,
+            (current_user.id,)
+        ).fetchall()
     finally:
         conn.close()
 
@@ -2125,6 +2278,11 @@ def minha_supervisao():
     total_triagens = 0
     total_abertos = 0
     total_alunos_sem_paciente = 0
+    solicitacoes_por_aluno = {}
+    for row in solicitacoes_rows:
+        sol = dict(row)
+        sol['status_label'] = STATUS_SOLICITACAO_VAGA.get(sol.get('status'), sol.get('status'))
+        solicitacoes_por_aluno.setdefault(sol.get('aluno_id'), []).append(sol)
 
     for aluno_row in alunos_rows:
         aluno = dict(aluno_row)
@@ -2183,8 +2341,16 @@ def minha_supervisao():
             'total_fixos': len(fixos),
             'total_pacientes': len(pacientes),
             'total_triagens': len(triagens),
-            'total_abertos': len(abertos)
+            'total_abertos': len(abertos),
+            'solicitacoes': solicitacoes_por_aluno.get(aluno['id'], []),
+            'ultima_solicitacao': solicitacoes_por_aluno.get(aluno['id'], [None])[0]
         })
+
+    solicitacoes_vagas = []
+    for row in solicitacoes_rows:
+        sol = dict(row)
+        sol['status_label'] = STATUS_SOLICITACAO_VAGA.get(sol.get('status'), sol.get('status'))
+        solicitacoes_vagas.append(sol)
 
     return render_template(
         'minha_supervisao.html',
@@ -2197,7 +2363,9 @@ def minha_supervisao():
         total_pacientes=total_pacientes,
         total_triagens=total_triagens,
         total_abertos=total_abertos,
-        total_alunos_sem_paciente=total_alunos_sem_paciente
+        total_alunos_sem_paciente=total_alunos_sem_paciente,
+        solicitacoes_vagas=solicitacoes_vagas,
+        total_solicitacoes_pendentes=sum(1 for s in solicitacoes_vagas if s['status'] in ('pendente', 'em_analise', 'atendida_parcial'))
     )
 
 

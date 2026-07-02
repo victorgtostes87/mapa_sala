@@ -35,6 +35,16 @@
       <a class="quick-map" href="/afazeres"><i data-lucide="list-checks"></i> Abrir afazeres</a>
     </section>
 
+    {% with mensagens = get_flashed_messages(with_categories=true) %}
+      {% if mensagens %}
+      <div class="flash-wrap">
+        {% for categoria, mensagem in mensagens %}
+        <div class="flash {{ categoria }}">{{ mensagem }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    {% endwith %}
+
     <section class="summary-grid compact-summary">
       <a class="summary-card warn" href="/reservas">
         <span>Salas pendentes</span>
@@ -48,12 +58,16 @@
         <span>Afazeres</span>
         <strong>{{ tarefas_manuais|length }}</strong>
       </a>
+      <a class="summary-card success" href="#solicitacoes-vagas">
+        <span>Pedidos de vagas</span>
+        <strong>{{ solicitacoes_vagas|length }}</strong>
+      </a>
     </section>
 
     <section class="action-today">
       <div>
         <p class="eyebrow">Precisa de ação hoje</p>
-        <h2>{{ (pendentes_sala|length) + (pendentes_instrumento|length) + (tarefas_manuais|length) }} item(ns) para conferir</h2>
+        <h2>{{ (pendentes_sala|length) + (pendentes_instrumento|length) + (tarefas_manuais|length) + (solicitacoes_vagas|length) }} item(ns) para conferir</h2>
       </div>
       <div class="action-links">
         {% if pendentes_sala %}
@@ -65,7 +79,10 @@
         {% if tarefas_manuais %}
         <a href="/afazeres"><i data-lucide="list-checks"></i><span>{{ tarefas_manuais|length }} afazer(es) anotado(s)</span></a>
         {% endif %}
-        {% if not pendentes_sala and not pendentes_instrumento and not tarefas_manuais %}
+        {% if solicitacoes_vagas %}
+        <a href="#solicitacoes-vagas"><i data-lucide="users-round"></i><span>{{ solicitacoes_vagas|length }} pedido(s) de vagas</span></a>
+        {% endif %}
+        {% if not pendentes_sala and not pendentes_instrumento and not tarefas_manuais and not solicitacoes_vagas %}
         <span class="all-clear"><i data-lucide="check-circle-2"></i> Nada urgente registrado agora.</span>
         {% endif %}
       </div>
@@ -148,6 +165,43 @@
         </div>
         {% else %}
         <div class="empty positive"><i data-lucide="clipboard-check"></i><span>Nenhum instrumento pendente agora.</span></div>
+        {% endif %}
+      </article>
+
+      <article class="panel wide" id="solicitacoes-vagas">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Professores</p>
+            <h2>Solicitações de vagas</h2>
+          </div>
+        </div>
+        {% if solicitacoes_vagas %}
+        <div class="slot-request-list">
+          {% for sol in solicitacoes_vagas %}
+          <form class="slot-request-card status-{{ sol.status }}" method="post" action="{{ url_for('atualizar_solicitacao_vagas', solicitacao_id=sol.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div>
+              <strong>{{ sol.aluno_nome }}</strong>
+              <span>{{ sol.professor_nome }}</span>
+              <em>{{ sol.vagas_paciente }} vaga(s) de paciente · {{ sol.vagas_triagem }} vaga(s) de triagem</em>
+              {% if sol.observacao %}<small>{{ sol.observacao }}</small>{% endif %}
+            </div>
+            <div class="slot-request-actions">
+              <select name="status">
+                <option value="pendente" {% if sol.status == 'pendente' %}selected{% endif %}>Pendente</option>
+                <option value="em_analise" {% if sol.status == 'em_analise' %}selected{% endif %}>Em análise</option>
+                <option value="atendida_parcial" {% if sol.status == 'atendida_parcial' %}selected{% endif %}>Atendida parcialmente</option>
+                <option value="atendida" {% if sol.status == 'atendida' %}selected{% endif %}>Atendida</option>
+                <option value="recusada" {% if sol.status == 'recusada' %}selected{% endif %}>Recusada</option>
+              </select>
+              <textarea name="resposta" placeholder="Resposta para o professor">{{ sol.resposta }}</textarea>
+              <button type="submit"><i data-lucide="save"></i> Salvar</button>
+            </div>
+          </form>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty positive"><i data-lucide="badge-check"></i><span>Nenhuma solicitação de vagas pendente.</span></div>
         {% endif %}
       </article>
     </section>

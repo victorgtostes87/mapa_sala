@@ -2322,6 +2322,8 @@ def meus_agendamentos():
         'recusada': 'Recusada',
         'separado': 'Instrumento separado',
         'guardado': 'Instrumento guardado',
+        'retirado': 'Instrumento retirado',
+        'devolvido': 'Instrumento devolvido',
     }
     reservas_aluno_formatadas = []
     for row in reservas_aluno:

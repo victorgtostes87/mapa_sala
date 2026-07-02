@@ -75,7 +75,13 @@ h2{font-size:17px;color:#f8fafc;line-height:1.25}
   display:grid;
   grid-template-columns:1fr 1.25fr auto;
   gap:10px;
-  align-items:end;
+  align-items:start;
+}
+
+.todo-create > div{
+  display:flex;
+  flex-direction:column;
+  min-width:0;
 }
 
 label{
@@ -86,6 +92,8 @@ label{
   text-transform:uppercase;
   letter-spacing:.4px;
   margin-bottom:5px;
+  min-height:14px;
+  line-height:14px;
 }
 
 input,
@@ -130,6 +138,7 @@ textarea:focus{
   background:var(--accent);
   color:#fff;
   padding:10px 13px;
+  align-self:end;
 }
 
 .todo-create button:hover{background:#2563eb}

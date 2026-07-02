@@ -486,7 +486,7 @@ def registrar_rotas_reservas(app, deps):
             if reserva['tipo'] == 'sala':
                 _, erro_antecedencia = validar_antecedencia_minima(reserva['data_uso'], reserva['horario_inicio'])
                 if erro_antecedencia:
-                    flash('N?o ? poss?vel aprovar: a solicitação já está com menos de 24h de antecedência.', 'error')
+                    flash('Não é possível aprovar: a solicitação já está com menos de 24h de antecedência.', 'error')
                     return redirect(url_for('reservas'))
 
                 if sala_escolhida:

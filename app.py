@@ -1097,16 +1097,16 @@ def criar_usuario_coordenador_padrao(conn):
 
 
 SUPERVISORES_PADRAO = (
-    ('fabio.nogueira', 'Fabio Nogueira Pereira'),
-    ('roger.machado', 'Roger Elias Bernabé Machado'),
-    ('eduardo.lopes', 'Eduardo Barbosa Lopes'),
-    ('rodrigo.salgado', 'Rodrigo Cruvinel Salgado'),
-    ('luanza.mai', 'Luanza Pavesi Mai'),
-    ('cleilson.reis', 'Cleilson Teobaldo Reis'),
-    ('simone.pylro', 'Simone Chabudee Pylro'),
-    ('hildiceia.affonso', 'Hildiceia Dos Santos Affonso'),
-    ('christiane.ronchete', 'Christiane Furlan Ronchete'),
-    ('jaqueline.bagalho', 'Jaqueline Oliveira Bagalho'),
+    ('Fabio Nogueira Pereira', 'Fabio Nogueira Pereira'),
+    ('Roger Elias Bernabé Machado', 'Roger Elias Bernabé Machado'),
+    ('Eduardo Barbosa Lopes', 'Eduardo Barbosa Lopes'),
+    ('Rodrigo Cruvinel Salgado', 'Rodrigo Cruvinel Salgado'),
+    ('Luanza Pavesi Mai', 'Luanza Pavesi Mai'),
+    ('Cleilson Teobaldo Reis', 'Cleilson Teobaldo Reis'),
+    ('Simone Chabudee Pylro', 'Simone Chabudee Pylro'),
+    ('Hildiceia Dos Santos Affonso', 'Hildiceia Dos Santos Affonso'),
+    ('Christiane Furlan Ronchete', 'Christiane Furlan Ronchete'),
+    ('Jaqueline Oliveira Bagalho', 'Jaqueline Oliveira Bagalho'),
 )
 
 
@@ -1122,6 +1122,16 @@ def criar_supervisores_padrao(conn):
             (nome_completo,)
         ).fetchone()
         if existente_por_nome:
+            username_em_uso = conn.execute(
+                'SELECT id FROM usuarios WHERE username=? AND id!=?',
+                (username, existente_por_nome['id'])
+            ).fetchone()
+            if not username_em_uso:
+                conn.execute(
+                    "UPDATE usuarios SET username=?, ativo=1 WHERE id=?",
+                    (username, existente_por_nome['id'])
+                )
+                continue
             conn.execute(
                 "UPDATE usuarios SET ativo=1 WHERE id=?",
                 (existente_por_nome['id'],)
@@ -1228,6 +1238,12 @@ def aplicar_migracoes_dados(conn):
         conn,
         '2026-07-02-supervisores-padrao',
         'Cadastra professores supervisores padrao',
+        criar_supervisores_padrao
+    )
+    executar_migration(
+        conn,
+        '2026-07-02-supervisores-nomes-completos',
+        'Atualiza usernames dos supervisores para nomes completos',
         criar_supervisores_padrao
     )
 
@@ -1409,7 +1425,7 @@ def label_status_reserva(status):
 def normalize(t):
     if not t:
         return ''
-    for o, n in [('?', 'ã'), ('?', 'Ã'), ('ş', 'º'), ('Ş', 'º'), ('ţ', 'ç')]:
+    for o, n in [('ş', 'º'), ('Ş', 'º'), ('ţ', 'ç')]:
         t = t.replace(o, n)
     return t.strip()
 
@@ -2864,6 +2880,9 @@ def api_editar_usuario(uid):
         if row['id'] == current_user.id and not ativo:
             return jsonify({'erro': 'Você não pode inativar sua própria conta'}), 400
         new_pass = (d.get('password') or '').strip()
+        enviar_convite = bool(d.get('enviar_convite'))
+        if enviar_convite and not new_email:
+            return jsonify({'erro': 'Para enviar convite, informe o e-mail do usuário.'}), 400
         if new_pass and len(new_pass) < 8:
             return jsonify({'erro': 'A senha deve ter no mínimo 8 caracteres'}), 400
         if new_pass:
@@ -2876,12 +2895,17 @@ def api_editar_usuario(uid):
                 'UPDATE usuarios SET username=?, email=?, role=?, supervisor_id=?, ativo=? WHERE id=?',
                 (new_username, new_email, new_role, supervisor_id, ativo, uid)
             )
+        email_convite = None
+        if enviar_convite:
+            usuario_row = conn.execute('SELECT * FROM usuarios WHERE id=?', (uid,)).fetchone()
+            email_convite = preparar_convite_criacao_conta(conn, usuario_row)
         try:
             conn.commit()
         except Exception:
             return jsonify({'erro': 'Nome de usuário já existe'}), 400
+        email_enviado = enviar_email(*email_convite) if email_convite else False
         registrar_log('EDITAR_USUARIO', f'Usuário "{row["username"]}" atualizado')
-        return jsonify({'message': 'Usuário atualizado'})
+        return jsonify({'message': 'Usuário atualizado', 'email_enviado': email_enviado})
     finally:
         conn.close()
 

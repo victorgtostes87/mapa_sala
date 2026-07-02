@@ -269,7 +269,7 @@
         return;
       }
 
-      if (!userId && enviar_convite && !email) {
+      if (enviar_convite && !email) {
         mostrarErroUsuario('Para enviar convite, informe o e-mail do usuário.');
         return;
       }

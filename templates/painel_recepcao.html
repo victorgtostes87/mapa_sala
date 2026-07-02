@@ -1,9 +1,9 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="pt-br">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Painel da RecepÃ§Ã£o</title>
+  <title>Painel da Recepção</title>
   <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/voltar.js') }}"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
@@ -12,7 +12,7 @@
 <body>
   <nav class="app-nav">
     <a class="app-nav-brand" href="/mapa" title="Voltar para o mapa"><img class="app-nav-logo" src="{{ url_for('static', filename='img/mapa-sala-logo.png') }}" alt=""><span>Mapa de Sala</span></a>
-    <div class="app-nav-title">Mapa de Sala - PoliclÃ­nica Psicologia UVV</div>
+    <div class="app-nav-title">Mapa de Sala - Policlínica Psicologia UVV</div>
     <div class="app-nav-spacer"></div>
     <div class="app-nav-user">
       <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
@@ -29,7 +29,7 @@
     <section class="hero">
       <div>
         <p class="eyebrow">Hoje, {{ hoje_label }}</p>
-        <h1>Painel da recepÃ§Ã£o</h1>
+        <h1>Painel da recepção</h1>
         <p class="muted">Foco no que precisa ser resolvido: reservas pendentes, instrumentos pendentes e afazeres do turno.</p>
       </div>
       <a class="quick-map" href="/afazeres"><i data-lucide="list-checks"></i> Abrir afazeres</a>
@@ -52,15 +52,15 @@
 
     <section class="action-today">
       <div>
-        <p class="eyebrow">Precisa de aÃ§Ã£o hoje</p>
+        <p class="eyebrow">Precisa de ação hoje</p>
         <h2>{{ (pendentes_sala|length) + (pendentes_instrumento|length) + (tarefas_manuais|length) }} item(ns) para conferir</h2>
       </div>
       <div class="action-links">
         {% if pendentes_sala %}
-        <a href="/reservas"><i data-lucide="door-open"></i><span>{{ pendentes_sala|length }} reserva(s) de sala aguardando anÃ¡lise</span></a>
+        <a href="/reservas"><i data-lucide="door-open"></i><span>{{ pendentes_sala|length }} reserva(s) de sala aguardando análise</span></a>
         {% endif %}
         {% if pendentes_instrumento %}
-        <a href="/reservas"><i data-lucide="clipboard-list"></i><span>{{ pendentes_instrumento|length }} instrumento(s) aguardando anÃ¡lise</span></a>
+        <a href="/reservas"><i data-lucide="clipboard-list"></i><span>{{ pendentes_instrumento|length }} instrumento(s) aguardando análise</span></a>
         {% endif %}
         {% if tarefas_manuais %}
         <a href="/afazeres"><i data-lucide="list-checks"></i><span>{{ tarefas_manuais|length }} afazer(es) anotado(s)</span></a>
@@ -76,7 +76,7 @@
         <div class="panel-head">
           <div>
             <p class="eyebrow">Rotina do turno</p>
-            <h2>PendÃªncias e afazeres</h2>
+            <h2>Pendências e afazeres</h2>
           </div>
           <a href="/afazeres">Abrir afazeres</a>
         </div>
@@ -93,14 +93,14 @@
               {% endfor %}
             </div>
             {% else %}
-            <div class="empty positive"><i data-lucide="badge-check"></i><span>Nenhuma pendÃªncia automÃ¡tica no momento.</span></div>
+            <div class="empty positive"><i data-lucide="badge-check"></i><span>Nenhuma pendência automática no momento.</span></div>
             {% endif %}
           </div>
 
           <a class="todo-shortcut" href="/afazeres">
             <i data-lucide="list-checks"></i>
             <strong>{{ tarefas_manuais|length }} afazer(es) anotado(s)</strong>
-            <span>Abrir lista compartilhada da recepÃ§Ã£o</span>
+            <span>Abrir lista compartilhada da recepção</span>
           </a>
         </div>
       </article>
@@ -118,13 +118,13 @@
           {% for r in pendentes_sala %}
           <div class="task-row">
             <strong>{{ r.usuario }}</strong>
-            <span>{{ r.data_label }} Ã s {{ r.horario_inicio }}{% if r.horario_fim %} - {{ r.horario_fim }}{% endif %}</span>
+            <span>{{ r.data_label }} às {{ r.horario_inicio }}{% if r.horario_fim %} - {{ r.horario_fim }}{% endif %}</span>
             <em>{{ r.finalidade or 'Sem finalidade informada' }}</em>
           </div>
           {% endfor %}
         </div>
         {% else %}
-        <div class="empty positive"><i data-lucide="check-circle-2"></i><span>Nenhuma reserva de sala pendente. NÃ£o hÃ¡ nada para aprovar agora.</span></div>
+        <div class="empty positive"><i data-lucide="check-circle-2"></i><span>Nenhuma reserva de sala pendente. Não há nada para aprovar agora.</span></div>
         {% endif %}
       </article>
 
@@ -141,8 +141,8 @@
           {% for r in pendentes_instrumento %}
           <div class="task-row status-pendente">
             <strong>{{ r.instrumento }}</strong>
-            <span>{{ r.usuario }} Â· {{ r.data_label }} Ã s {{ r.horario_inicio }}</span>
-            <em>Pendente de aprovaÃ§Ã£o</em>
+            <span>{{ r.usuario }} · {{ r.data_label }} às {{ r.horario_inicio }}</span>
+            <em>Pendente de aprovação</em>
           </div>
           {% endfor %}
         </div>

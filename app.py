@@ -221,6 +221,19 @@ CATEGORIAS_OCUPAM_SALA = (
     'PRONTUÁRIO/ESTUDAR'
 )
 
+STATUS_ATENDIMENTO = {
+    '': '',
+    'paciente_faltou': 'Paciente faltou',
+    'profissional_desmarcou': 'Profissional desmarcou',
+    'paciente_desmarcou': 'Paciente desmarcou',
+}
+
+ASSINATURA_EMAIL = (
+    'Atenciosamente,\n'
+    'Policlínica de Psicologia UVV\n\n'
+    'Este é um e-mail automático. Não responda esta mensagem.'
+)
+
 PAPEIS_LABEL = {
     'coordenador': 'Coordenador',
     'recepcao': 'Recepcionista',
@@ -369,8 +382,11 @@ def preparar_dados_agendamento(dados, usuario_id_padrao=None):
     triagem_padrao = 1 if texto_indica_triagem(estagiario, paciente) else 0
     triagem = triagem_categoria if triagem_categoria is not None else valor_triagem(dados.get('triagem'), triagem_padrao)
     observacao = dados.get('observacao', '')
+    status_atendimento = (dados.get('status_atendimento') or '').strip()
+    if status_atendimento not in STATUS_ATENDIMENTO:
+        return None, 'Escolha um status de atendimento válido.'
     ocupa_calculado = calcular_ocupa_sala(categoria, paciente, observacao, data_esp, triagem)
-    ocupa_sala = valor_ocupa_sala(dados.get('ocupa_sala'), ocupa_calculado)
+    ocupa_sala = 0 if status_atendimento else valor_ocupa_sala(dados.get('ocupa_sala'), ocupa_calculado)
 
     return {
         'dia': dia,
@@ -385,6 +401,7 @@ def preparar_dados_agendamento(dados, usuario_id_padrao=None):
         'data_especifica': data_esp,
         'usuario_id': dados.get('usuario_id') or usuario_id_padrao,
         'ocupa_sala': ocupa_sala,
+        'status_atendimento': status_atendimento,
     }, None
 
 
@@ -427,13 +444,14 @@ def inserir_agendamento(conn, dados_ag):
             dados_ag.get('triagem', 0)
         )
     cur = conn.execute(
-        'INSERT INTO agendamentos(dia_semana,horario,sala,estagiario,paciente,categoria,semestre,triagem,observacao,data_especifica,usuario_id,ocupa_sala)'
-        ' VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
+        'INSERT INTO agendamentos(dia_semana,horario,sala,estagiario,paciente,categoria,semestre,triagem,observacao,data_especifica,usuario_id,ocupa_sala,status_atendimento)'
+        ' VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
         (
             dados_ag['dia'], dados_ag['horario'], dados_ag['sala'],
             dados_ag['estagiario'], dados_ag['paciente'], dados_ag['categoria'],
             dados_ag['semestre'], dados_ag['triagem'], dados_ag['observacao'],
-            dados_ag['data_especifica'], dados_ag['usuario_id'], dados_ag['ocupa_sala']
+            dados_ag['data_especifica'], dados_ag['usuario_id'], dados_ag['ocupa_sala'],
+            dados_ag.get('status_atendimento', '')
         )
     )
     return cur.lastrowid
@@ -525,7 +543,36 @@ def emails_usuarios_por_papel(*papeis):
 def nome_exibicao_usuario(usuario_row):
     if not usuario_row:
         return ''
-    return usuario_row['nome_completo'] or usuario_row['username']
+    nome = usuario_row['nome_completo'] if 'nome_completo' in usuario_row.keys() else ''
+    return nome or usuario_row['username']
+
+
+def corpo_email_padrao(saudacao, mensagem, titulo_detalhes='', detalhes=None, observacao='', encerramento=''):
+    partes = [saudacao.strip(), mensagem.strip()]
+    detalhes = detalhes or []
+    if titulo_detalhes and detalhes:
+        partes.append(titulo_detalhes.strip())
+        partes.append('\n'.join(f'• {rotulo}: {valor or "-"}' for rotulo, valor in detalhes))
+    if observacao:
+        partes.append(observacao.strip())
+    if encerramento:
+        partes.append(encerramento.strip())
+    partes.append(ASSINATURA_EMAIL)
+    return '\n\n'.join(p for p in partes if p)
+
+
+def formatar_data_email(dados_ag):
+    data_ref = (dados_ag.get('data_especifica') or '').strip()
+    if data_ref:
+        try:
+            data_obj = datetime.strptime(data_ref, '%Y-%m-%d')
+            dia_nome = DIAS_PT.get(DIAS[data_obj.weekday()], '')
+            return f'{data_obj.strftime("%d/%m/%Y")} ({dia_nome})' if dia_nome else data_obj.strftime('%d/%m/%Y')
+        except (ValueError, TypeError):
+            return data_ref
+
+    dia = dados_ag.get('dia') or dados_ag.get('dia_semana') or ''
+    return DIAS_PT.get(dia, dia or '-')
 
 
 def hash_token(token):
@@ -550,7 +597,7 @@ def buscar_token_email(token, tipo):
     try:
         row = conn.execute(
             """
-            SELECT t.*, u.username, u.email
+            SELECT t.*, u.username, u.email, u.nome_completo
             FROM tokens_email t
             JOIN usuarios u ON u.id = t.usuario_id
             WHERE t.token_hash=? AND t.tipo=? AND t.usado_em IS NULL AND t.expira_em > datetime('now')
@@ -574,12 +621,16 @@ def preparar_convite_criacao_conta(conn, usuario_row):
     return (
         usuario_row['email'],
         'Convite para acessar o Mapa de Sala',
-        (
-            f'Olá, {usuario_row["username"]}.\n\n'
-            'Uma conta foi criada para você no Mapa de Sala da Policlínica de Psicologia UVV.\n'
-            'Acesse o link abaixo para criar sua senha. Ele vale por 72 horas:\n\n'
-            f'{link}\n\n'
-            'Depois disso, você poderá entrar no sistema normalmente.'
+        corpo_email_padrao(
+            f'Olá, {nome_exibicao_usuario(usuario_row)}!',
+            'Uma conta foi criada para você no Mapa de Sala da Policlínica de Psicologia UVV.',
+            observacao=(
+                'Para acessar o sistema pela primeira vez, crie sua senha utilizando o link abaixo:\n\n'
+                f'{link}\n\n'
+                'Este link é válido por 72 horas.\n'
+                'Após definir sua senha, você poderá acessar o sistema normalmente.\n'
+                'Caso não reconheça esta solicitação, ignore este e-mail.'
+            )
         )
     )
 
@@ -591,11 +642,13 @@ def preparar_aviso_conta_criada(usuario_row):
     return (
         usuario_row['email'],
         'Conta criada no Mapa de Sala',
-        (
-            f'Olá, {nome_exibicao_usuario(usuario_row)}.\n\n'
-            'Sua conta no Mapa de Sala foi criada pela coordenação.\n\n'
-            f'Acesse o sistema por este link:\n{link}\n\n'
-            'Se você ainda não recebeu sua senha, procure a coordenação ou use a opção de recuperar senha.'
+        corpo_email_padrao(
+            f'Olá, {nome_exibicao_usuario(usuario_row)}!',
+            'Sua conta no Mapa de Sala foi criada pela coordenação.',
+            observacao=(
+                f'Acesse o sistema por este link:\n{link}\n\n'
+                'Se você ainda não recebeu sua senha, procure a coordenação ou use a opção de recuperar senha.'
+            )
         )
     )
 
@@ -603,35 +656,90 @@ def preparar_aviso_conta_criada(usuario_row):
 def notificar_senha_alterada_email(usuario_row, origem):
     if not usuario_row or not usuario_row['email']:
         return False
-    quando = datetime.now().strftime('%d/%m/%Y %H:%M')
-    origem_txt = 'por recuperação de senha' if origem == 'reset' else 'na tela de troca de senha'
     return enviar_email(
         usuario_row['email'],
-        'Senha alterada - Mapa de Sala',
-        (
-            f'Olá, {nome_exibicao_usuario(usuario_row)}.\n\n'
-            f'Sua senha do Mapa de Sala foi alterada {origem_txt} em {quando}.\n\n'
-            'Se foi você, nenhuma ação é necessária.\n'
-            'Se não foi você, avise a coordenação imediatamente.'
+        'Senha alterada com sucesso',
+        corpo_email_padrao(
+            f'Olá, {nome_exibicao_usuario(usuario_row)}!',
+            'Sua senha de acesso ao Mapa de Sala foi alterada com sucesso.',
+            observacao='Caso você não reconheça essa alteração, entre em contato imediatamente com o administrador do sistema.'
         )
     )
 
 
 def resumo_agendamento_email(dados_ag):
-    tipo = 'triagem' if int(dados_ag.get('triagem') or 0) else 'atendimento'
-    ocupacao = 'com paciente marcado' if (dados_ag.get('paciente') or '').strip() else 'sem paciente vinculado'
-    data_ref = dados_ag.get('data_especifica') or dados_ag.get('dia') or dados_ag.get('dia_semana') or ''
-    return (
-        f'Tipo: {tipo}\n'
-        f'Situação: {ocupacao}\n'
-        f'Dia/data: {data_ref}\n'
-        f'Horário: {dados_ag.get("horario")}\n'
-        f'Sala: {dados_ag.get("sala")}\n'
-        f'Categoria: {dados_ag.get("categoria") or "Sem categoria"}'
-    )
+    tipo = 'Triagem' if int(dados_ag.get('triagem') or 0) else 'Atendimento'
+    status = STATUS_ATENDIMENTO.get(dados_ag.get('status_atendimento') or '')
+    if status:
+        situacao = status
+    else:
+        situacao = 'Com paciente vinculado' if (dados_ag.get('paciente') or '').strip() else 'Sem paciente vinculado'
+    return [
+        ('Tipo de agendamento', tipo),
+        ('Situação', situacao),
+        ('Data', formatar_data_email(dados_ag)),
+        ('Horário', dados_ag.get('horario')),
+        ('Sala', dados_ag.get('sala')),
+        ('Categoria', dados_ag.get('categoria') or 'Sem categoria'),
+    ]
 
 
-def notificar_agendamento_email(dados_ag, acao):
+def classificar_evento_agendamento(dados_ag, acao, dados_antes=None):
+    if acao == 'excluido':
+        return 'cancelado'
+    if dados_ag.get('status_atendimento'):
+        return 'cancelado'
+    if acao == 'alterado' and dados_antes:
+        paciente_antes = (dados_antes.get('paciente') or '').strip()
+        paciente_depois = (dados_ag.get('paciente') or '').strip()
+        if not paciente_antes and paciente_depois:
+            return 'paciente_vinculado'
+        if paciente_antes and not paciente_depois:
+            return 'paciente_removido'
+    return acao
+
+
+def conteudo_agendamento_email(evento, dados_ag):
+    detalhes = resumo_agendamento_email(dados_ag)
+    privacidade = 'Por questões de privacidade, este e-mail não exibe o nome do paciente.'
+    mapa = {
+        'criado': {
+            'assunto': 'Novo agendamento cadastrado',
+            'mensagem': 'Um novo agendamento foi registrado para você no Mapa de Sala.',
+            'titulo': 'Detalhes do agendamento',
+            'observacao': f'{privacidade}\nPara visualizar mais informações, acesse o sistema.',
+        },
+        'alterado': {
+            'assunto': 'Agendamento atualizado',
+            'mensagem': 'Um agendamento vinculado à sua agenda foi atualizado.',
+            'titulo': 'Novas informações',
+            'observacao': f'{privacidade}\nPara visualizar os detalhes da alteração, acesse o sistema.',
+        },
+        'cancelado': {
+            'assunto': 'Agendamento cancelado',
+            'mensagem': 'Um agendamento foi cancelado no Mapa de Sala.',
+            'titulo': 'Informações do agendamento',
+            'observacao': 'Caso tenha dúvidas, consulte o sistema.',
+        },
+        'paciente_vinculado': {
+            'assunto': 'Paciente vinculado ao seu horário',
+            'mensagem': 'Um paciente foi vinculado a um horário disponível em sua agenda.',
+            'titulo': 'Informações',
+            'observacao': f'{privacidade}\nAcesse o sistema para visualizar as informações completas.',
+        },
+        'paciente_removido': {
+            'assunto': 'Paciente desvinculado do agendamento',
+            'mensagem': 'O paciente anteriormente vinculado a um de seus horários foi removido.\nO horário voltou a ficar disponível.',
+            'titulo': 'Informações',
+            'observacao': 'Caso tenha dúvidas, consulte o sistema.',
+        },
+    }
+    conteudo = dict(mapa.get(evento, mapa['alterado']))
+    conteudo['detalhes'] = detalhes
+    return conteudo
+
+
+def notificar_agendamento_email(dados_ag, acao, dados_antes=None):
     aluno_id = dados_ag.get('usuario_id')
     aluno_username = dados_ag.get('estagiario') or ''
     conn = get_db()
@@ -651,23 +759,22 @@ def notificar_agendamento_email(dados_ag, acao):
     finally:
         conn.close()
 
-    titulo_acao = {
-        'criado': 'criado',
-        'alterado': 'alterado',
-        'excluido': 'excluído',
-    }.get(acao, 'atualizado')
-    corpo_base = (
-        f'Um agendamento foi {titulo_acao} no Mapa de Sala.\n\n'
-        f'{resumo_agendamento_email(dados_ag)}\n\n'
-        'Por segurança, este e-mail não inclui nome de paciente. Acesse o sistema para ver os detalhes.'
+    evento = classificar_evento_agendamento(dados_ag, acao, dados_antes)
+    conteudo = conteudo_agendamento_email(evento, dados_ag)
+    corpo_base = corpo_email_padrao(
+        'Olá!',
+        conteudo['mensagem'],
+        conteudo['titulo'],
+        conteudo['detalhes'],
+        conteudo['observacao']
     )
 
     if aluno and aluno['email']:
-        enviar_email(aluno['email'], f'Agendamento {titulo_acao} - Mapa de Sala', corpo_base)
+        enviar_email(aluno['email'], conteudo['assunto'], corpo_base)
     if professor and professor['email']:
         enviar_email(
             professor['email'],
-            f'Agendamento {titulo_acao} para aluno supervisionado',
+            f'{conteudo["assunto"]} para aluno supervisionado',
             f'Aluno: {aluno["username"]}\n\n{corpo_base}'
         )
 
@@ -677,14 +784,17 @@ def notificar_reserva_solicitada_email(reserva):
         return 0
     tipo = 'sala' if reserva.get('tipo') == 'sala' else 'teste/instrumento'
     detalhe = reserva.get('tipo_sala') if reserva.get('tipo') == 'sala' else reserva.get('instrumento')
-    corpo = (
-        f'Uma nova reserva de {tipo} foi solicitada no Mapa de Sala.\n\n'
-        f'Aluno: {reserva.get("usuario")}\n'
-        f'Data: {reserva.get("data_uso")}\n'
-        f'Horário: {reserva.get("horario_inicio")}'
-        f'{(" até " + reserva.get("horario_fim")) if reserva.get("horario_fim") else ""}\n'
-        f'Detalhe: {detalhe or "-"}\n'
-        f'Finalidade: {reserva.get("finalidade") or "-"}\n\n'
+    corpo = corpo_email_padrao(
+        'Olá!',
+        f'Uma nova reserva de {tipo} foi solicitada no Mapa de Sala.',
+        'Informações da reserva',
+        [
+            ('Aluno', reserva.get('usuario')),
+            ('Data', formatar_data_email({'data_especifica': reserva.get('data_uso')})),
+            ('Horário', f'{reserva.get("horario_inicio")}{(" até " + reserva.get("horario_fim")) if reserva.get("horario_fim") else ""}'),
+            ('Detalhe', detalhe or '-'),
+            ('Finalidade', reserva.get('finalidade') or '-'),
+        ],
         'Acesse a tela de Reservas para aprovar ou recusar.'
     )
     return enviar_email_multiplos(
@@ -713,16 +823,17 @@ def notificar_reserva_email(reserva, status, resposta=''):
         'guardado': 'com instrumento guardado/devolvido',
     }.get(status, status)
     detalhe = reserva.get('sala_atribuida') if reserva.get('tipo') == 'sala' else reserva.get('instrumento')
-    corpo = (
-        f'Sua reserva de {tipo} foi {status_txt}.\n\n'
-        f'Data: {reserva.get("data_uso")}\n'
-        f'Horário: {reserva.get("horario_inicio")}'
-        f'{(" até " + reserva.get("horario_fim")) if reserva.get("horario_fim") else ""}\n'
-        f'Detalhe: {detalhe or "-"}\n'
+    corpo = corpo_email_padrao(
+        f'Olá, {nome_exibicao_usuario(usuario)}!',
+        f'Sua reserva de {tipo} foi {status_txt}.',
+        'Informações da reserva',
+        [
+            ('Data', formatar_data_email({'data_especifica': reserva.get('data_uso')})),
+            ('Horário', f'{reserva.get("horario_inicio")}{(" até " + reserva.get("horario_fim")) if reserva.get("horario_fim") else ""}'),
+            ('Detalhe', detalhe or '-'),
+        ],
+        f'Mensagem da recepção/coordenação: {resposta}' if resposta else 'Acesse o sistema para acompanhar a solicitação.'
     )
-    if resposta:
-        corpo += f'\nMensagem da recepção/coordenação: {resposta}\n'
-    corpo += '\nAcesse o sistema para acompanhar a solicitação.'
     return enviar_email(usuario['email'], f'Reserva {status_txt} - Mapa de Sala', corpo)
 
 
@@ -781,18 +892,20 @@ def migrar_fk_usuario_id_agendamentos(conn):
         "data_especifica TEXT DEFAULT '',"
         "usuario_id INTEGER DEFAULT NULL REFERENCES usuarios(id) ON DELETE SET NULL,"
         "ocupa_sala INTEGER DEFAULT 0,"
+        "status_atendimento TEXT DEFAULT '',"
         "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
         "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
         ");"
         "INSERT INTO agendamentos("
         "id,dia_semana,horario,sala,estagiario,paciente,categoria,semestre,triagem,"
-        "observacao,data_especifica,usuario_id,ocupa_sala,created_at,updated_at"
+        "observacao,data_especifica,usuario_id,ocupa_sala,status_atendimento,created_at,updated_at"
         ") SELECT "
         "id,dia_semana,horario,sala,estagiario,paciente,categoria,semestre,triagem,"
         "observacao,data_especifica,"
         "CASE WHEN usuario_id IS NULL OR EXISTS (SELECT 1 FROM usuarios u WHERE u.id = agendamentos_old.usuario_id) "
         "THEN usuario_id ELSE NULL END,"
         "ocupa_sala,"
+        "COALESCE(status_atendimento, ''),"
         "created_at,updated_at "
         "FROM agendamentos_old;"
         "DROP TABLE agendamentos_old;"
@@ -846,6 +959,7 @@ def recalcular_ocupacao_sala_agendamentos(conn):
         f"""
         UPDATE agendamentos
         SET ocupa_sala = CASE
+            WHEN TRIM(COALESCE(status_atendimento, '')) != '' THEN 0
             WHEN TRIM(COALESCE(paciente, '')) != '' THEN 1
             WHEN categoria IN ({placeholders}) THEN 1
             WHEN TRIM(COALESCE(data_especifica, '')) != ''
@@ -873,6 +987,7 @@ def criar_tabelas_base(conn):
         "data_especifica TEXT DEFAULT '',"
         "usuario_id INTEGER DEFAULT NULL REFERENCES usuarios(id) ON DELETE SET NULL,"
         "ocupa_sala INTEGER DEFAULT 0,"
+        "status_atendimento TEXT DEFAULT '',"
         "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
         "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
         ");"
@@ -992,6 +1107,12 @@ def aplicar_migracoes_simples(conn):
         'agendamentos',
         'usuario_id',
         "ALTER TABLE agendamentos ADD COLUMN usuario_id INTEGER DEFAULT NULL"
+    )
+    adicionar_coluna_se_ausente(
+        conn,
+        'agendamentos',
+        'status_atendimento',
+        "ALTER TABLE agendamentos ADD COLUMN status_atendimento TEXT DEFAULT ''"
     )
     adicionar_coluna_se_ausente(conn, 'usuarios', 'email', "ALTER TABLE usuarios ADD COLUMN email TEXT DEFAULT ''")
     adicionar_coluna_se_ausente(conn, 'usuarios', 'ativo', "ALTER TABLE usuarios ADD COLUMN ativo INTEGER DEFAULT 1")
@@ -1336,11 +1457,14 @@ def login():
     if current_user.is_authenticated:
         return redirect(url_for('index'))
     if request.method == 'POST':
-        username = request.form.get('username', '').strip()
+        identificador = request.form.get('username', '').strip()
         password = request.form.get('password', '')
         conn = get_db()
         try:
-            row = conn.execute('SELECT * FROM usuarios WHERE username=?', (username,)).fetchone()
+            row = conn.execute(
+                'SELECT * FROM usuarios WHERE username=? OR email=?',
+                (identificador, identificador)
+            ).fetchone()
         finally:
             conn.close()
         if row and not row['ativo']:
@@ -1350,7 +1474,7 @@ def login():
             user = Usuario(row['id'], row['username'], row['role'],
                            row['nome_completo'] or '', row['email'] or '', row['ativo'])
             login_user(user)
-            registrar_log('LOGIN', f'Usuário {username} fez login')
+            registrar_log('LOGIN', f'Usuário {row["username"]} fez login')
             return redirect(url_for('index'))
         flash('Usuário ou senha inválidos.')
     return render_template('login.html')
@@ -1371,17 +1495,21 @@ def recuperar_senha():
                 (identificador, identificador)
             ).fetchone()
             if row and row['email']:
-                token = criar_token_email(conn, row['id'], 'reset', horas=2)
+                token = criar_token_email(conn, row['id'], 'reset', horas=72)
                 conn.commit()
                 link = url_absoluta('redefinir_senha', token=token)
                 enviar_email(
                     row['email'],
-                    'Recuperação de senha - Mapa de Sala',
-                    (
-                        f'Olá, {row["username"]}.\n\n'
-                        'Recebemos uma solicitação para recuperar sua senha no Mapa de Sala.\n'
-                        f'Acesse o link abaixo para criar uma nova senha. Ele vale por 2 horas:\n\n{link}\n\n'
-                        'Se você não pediu isso, ignore este e-mail.'
+                    'Redefinição de senha',
+                    corpo_email_padrao(
+                        f'Olá, {nome_exibicao_usuario(row)}!',
+                        'Recebemos uma solicitação para redefinir sua senha de acesso ao Mapa de Sala.',
+                        observacao=(
+                            'Clique no link abaixo para cadastrar uma nova senha:\n\n'
+                            f'{link}\n\n'
+                            'Este link permanecerá válido por 72 horas.\n'
+                            'Se você não realizou essa solicitação, ignore este e-mail. Sua senha atual permanecerá válida.'
+                        )
                     )
                 )
         finally:
@@ -1426,7 +1554,10 @@ def redefinir_senha(token):
             conn.close()
 
         registrar_log('DEFINIR_SENHA_EMAIL', f'Usuário {row["username"]} definiu senha por link de {tipo}')
-        notificar_senha_alterada_email(row, 'reset')
+        try:
+            notificar_senha_alterada_email(row, 'reset')
+        except Exception as exc:
+            app.logger.warning('Falha ao enviar aviso de senha alterada: %s', exc)
         flash('Senha definida com sucesso. Faça login para entrar.', 'success')
         return redirect(url_for('login'))
 
@@ -1455,8 +1586,6 @@ def logout():
 def index():
     if current_user.role == 'aluno':
         return redirect(url_for('meus_agendamentos'))
-    if current_user.role == 'recepcao':
-        return redirect(url_for('painel_recepcao'))
     if current_user.role == 'professor':
         return redirect(url_for('minha_supervisao'))
     return renderizar_mapa_sala()
@@ -1469,9 +1598,6 @@ def mapa_sala():
         return redirect(url_for('meus_agendamentos'))
     if current_user.role == 'professor':
         return redirect(url_for('minha_supervisao'))
-    if current_user.role != 'coordenador':
-        flash('Acesso restrito à coordenação.', 'error')
-        return redirect(url_for('painel_recepcao'))
     return renderizar_mapa_sala()
 
 
@@ -2093,6 +2219,17 @@ def meus_agendamentos():
             ,
             (current_user.id,)
         ).fetchone()['total']
+        reservas_aluno = conn.execute(
+            """
+            SELECT *
+            FROM reservas
+            WHERE usuario_id=?
+              AND status!='recusada'
+              AND data_uso>=?
+            ORDER BY data_uso, horario_inicio
+            """,
+            (current_user.id, data_hoje_iso())
+        ).fetchall()
     finally:
         conn.close()
 
@@ -2142,11 +2279,15 @@ def meus_agendamentos():
                 f"{primeiro.get('paciente', '')} em {primeiro.get('data_label') or primeiro.get('data_especifica')}"
             )
 
-        if ag['tem_paciente'] or pacientes_pontuais:
+        if ag['tem_paciente']:
             continue
 
         categoria_upper = (ag.get('categoria') or '').upper()
-        if ag['eh_triagem']:
+        if pacientes_pontuais:
+            ag['status_fixo'] = 'Fechado em data pontual'
+            ag['status_slug'] = 'com-paciente'
+            ag['status_descricao'] = 'Este horário fixo recebeu um paciente em uma data específica.'
+        elif ag['eh_triagem']:
             ag['status_fixo'] = 'Triagem sem paciente marcado'
             ag['status_slug'] = 'aguardando'
             ag['status_descricao'] = 'Horário reservado para triagem, mas ainda sem paciente vinculado.'
@@ -2160,6 +2301,31 @@ def meus_agendamentos():
             ag['status_descricao'] = 'Horário fixo reservado, mas sem paciente marcado.'
 
         horarios_fixos.append(ag)
+
+    status_reserva_labels = {
+        'pendente': 'Aguardando análise',
+        'aprovada': 'Aprovada',
+        'recusada': 'Recusada',
+        'separado': 'Instrumento separado',
+        'guardado': 'Instrumento guardado',
+    }
+    reservas_aluno_formatadas = []
+    for row in reservas_aluno:
+        reserva = dict(row)
+        reserva['status_label'] = status_reserva_labels.get(reserva.get('status'), reserva.get('status') or '')
+        reserva['tipo_label'] = 'Sala' if reserva.get('tipo') == 'sala' else 'Instrumento'
+        reserva['detalhe'] = (
+            reserva.get('sala_atribuida')
+            or reserva.get('sala_sugerida')
+            or reserva.get('instrumento')
+            or reserva.get('tipo_sala')
+            or '-'
+        )
+        try:
+            reserva['data_label'] = datetime.strptime(reserva['data_uso'], '%Y-%m-%d').strftime('%d/%m/%Y')
+        except (ValueError, TypeError):
+            reserva['data_label'] = reserva.get('data_uso') or ''
+        reservas_aluno_formatadas.append(reserva)
 
     semana_aluno = []
     for dia in DIAS:
@@ -2203,6 +2369,8 @@ def meus_agendamentos():
         total_fixos=len(horarios_fixos),
         total_atendimentos=len(atendimentos_paciente),
         total_pontuais=sum(1 for ag in atendimentos_paciente if ag.get('data_especifica')),
+        reservas_aluno=reservas_aluno_formatadas,
+        total_reservas_aluno=len(reservas_aluno_formatadas),
         total_triagens_livres=sum(
             1 for ag in horarios_fixos
             if ag.get('eh_triagem') and not ag.get('tem_paciente') and not ag.get('paciente_pontual_label')
@@ -2832,9 +3000,12 @@ def update_ag(aid):
     try:
         conn = get_db()
         try:
+            row_anterior = conn.execute('SELECT * FROM agendamentos WHERE id=?', (aid,)).fetchone()
+            if not row_anterior:
+                return jsonify({'erro': 'Agendamento não encontrado. Ele pode ter sido removido por outra pessoa.'}), 404
             cur = conn.execute(
                 'UPDATE agendamentos SET dia_semana=?,horario=?,sala=?,estagiario=?,paciente=?,categoria=?,semestre=?,'
-                'triagem=?,observacao=?,data_especifica=?,usuario_id=?,ocupa_sala=?,updated_at=CURRENT_TIMESTAMP WHERE id=?',
+                'triagem=?,observacao=?,data_especifica=?,usuario_id=?,ocupa_sala=?,status_atendimento=?,updated_at=CURRENT_TIMESTAMP WHERE id=?',
                 (
                     dados_ag['dia'], dados_ag['horario'], dados_ag['sala'],
                     dados_ag['estagiario'], dados_ag['paciente'], dados_ag['categoria'],
@@ -2842,6 +3013,7 @@ def update_ag(aid):
                     dados_ag['data_especifica'],
                     buscar_usuario_id_aluno(dados_ag['estagiario'], conn) or dados_ag['usuario_id'],
                     dados_ag['ocupa_sala'],
+                    dados_ag['status_atendimento'],
                     aid
                 )
             )
@@ -2856,7 +3028,7 @@ def update_ag(aid):
 
     registrar_log('EDITAR', descricao_agendamento_log(aid, dados_ag) + ' editado')
     if row_notificacao:
-        notificar_agendamento_email(dict(row_notificacao), 'alterado')
+        notificar_agendamento_email(dict(row_notificacao), 'alterado', dict(row_anterior))
     return jsonify({'message': 'Atualizado'})
 
 
@@ -2937,7 +3109,7 @@ def export_xlsx():
     ws = wb.active
     ws.title = 'Mapa de Salas'
     headers = ['ID', 'Dia', 'Horário', 'Sala', 'Estagiário (usuário)', 'Nome Completo', 'Paciente',
-               'Categoria', 'Semestre', 'Triagem', 'Ocupa Sala', 'Data Esp.', 'Obs.']
+               'Categoria', 'Status Atendimento', 'Semestre', 'Triagem', 'Ocupa Sala', 'Data Esp.', 'Obs.']
     ws.append(headers)
 
     header_fill = PatternFill('solid', fgColor='1E293B')
@@ -2950,7 +3122,8 @@ def export_xlsx():
         ws.append([
             r['id'], r['dia_semana'], r['horario'], r['sala'],
             r['estagiario'], r['nome_real'], r['paciente'],
-            r['categoria'], r['semestre'], 'Sim' if r['triagem'] else 'Não',
+            r['categoria'], STATUS_ATENDIMENTO.get(r['status_atendimento'], ''),
+            r['semestre'], 'Sim' if r['triagem'] else 'Não',
             'Sim' if r['ocupa_sala'] else 'Não', r['data_especifica'], r['observacao']
         ])
 
@@ -3361,6 +3534,7 @@ def import_csv():
                 obs = (row.get('Obs.') or row.get('observacao') or '').strip()
                 data_esp = (row.get('Data Esp.') or row.get('data_especifica') or '').strip()
                 ocupa_sala = row.get('Ocupa Sala') or row.get('ocupa_sala') or ''
+                status_atendimento = (row.get('Status Atendimento') or row.get('status_atendimento') or '').strip()
 
                 dados_ag, erro = preparar_dados_agendamento({
                     'dia_semana': dia,
@@ -3373,7 +3547,8 @@ def import_csv():
                     'triagem': triagem,
                     'observacao': obs,
                     'data_especifica': data_esp,
-                    'ocupa_sala': ocupa_sala
+                    'ocupa_sala': ocupa_sala,
+                    'status_atendimento': status_atendimento
                 })
                 if erro:
                     erros.append(f'Linha {i}: {erro}')

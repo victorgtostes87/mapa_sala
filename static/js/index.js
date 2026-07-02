@@ -19,6 +19,11 @@ const CAT_CLASS = {
   'PLANTÃO PSICOLÓGICO':'cat-plantao','PRONTUÁRIO/ESTUDAR':'cat-pront',
   'LIVRE':'cat-livre','OUTRO':'cat-outro'
 };
+const STATUS_ATENDIMENTO_LABEL = {
+  paciente_faltou: 'paciente faltou',
+  profissional_desmarcou: 'profissional desmarcou',
+  paciente_desmarcou: 'paciente desmarcou'
+};
 
 function selectDay(dia, el) {
   const dataFiltro = document.getElementById('filterData');
@@ -136,10 +141,12 @@ async function renderGrid() {
 function renderAgendamentoCell(ag, cellTemOcupacao=false){
   const cls = CAT_CLASS[ag.categoria] || 'cat-outro';
   const badgeHtml = ag.triagem ? '<span class="badge">triagem</span>' : '';
-  const dataHtml  = ag.data_especifica ? '<span class="badge">'+esc(ag.data_especifica)+'</span>' : '';
+  const dataHtml  = ag.data_especifica ? '<span class="badge badge-date">somente '+formatarDataCurta(ag.data_especifica)+'</span>' : '<span class="badge badge-fixed">fixo semanal</span>';
+  const statusLabel = STATUS_ATENDIMENTO_LABEL[ag.status_atendimento] || '';
+  const statusHtml = statusLabel ? `<span class="badge badge-cancelado">${statusLabel}</span>` : '';
   const ocupa = parseInt(ag.ocupa_sala) === 1;
   const temPaciente = !!String(ag.paciente || '').trim();
-  const estadoSala = temPaciente ? 'cell-com-paciente' : 'cell-fixo-sem-paciente';
+  const estadoSala = statusLabel ? 'cell-atendimento-cancelado' : (temPaciente ? 'cell-com-paciente' : 'cell-fixo-sem-paciente');
   const tipoData = ag.data_especifica ? 'cell-pontual' : 'cell-fixo';
   const obsHtml = ag.observacao ? '<div class="obs">'+esc(ag.observacao)+'</div>' : '';
   const editBtn   = PODE_EDITAR ? `<button class="edit-btn" onclick="event.stopPropagation();openModal(${ag.id})">Editar</button>` : '';
@@ -149,7 +156,7 @@ function renderAgendamentoCell(ag, cellTemOcupacao=false){
     <div class="intern">${esc(ag.estagiario)}</div>
     ${ag.paciente ? '<div class="patient">'+esc(ag.paciente)+'</div>' : ''}
     ${obsHtml}
-    <div style="display:flex;gap:3px;flex-wrap:wrap">${badgeHtml}${dataHtml}</div>
+    <div style="display:flex;gap:3px;flex-wrap:wrap">${statusHtml}${badgeHtml}${dataHtml}</div>
     ${usarBtn}
   </div>`;
 }
@@ -166,11 +173,20 @@ function updateDateFilterBadge(){
   el.textContent = `Mostrando data específica: ${dia}/${mes}/${ano}`;
   el.style.display = 'inline-flex';
 }
+function formatarDataCurta(data){
+  if(!data) return '';
+  const partes = String(data).split('-');
+  if(partes.length === 3) return `${partes[2]}/${partes[1]}`;
+  return data;
+}
 function esc(t){ if(!t)return''; return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function escAttr(t){ return esc(t).replace(/'/g,'&#39;').replace(/"/g,'&quot;'); }
 function debounceRender(){ clearTimeout(debTimer); debTimer=setTimeout(renderGrid,300); }
 function clearFilters(){ document.getElementById('searchInput').value=''; document.getElementById('filterData').value=''; document.getElementById('filterHorario').value=''; document.getElementById('filterSala').value=''; document.getElementById('filterCat').value=''; document.getElementById('filterOcupacao').value=''; renderGrid(); }
 function calcularOcupaSalaLocal(){
+  const status = document.getElementById('fStatusAtendimento')?.value || '';
+  if(status) return false;
+
   const manual = document.getElementById('fOcupaSala').value;
   if(manual === '1') return true;
   if(manual === '0') return false;
@@ -187,6 +203,13 @@ function calcularOcupaSalaLocal(){
 function atualizarOcupacaoPreview(){
   const hint = document.getElementById('ocupaHint');
   if(!hint) return;
+  const status = document.getElementById('fStatusAtendimento')?.value || '';
+  if(status){
+    hint.textContent = 'Atendimento desmarcado: o registro fica no mapa, mas a sala pode ser usada por outra pessoa.';
+    hint.classList.remove('ocupa');
+    hint.classList.add('livre');
+    return;
+  }
   const ocupa = calcularOcupaSalaLocal();
   hint.textContent = ocupa
     ? 'Este registro ocupa a sala e bloqueia outro uso no mesmo horário.'
@@ -209,6 +232,7 @@ async function verificarConflito() {
       categoria:document.getElementById('fCategoria').value,
       paciente:document.getElementById('fPaciente').value.trim(),
       observacao:document.getElementById('fObs').value.trim(),
+      status_atendimento:document.getElementById('fStatusAtendimento')?.value || '',
       triagem:document.getElementById('fTriagem').value,
       ocupa_sala:calcularOcupaSalaLocal() ? '1' : '0'
     });
@@ -281,6 +305,7 @@ async function openModal(id){
       document.getElementById('fEstagiario').value=d.estagiario||'';
       document.getElementById('fPaciente').value=d.paciente||'';
       setF('fCategoria',d.categoria); setF('fTriagem',d.triagem);
+      setF('fStatusAtendimento',d.status_atendimento || '');
       document.getElementById('fData').value=d.data_especifica||'';
       document.getElementById('fObs').value=d.observacao||'';
       setF('fOcupaSala', String(d.ocupa_sala ?? ''));
@@ -289,7 +314,7 @@ async function openModal(id){
       return;
     }
   } else {
-    setF('fDia',currentDay); setF('fCategoria',''); setF('fTriagem',0); setF('fOcupaSala','');
+    setF('fDia',currentDay); setF('fCategoria',''); setF('fTriagem',0); setF('fStatusAtendimento',''); setF('fOcupaSala','');
     ['fEstagiario','fPaciente','fData','fObs'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('fObs').placeholder='Ex: estudar, lançar prontuário, professor não liberou, uso interno...';
     document.getElementById('fData').value=document.getElementById('filterData').value||'';
@@ -327,6 +352,7 @@ async function saveAg(){
     paciente:document.getElementById('fPaciente').value.trim(),
     categoria:document.getElementById('fCategoria').value,
     triagem:parseInt(document.getElementById('fTriagem').value)||0,
+    status_atendimento:document.getElementById('fStatusAtendimento')?.value || '',
     data_especifica:document.getElementById('fData').value.trim(),
     observacao:document.getElementById('fObs').value.trim(),
     ocupa_sala:calcularOcupaSalaLocal() ? 1 : 0

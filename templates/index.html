@@ -33,6 +33,7 @@
       <a href="/painel"><i data-lucide="layout-dashboard"></i> Painel</a>
       <a href="/afazeres"><i data-lucide="list-checks"></i> Afazeres</a>
       <a href="/reservas"><i data-lucide="bell"></i> Reservas {% if reservas_pendentes_count %}<span class="nav-badge">{{ reservas_pendentes_count }}</span>{% endif %}</a>
+      <a href="/horarios-abertos"><i data-lucide="calendar-plus"></i> Horários abertos</a>
       <a href="/usuarios"><i data-lucide="users"></i> Usuários</a>
       <a href="/logs"><i data-lucide="clipboard-list"></i> Logs</a>
       <button onclick="openImportModal()"><i data-lucide="upload"></i> Importar Excel</button>
@@ -42,6 +43,7 @@
       <a href="/painel"><i data-lucide="layout-dashboard"></i> Painel</a>
       <a href="/afazeres"><i data-lucide="list-checks"></i> Afazeres</a>
       <a href="/reservas"><i data-lucide="bell"></i> Reservas {% if reservas_pendentes_count %}<span class="nav-badge">{{ reservas_pendentes_count }}</span>{% endif %}</a>
+      <a href="/horarios-abertos"><i data-lucide="calendar-plus"></i> Horários abertos</a>
       <button onclick="exportCSV()"><i data-lucide="download"></i> Exportar</button>
       <a href="/imprimir" target="_blank"><i data-lucide="printer"></i> Imprimir</a>
       {% endif %}
@@ -150,6 +152,15 @@
       </div>
       <div class="form-row"><label>Data específica <span style="font-size:10px;color:var(--text2);font-weight:400;text-transform:none">(opcional - só para agendamentos pontuais)</span></label>
         <input type="date" id="fData" onchange="atualizarOcupacaoPreview();verificarConflito()"></div>
+      <div class="form-row"><label>Status do atendimento</label>
+        <select id="fStatusAtendimento" onchange="atualizarOcupacaoPreview();verificarConflito()">
+          <option value="">Atendimento mantido</option>
+          <option value="paciente_faltou">Paciente faltou</option>
+          <option value="profissional_desmarcou">Profissional desmarcou</option>
+          <option value="paciente_desmarcou">Paciente desmarcou</option>
+        </select>
+        <div class="occupancy-hint">Use apenas quando o atendimento foi cancelado. O horario fica visivel, mas a sala volta a aparecer como disponivel.</div>
+      </div>
       <div class="form-row"><label>Observação</label>
         <textarea id="fObs" placeholder="Ex: estudar, lançar prontuário, professor não liberou, uso interno..." oninput="atualizarOcupacaoPreview();verificarConflito()"></textarea></div>
       <div class="form-row"><label>Ocupa sala?</label>

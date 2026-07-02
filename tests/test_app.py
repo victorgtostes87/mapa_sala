@@ -9,7 +9,7 @@ _tmpdir = tempfile.TemporaryDirectory()
 os.environ['DB_PATH'] = os.path.join(_tmpdir.name, 'mapa_salas_teste.db')
 
 import app as mapa  # noqa: E402
-from werkzeug.security import generate_password_hash  # noqa: E402
+from werkzeug.security import generate_password_hash, check_password_hash  # noqa: E402
 
 
 class MapaSalasTestCase(unittest.TestCase):
@@ -84,7 +84,7 @@ class MapaSalasTestCase(unittest.TestCase):
         self.addCleanup(lambda: setattr(mapa, 'enviar_email', enviar_email_original))
         return emails
 
-    def _criar_agendamento_api(self, estagiario='aluno1', sala='Consultório 1'):
+    def _criar_agendamento_api(self, estagiario='aluno1', sala='Consultório 1', status_atendimento=''):
         return self.client.post(
             '/api/agendamentos',
             json={
@@ -93,7 +93,8 @@ class MapaSalasTestCase(unittest.TestCase):
                 'sala': sala,
                 'estagiario': estagiario,
                 'paciente': 'Paciente Teste',
-                'categoria': 'ESTAGIÁRIO 9°'
+                'categoria': 'ESTAGIÁRIO 9°',
+                'status_atendimento': status_atendimento
             },
             headers={'X-CSRFToken': self.csrf}
         )
@@ -132,17 +133,44 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.get_json()), 1)
 
+    def test_agendamento_desmarcado_nao_bloqueia_sala(self):
+        self._login('recepcao')
+
+        desmarcado = self._criar_agendamento_api(
+            estagiario='aluno1',
+            status_atendimento='paciente_desmarcou'
+        )
+        self.assertEqual(desmarcado.status_code, 201)
+
+        novo = self._criar_agendamento_api(estagiario='aluno2')
+        self.assertEqual(novo.status_code, 201)
+
+        conn = mapa.get_db()
+        try:
+            row = conn.execute(
+                'SELECT status_atendimento, ocupa_sala FROM agendamentos WHERE id=?',
+                (desmarcado.get_json()['id'],)
+            ).fetchone()
+        finally:
+            conn.close()
+
+        self.assertEqual(row['status_atendimento'], 'paciente_desmarcou')
+        self.assertEqual(row['ocupa_sala'], 0)
+
     def test_aluno_entra_na_tela_de_meus_agendamentos(self):
         resp = self._login('aluno1')
 
         self.assertEqual(resp.status_code, 302)
         self.assertIn('/meus-agendamentos', resp.headers['Location'])
 
-    def test_recepcao_entra_no_painel_inicial(self):
+    def test_recepcao_entra_no_mapa_inicial(self):
         resp = self._login('recepcao')
 
-        self.assertEqual(resp.status_code, 302)
-        self.assertIn('/painel', resp.headers['Location'])
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('Mapa de Sala', resp.get_data(as_text=True))
+
+    def test_recepcao_painel_tem_somente_voltar_perfil_e_sair_no_topo(self):
+        self._login('recepcao')
 
         painel = self.client.get('/painel')
         html = painel.get_data(as_text=True)
@@ -150,14 +178,60 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertEqual(painel.status_code, 200)
         self.assertIn('Painel da recepção', html)
         self.assertIn('Testes e instrumentos', html)
+        nav = html.split('<div class="app-nav-actions">', 1)[1].split('</div>', 1)[0]
+        self.assertIn('Voltar', nav)
+        self.assertIn('/perfil', nav)
+        self.assertIn('/logout', nav)
+        self.assertNotIn('/mapa', nav)
+        self.assertNotIn('/afazeres', nav)
+        self.assertNotIn('/reservas', nav)
+        self.assertNotIn('/horarios-abertos', nav)
 
-    def test_recepcao_nao_acessa_mapa(self):
+    def test_coordenador_painel_tem_somente_voltar_perfil_e_sair_no_topo(self):
+        self._login('coordenador')
+
+        resp = self.client.get('/painel')
+        html = resp.get_data(as_text=True)
+        nav = html.split('<div class="app-nav-actions">', 1)[1].split('</div>', 1)[0]
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('Voltar', nav)
+        self.assertIn('/perfil', nav)
+        self.assertIn('/logout', nav)
+        self.assertNotIn('/mapa', nav)
+        self.assertNotIn('/afazeres', nav)
+        self.assertNotIn('/reservas', nav)
+        self.assertNotIn('/horarios-abertos', nav)
+
+    def test_recepcao_acessa_mapa(self):
         self._login('recepcao')
 
         resp = self.client.get('/mapa')
 
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('Mapa de Sala', resp.get_data(as_text=True))
+
+    def test_login_aceita_email_cadastrado(self):
+        conn = mapa.get_db()
+        try:
+            conn.execute('UPDATE usuarios SET email=? WHERE username=?', ('recepcao@example.com', 'recepcao'))
+            conn.commit()
+        finally:
+            conn.close()
+
+        with self.client.session_transaction() as sess:
+            sess['_csrf_token'] = self.csrf
+        resp = self.client.post(
+            '/login',
+            data={
+                'csrf_token': self.csrf,
+                'username': 'recepcao@example.com',
+                'password': 'senha123'
+            }
+        )
+
         self.assertEqual(resp.status_code, 302)
-        self.assertIn('/painel', resp.headers['Location'])
+        self.assertEqual(resp.headers['Location'], '/')
 
     def test_coordenador_exclui_usuario_criado_por_engano(self):
         conn = mapa.get_db()
@@ -204,7 +278,7 @@ class MapaSalasTestCase(unittest.TestCase):
 
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(any(e['destinatario'] == 'aluno1@example.com' for e in emails))
-        self.assertTrue(any('Agendamento excluído' in e['assunto'] for e in emails))
+        self.assertTrue(any(e['assunto'] == 'Agendamento cancelado' for e in emails))
         self.assertFalse(any('Paciente Teste' in e['corpo'] for e in emails))
 
     def test_professor_entra_na_tela_de_supervisao(self):
@@ -361,6 +435,16 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertEqual(resp_recepcao.status_code, 200)
         self.assertIn('Horários abertos sem paciente', resp_recepcao.get_data(as_text=True))
 
+    def test_horarios_abertos_voltar_usa_historico_do_navegador(self):
+        self._login('coordenador')
+
+        resp = self.client.get('/horarios-abertos')
+        html = resp.get_data(as_text=True)
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('Voltar', html)
+        self.assertIn('history.back()', html)
+
     def test_relatorio_semanal_mostra_resumo(self):
         data_uso = self._data_util_com_antecedencia()
         conn = mapa.get_db()
@@ -503,10 +587,11 @@ class MapaSalasTestCase(unittest.TestCase):
         html = resp.get_data(as_text=True)
 
         self.assertEqual(resp.status_code, 200)
-        self.assertIn('Tenho paciente marcado', html)
-        self.assertIn('Tenho horário aberto sem paciente', html)
+        self.assertIn('Pacientes fixos e triagens pontuais', html)
+        self.assertIn('Horários reservados, abertos ou fechados', html)
+        self.assertIn('Salas e instrumentos reservados', html)
         self.assertIn('Você tem triagem livre ainda sem paciente marcado.', html)
-        self.assertIn('Fixos sem paciente', html)
+        self.assertIn('Você tem horário aberto', html)
         self.assertIn('Paciente Fixo', html)
         self.assertIn('Triagem Marcada', html)
         self.assertIn('Triagem sem paciente marcado', html)
@@ -540,6 +625,47 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn('Horário aberto sem paciente', html)
         self.assertIn('Professor liberou para paciente', html)
+
+    def test_tela_aluno_mostra_reservas_futuras_e_oculta_passadas(self):
+        data_futura = self._data_util_com_antecedencia()
+        data_passada = (datetime.now().date() - timedelta(days=2)).strftime('%Y-%m-%d')
+        conn = mapa.get_db()
+        try:
+            conn.execute(
+                """
+                INSERT INTO reservas(usuario_id, usuario, tipo, status, data_uso, horario_inicio, sala_atribuida, finalidade)
+                VALUES(?,?,?,?,?,?,?,?)
+                """,
+                (self.aluno1_id, 'aluno1', 'sala', 'aprovada', data_futura, '10:00', 'Consultório 1', 'Estudo supervisionado')
+            )
+            conn.execute(
+                """
+                INSERT INTO reservas(usuario_id, usuario, tipo, status, data_uso, horario_inicio, instrumento, finalidade)
+                VALUES(?,?,?,?,?,?,?,?)
+                """,
+                (self.aluno1_id, 'aluno1', 'instrumento', 'aprovada', data_passada, '11:00', 'WISC', 'Reserva antiga')
+            )
+            conn.execute(
+                """
+                INSERT INTO reservas(usuario_id, usuario, tipo, status, data_uso, horario_inicio, instrumento, finalidade)
+                VALUES(?,?,?,?,?,?,?,?)
+                """,
+                (self.aluno1_id, 'aluno1', 'instrumento', 'recusada', data_futura, '12:00', 'HTP', 'Reserva recusada')
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        self._login('aluno1')
+        resp = self.client.get('/meus-agendamentos')
+        html = resp.get_data(as_text=True)
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('Salas e instrumentos reservados', html)
+        self.assertIn('Consultório 1', html)
+        self.assertIn('Aprovada', html)
+        self.assertNotIn('Reserva antiga', html)
+        self.assertNotIn('Reserva recusada', html)
 
     def test_aluno_solicita_reserva_de_instrumento(self):
         data_uso = self._data_util_com_antecedencia()
@@ -773,6 +899,16 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertIn('Reservas de testes e instrumentos', html)
         self.assertIn('HTP', html)
         self.assertIn('WISC', html)
+
+    def test_reservas_voltar_usa_historico_do_navegador(self):
+        self._login('coordenador')
+
+        resp = self.client.get('/reservas')
+        html = resp.get_data(as_text=True)
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('Voltar', html)
+        self.assertIn('history.back()', html)
 
     def test_recepcao_atualiza_status_do_caderno_de_instrumentos(self):
         data_uso = self._data_util_com_antecedencia()
@@ -1067,6 +1203,7 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertEqual(len(emails), 1)
         self.assertEqual(emails[0]['destinatario'], 'novo.email@example.com')
         self.assertEqual(emails[0]['assunto'], 'Conta criada no Mapa de Sala')
+        self.assertIn('Atenciosamente,', emails[0]['corpo'])
 
     def test_cria_usuario_com_convite_por_email(self):
         self._login('coordenador')
@@ -1127,6 +1264,49 @@ class MapaSalasTestCase(unittest.TestCase):
 
         self.assertIsNotNone(token)
 
+    def test_redefinir_senha_nao_da_erro_se_email_falhar(self):
+        conn = mapa.get_db()
+        try:
+            conn.execute("UPDATE usuarios SET email='aluno1@example.com' WHERE username='aluno1'")
+            token = mapa.criar_token_email(conn, self.aluno1_id, 'reset', horas=2)
+            conn.commit()
+        finally:
+            conn.close()
+
+        enviar_email_original = mapa.enviar_email
+
+        def enviar_email_falhando(destinatario, assunto, corpo):
+            raise RuntimeError('SMTP indisponivel')
+
+        mapa.enviar_email = enviar_email_falhando
+        self.addCleanup(lambda: setattr(mapa, 'enviar_email', enviar_email_original))
+
+        with self.client.session_transaction() as sess:
+            sess['_csrf_token'] = self.csrf
+        resp = self.client.post(
+            f'/definir-senha/{token}',
+            data={
+                'csrf_token': self.csrf,
+                'nova_senha': 'senha4567',
+                'confirmar_senha': 'senha4567'
+            }
+        )
+
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn('/login', resp.headers['Location'])
+        conn = mapa.get_db()
+        try:
+            row = conn.execute("SELECT * FROM usuarios WHERE username='aluno1'").fetchone()
+            token_usado = conn.execute(
+                "SELECT usado_em FROM tokens_email WHERE usuario_id=? AND tipo='reset'",
+                (self.aluno1_id,)
+            ).fetchone()
+        finally:
+            conn.close()
+
+        self.assertTrue(check_password_hash(row['password_hash'], 'senha4567'))
+        self.assertIsNotNone(token_usado['usado_em'])
+
     def test_trocar_senha_envia_email_de_confirmacao(self):
         emails = self._capturar_emails()
         conn = mapa.get_db()
@@ -1150,7 +1330,8 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 302)
         self.assertEqual(len(emails), 1)
         self.assertEqual(emails[0]['destinatario'], 'aluno1@example.com')
-        self.assertEqual(emails[0]['assunto'], 'Senha alterada - Mapa de Sala')
+        self.assertEqual(emails[0]['assunto'], 'Senha alterada com sucesso')
+        self.assertIn('Atenciosamente,', emails[0]['corpo'])
 
     def test_backup_sem_confirmacao_mostra_pagina_amigavel(self):
         self._login('coordenador')

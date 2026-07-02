@@ -16,7 +16,7 @@ h3{font-size:15px;color:#f8fafc}
 .summary-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:13px 14px;text-decoration:none;color:var(--text)}
 .summary-card.patient-summary{border-color:#2563eb;box-shadow:inset 4px 0 0 #60a5fa}
 .summary-card.open-summary{border-color:#65a30d;box-shadow:inset 4px 0 0 #84cc16}
-.summary-card.pending-summary{border-color:#d97706;box-shadow:inset 4px 0 0 #f59e0b}
+.summary-card.pending-summary,.summary-card.reservation-summary{border-color:#d97706;box-shadow:inset 4px 0 0 #f59e0b}
 .summary-card span{display:block;color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:.45px;font-weight:800}
 .summary-card strong{display:block;color:#f8fafc;font-size:25px;margin-top:4px}
 .now-panel{margin-top:14px;background:var(--surface);border:1px solid #2563eb;border-radius:var(--radius);padding:14px}
@@ -27,7 +27,7 @@ h3{font-size:15px;color:#f8fafc}
 .now-item i{width:17px;height:17px;flex:0 0 auto;margin-top:1px}
 .now-item.ok{border-color:#15803d}.now-item.ok i{color:#22c55e}
 .now-item.warn{border-color:#d97706;color:#fed7aa}.now-item.warn i{color:#fbbf24}
-.now-item.pending{border-color:#2563eb;color:#bfdbfe}.now-item.pending i{color:#60a5fa}
+.now-item.pending{border-color:#d97706;color:#fed7aa}.now-item.pending i{color:#fbbf24}
 .now-item.quiet i{color:#94a3b8}
 .section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-top:24px;margin-bottom:10px}
 .section-head span{color:var(--text2);font-size:12px;font-weight:800}
@@ -56,8 +56,14 @@ h3{font-size:15px;color:#f8fafc}
 .fixed-title h3{font-size:15px;color:#f8fafc}
 .fixed-body p{margin-top:6px;margin-bottom:7px}
 .status-pill.com-paciente{background:#15803d}.status-pill.aguardando{background:#d97706}.status-pill.aberto{background:#65a30d}.status-pill.livre{background:#475569}
-.reservation-card{grid-template-columns:120px 1fr}
-.reservation-card.status-pendente{border-color:#d97706}.reservation-card.status-aprovada,.reservation-card.status-separado,.reservation-card.status-retirado{border-color:#15803d}.reservation-card.status-guardado,.reservation-card.status-devolvido{border-color:#475569}
+.reservation-card{grid-template-columns:120px 1fr;border-color:#d97706;box-shadow:inset 4px 0 0 #f59e0b}
+.reservation-card.status-pendente,.reservation-card.status-aprovada,.reservation-card.status-separado,.reservation-card.status-retirado,.reservation-card.status-guardado,.reservation-card.status-devolvido{border-color:#d97706}
+.reservation-card .reservation-date{background:#431407;border-color:#d97706}
+.reservation-card .reservation-date span{color:#fbbf24}
+.reservation-card .reservation-body{background:linear-gradient(90deg,rgba(217,119,6,.16),rgba(30,41,59,0))}
+.reservation-card .fixed-title h3{color:#fff7ed}
+.reservation-card .status-pill{background:#d97706;color:#fff7ed}
+.reservation-card .reservation-body p{color:#fed7aa}
 .reservation-date strong{font-size:16px;color:#f8fafc}
 .reservation-body p{margin-top:7px}
 .empty-state{margin-top:0;background:var(--surface);border:1px dashed var(--border);border-radius:var(--radius);padding:28px 18px;text-align:center;color:var(--text2)}

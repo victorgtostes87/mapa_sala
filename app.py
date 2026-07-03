@@ -562,6 +562,17 @@ def valor_ativo(valor, padrao=1):
     return 0 if str(valor).strip().lower() in ('0', 'false', 'nao', 'não', 'inativo') else 1
 
 
+def sugerir_username_por_nome(nome_completo):
+    partes = unicodedata.normalize('NFKD', nome_completo or '')
+    partes = ''.join(ch for ch in partes if not unicodedata.combining(ch))
+    partes = re.sub(r'[^a-zA-Z\s]+', ' ', partes).lower().strip().split()
+    if not partes:
+        return ''
+    if len(partes) == 1:
+        return partes[0]
+    return f'{partes[0]}.{partes[-1]}'
+
+
 def normalizar_supervisor_id(valor):
     if str(valor or '').strip() == '':
         return None
@@ -3043,8 +3054,8 @@ def api_criar_usuario():
     if not d:
         return jsonify({'erro': 'Não consegui ler os dados enviados. Recarregue a página e tente novamente.'}), 400
 
-    username = (d.get('username') or '').strip()
     nome_completo = (d.get('nome_completo') or '').strip()
+    username = sugerir_username_por_nome(nome_completo) or (d.get('username') or '').strip()
     email = (d.get('email') or '').strip()
     password = (d.get('password') or '').strip()
     enviar_convite = bool(d.get('enviar_convite'))
@@ -3054,6 +3065,8 @@ def api_criar_usuario():
     if supervisor_id == 'invalido':
         return jsonify({'erro': 'Supervisor inválido'}), 400
 
+    if not nome_completo:
+        return jsonify({'erro': 'Nome completo é obrigatório'}), 400
     if not username:
         return jsonify({'erro': 'Usuário é obrigatório'}), 400
     if not password and not (enviar_convite and email):
@@ -3117,9 +3130,11 @@ def api_editar_usuario(uid):
         row = conn.execute('SELECT * FROM usuarios WHERE id=?', (uid,)).fetchone()
         if not row:
             return jsonify({'erro': 'Usuário não encontrado'}), 404
-        new_username = (d.get('username', row['username']) or '').strip()
         new_nome_completo = (d.get('nome_completo', row['nome_completo']) or '').strip()
+        new_username = sugerir_username_por_nome(new_nome_completo) or (d.get('username', row['username']) or '').strip()
         new_email = (d.get('email', row['email']) or '').strip()
+        if not new_nome_completo:
+            return jsonify({'erro': 'Nome completo é obrigatório'}), 400
         if not new_username:
             return jsonify({'erro': 'Informe o nome de usuário.'}), 400
         new_role = (d.get('role') or row['role']).strip()
@@ -3759,6 +3774,7 @@ def normalizar_sala_excel(valor):
         'saladegrupo1': 'Sala de Grupo 1',
         'saladegrupo2': 'Sala de Grupo 2',
         'supervisao': 'Supervisão',
+        'salasupervisao': 'Supervisão',
         'coordenacao': 'Coordenação',
     }
     return aliases.get(chave)
@@ -3793,7 +3809,20 @@ def extrair_data_pontual_excel(texto, ano=None):
     ano = ano or datetime.now().year
     if not re.search(r'\b(s[óo]|somente|apenas|dia)\b', texto, flags=re.I):
         return ''
-    m = re.search(r'(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?', texto)
+
+    m = re.search(
+        r'\b(?:s[óo]|somente|apenas)\s+(?:dia\s+)?(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?',
+        texto,
+        flags=re.I
+    )
+    if not m:
+        m = re.search(
+            r'\bdia\s+(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?',
+            texto,
+            flags=re.I
+        )
+    if not m:
+        m = re.search(r'(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?', texto)
     if not m:
         return ''
     dia = int(m.group(1))

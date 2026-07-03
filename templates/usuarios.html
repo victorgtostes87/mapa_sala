@@ -96,8 +96,8 @@
         <input type="text" id="nome_completo" name="nome_completo" placeholder="Ex: Hildiceia dos Santos Affonso">
 
         <label for="username">Usuário *</label>
-        <input type="text" id="username" name="username" required>
-        <div class="help">Use o formato primeiro.último, sem acentos. Ex: hildiceia.affonso</div>
+        <input type="text" id="username" name="username" required readonly>
+        <div class="help">Gerado automaticamente pelo nome completo. Ex: Victor Guimarães Tostes vira victor.tostes.</div>
 
         <label for="email">E-mail</label>
         <input type="email" id="email" name="email" placeholder="nome@exemplo.com">
@@ -212,6 +212,10 @@
       return `${partes[0]}.${partes[partes.length - 1]}`;
     }
 
+    function atualizarUsernamePeloNome() {
+      usernameInput.value = sugerirUsername(nomeCompletoInput.value);
+    }
+
     function prepararNovoUsuario() {
       tituloModalUsuario.textContent = 'Novo Usuário';
       formNovoUsuario.reset();
@@ -267,11 +271,7 @@
     btnCancelarUsuario.addEventListener('click', fecharModalUsuario);
     roleSelect.addEventListener('change', atualizarSupervisorVisivel);
     conviteInput.addEventListener('change', atualizarSenhaObrigatoria);
-    nomeCompletoInput.addEventListener('input', () => {
-      if (!usernameInput.value.trim()) {
-        usernameInput.value = sugerirUsername(nomeCompletoInput.value);
-      }
-    });
+    nomeCompletoInput.addEventListener('input', atualizarUsernamePeloNome);
 
     document.querySelectorAll('.btn-editar').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -321,8 +321,9 @@
       const password = passwordInput.value;
       const supervisor_id = role === 'aluno' ? supervisorSelect.value : '';
       const enviar_convite = conviteInput.checked;
+      const usernameGerado = sugerirUsername(nome_completo);
 
-      if (!username || (!userId && !password && !enviar_convite)) {
+      if (!usernameGerado || (!userId && !password && !enviar_convite)) {
         mostrarErroUsuario('Informe usuário e senha, ou marque para enviar convite por e-mail.');
         return;
       }
@@ -337,7 +338,7 @@
         return;
       }
 
-      const payload = { username, nome_completo, email, role, ativo, supervisor_id, enviar_convite };
+      const payload = { username: usernameGerado || username, nome_completo, email, role, ativo, supervisor_id, enviar_convite };
       if (password) payload.password = password;
 
       try {

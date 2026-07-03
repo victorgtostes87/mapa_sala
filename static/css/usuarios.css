@@ -19,7 +19,7 @@ th,td{text-align:left;padding:11px 10px;border-bottom:1px solid var(--border)}
 th{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--text2);background:#162036}
 td{font-size:12px;color:var(--text)}
 .user-full-name{display:block;color:#f8fafc;font-size:13px;line-height:1.25}
-.user-login{display:inline-flex;align-items:center;border:1px solid var(--border);border-radius:999px;background:#111827;color:#bfdbfe;padding:3px 8px;font-weight:800}
+.user-login{color:#cbd5e1;font-weight:700}
 tr:hover td{background:#1a2744}
 .actions{display:flex;gap:6px;flex-wrap:nowrap;align-items:center;white-space:nowrap}
 .actions .btn{min-width:0;padding:7px 10px;font-size:11px;line-height:1}
@@ -32,6 +32,7 @@ tr:hover td{background:#1a2744}
 label{display:block;font-weight:700;margin:12px 0 6px;color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:.4px}
 input,select{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--bg);color:var(--text);outline:none}
 input:focus,select:focus{border-color:var(--accent)}
+input[readonly]{background:#111827;color:#cbd5e1}
 .check-line{display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:13px;color:var(--text);margin-top:12px}
 .check-line input{width:auto}
 .help{color:var(--text2);font-size:12px;margin-top:6px;line-height:1.45}

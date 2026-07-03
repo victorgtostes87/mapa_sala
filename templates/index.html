@@ -244,8 +244,12 @@
       <div style="font-size:11px;color:var(--text2);line-height:1.45;margin-top:8px">
         Se essa opção ficar desmarcada, o sistema tenta adicionar os dados e avisa quando encontrar conflitos.
       </div>
+      <div style="font-size:11px;color:var(--text2);line-height:1.45;margin-top:8px">
+        Antes de importar, o sistema guarda uma copia do mapa atual. Se algo ficar errado, use "Desfazer ultima importacao".
+      </div>
       <div id="importResult" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-top:14px;font-size:12px;color:var(--text2);line-height:1.6"></div>
       <div class="modal-footer">
+        <button type="button" class="btn btn-danger" id="undoImportBtn" onclick="desfazerUltimaImportacao()"><i data-lucide="rotate-ccw"></i> Desfazer ultima importacao</button>
         <button type="button" class="btn btn-ghost" onclick="closeImportModal()"><i data-lucide="x"></i> Cancelar</button>
         <button type="submit" class="btn btn-primary" id="importBtn"><i data-lucide="upload"></i> Importar</button>
       </div>

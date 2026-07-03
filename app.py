@@ -1,6 +1,7 @@
 ﻿import csv
 import hashlib
 import io
+import json
 import os
 import re
 import secrets
@@ -42,6 +43,8 @@ if not _secret_key:
     )
 
 app.secret_key = _secret_key
+app.permanent_session_lifetime = timedelta(minutes=30)
+app.config['SESSION_REFRESH_EACH_REQUEST'] = True
 DB_PATH = os.environ.get(
     'DB_PATH',
     os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
@@ -115,6 +118,32 @@ def proteger_csrf():
     return redirect(url_for('login'))
 
 
+@app.before_request
+def encerrar_sessao_inativa():
+    if not current_user.is_authenticated:
+        return None
+
+    agora = datetime.now(timezone.utc)
+    ultimo_uso_txt = session.get('ultimo_uso')
+    if ultimo_uso_txt:
+        try:
+            ultimo_uso = datetime.fromisoformat(ultimo_uso_txt)
+            if ultimo_uso.tzinfo is None:
+                ultimo_uso = ultimo_uso.replace(tzinfo=timezone.utc)
+        except ValueError:
+            ultimo_uso = agora
+        if agora - ultimo_uso > app.permanent_session_lifetime:
+            registrar_log('LOGOUT_INATIVIDADE', f'Usuário {current_user.username} saiu por inatividade')
+            logout_user()
+            session.clear()
+            flash('Sua sessão expirou por inatividade. Entre novamente.', 'error')
+            return redirect(url_for('login'))
+
+    session.permanent = True
+    session['ultimo_uso'] = agora.isoformat()
+    return None
+
+
 class Usuario(UserMixin):
     def __init__(self, id, username, role, nome_completo='', email='', ativo=1):
         self.id = id
@@ -155,11 +184,16 @@ def db_connection(commit=False):
 @login_manager.user_loader
 def load_user(user_id):
     with db_connection() as conn:
-        row = conn.execute('SELECT * FROM usuarios WHERE id=? AND ativo=1', (user_id,)).fetchone()
+        cols = colunas_tabela(conn, 'usuarios')
+        filtro_ativo = ' AND ativo=1' if 'ativo' in cols else ''
+        row = conn.execute(f'SELECT * FROM usuarios WHERE id=?{filtro_ativo}', (user_id,)).fetchone()
     if not row:
         return None
+    row_keys = row.keys()
     return Usuario(row['id'], row['username'], row['role'],
-                   row['nome_completo'] or '', row['email'] or '', row['ativo'])
+                   (row['nome_completo'] if 'nome_completo' in row_keys else '') or '',
+                   (row['email'] if 'email' in row_keys else '') or '',
+                   row['ativo'] if 'ativo' in row_keys else 1)
 
 
 def requer_papel(*papeis):
@@ -433,13 +467,57 @@ def buscar_usuario_id_aluno(username, conn):
     return row['id'] if row else None
 
 
-def listar_professores_ativos(conn):
-    rows = conn.execute(
+def colunas_tabela(conn, tabela):
+    return {r[1] for r in conn.execute(f"PRAGMA table_info({tabela})").fetchall()}
+
+
+def selecionar_usuarios_para_admin(conn):
+    cols = colunas_tabela(conn, 'usuarios')
+    nome_expr = "u.nome_completo" if 'nome_completo' in cols else "''"
+    email_expr = "u.email" if 'email' in cols else "''"
+    supervisor_id_expr = "u.supervisor_id" if 'supervisor_id' in cols else "NULL"
+    ativo_expr = "u.ativo" if 'ativo' in cols else "1"
+    created_at_expr = "u.created_at" if 'created_at' in cols else "''"
+    join_supervisor = ''
+    supervisor_nome_expr = "''"
+
+    if 'supervisor_id' in cols:
+        join_supervisor = "LEFT JOIN usuarios p ON p.id = u.supervisor_id"
+        if 'nome_completo' in cols:
+            supervisor_nome_expr = "COALESCE(NULLIF(p.nome_completo, ''), p.username, '')"
+        else:
+            supervisor_nome_expr = "COALESCE(p.username, '')"
+
+    order_expr = "u.created_at" if 'created_at' in cols else "u.id"
+    return conn.execute(
+        f"""
+        SELECT u.id,
+               u.username,
+               {nome_expr} AS nome_completo,
+               {email_expr} AS email,
+               u.role,
+               {supervisor_id_expr} AS supervisor_id,
+               {ativo_expr} AS ativo,
+               {created_at_expr} AS created_at,
+               {supervisor_nome_expr} AS supervisor_nome
+        FROM usuarios u
+        {join_supervisor}
+        ORDER BY {order_expr}
         """
-        SELECT id, username, nome_completo
+    ).fetchall()
+
+
+def listar_professores_ativos(conn):
+    cols = colunas_tabela(conn, 'usuarios')
+    nome_expr = "nome_completo" if 'nome_completo' in cols else "''"
+    filtro_ativo = "AND ativo=1" if 'ativo' in cols else ""
+    order_expr = "COALESCE(NULLIF(nome_completo, ''), username)" if 'nome_completo' in cols else "username"
+    rows = conn.execute(
+        f"""
+        SELECT id, username, {nome_expr} AS nome_completo
         FROM usuarios
-        WHERE role='professor' AND ativo=1
-        ORDER BY COALESCE(NULLIF(nome_completo, ''), username) COLLATE NOCASE
+        WHERE role='professor' {filtro_ativo}
+        ORDER BY {order_expr} COLLATE NOCASE
         """
     ).fetchall()
     return [dict(r) for r in rows]
@@ -1102,6 +1180,15 @@ def criar_tabelas_base(conn):
         ");"
         "CREATE INDEX IF NOT EXISTS idx_solicitacoes_vagas_status ON solicitacoes_vagas(status);"
         "CREATE INDEX IF NOT EXISTS idx_solicitacoes_vagas_professor ON solicitacoes_vagas(professor_id);"
+        "CREATE TABLE IF NOT EXISTS backups_importacao ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "usuario TEXT DEFAULT '',"
+        "tipo TEXT DEFAULT '',"
+        "arquivo TEXT DEFAULT '',"
+        "total_agendamentos INTEGER DEFAULT 0,"
+        "dados_json TEXT NOT NULL,"
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+        ");"
         "CREATE TABLE IF NOT EXISTS schema_migrations ("
         "version TEXT PRIMARY KEY,"
         "description TEXT DEFAULT '',"
@@ -1225,6 +1312,12 @@ def aplicar_migracoes_simples(conn):
         'status_atendimento',
         "ALTER TABLE agendamentos ADD COLUMN status_atendimento TEXT DEFAULT ''"
     )
+    adicionar_coluna_se_ausente(
+        conn,
+        'usuarios',
+        'nome_completo',
+        "ALTER TABLE usuarios ADD COLUMN nome_completo TEXT DEFAULT ''"
+    )
     adicionar_coluna_se_ausente(conn, 'usuarios', 'email', "ALTER TABLE usuarios ADD COLUMN email TEXT DEFAULT ''")
     adicionar_coluna_se_ausente(conn, 'usuarios', 'ativo', "ALTER TABLE usuarios ADD COLUMN ativo INTEGER DEFAULT 1")
     adicionar_coluna_se_ausente(
@@ -1232,6 +1325,12 @@ def aplicar_migracoes_simples(conn):
         'usuarios',
         'supervisor_id',
         "ALTER TABLE usuarios ADD COLUMN supervisor_id INTEGER DEFAULT NULL"
+    )
+    adicionar_coluna_se_ausente(
+        conn,
+        'usuarios',
+        'created_at',
+        "ALTER TABLE usuarios ADD COLUMN created_at TEXT DEFAULT ''"
     )
     adicionar_coluna_se_ausente(conn, 'historico', 'ip', "ALTER TABLE historico ADD COLUMN ip TEXT DEFAULT ''")
     adicionar_coluna_se_ausente(
@@ -1602,6 +1701,8 @@ def login():
         if row and check_password_hash(row['password_hash'], password):
             user = Usuario(row['id'], row['username'], row['role'],
                            row['nome_completo'] or '', row['email'] or '', row['ativo'])
+            session.permanent = True
+            session['ultimo_uso'] = datetime.now(timezone.utc).isoformat()
             login_user(user)
             registrar_log('LOGIN', f'Usuário {row["username"]} fez login')
             return redirect(url_for('index'))
@@ -2887,15 +2988,7 @@ def saude_sistema():
 def usuarios_page():
     conn = get_db()
     try:
-        rows = conn.execute(
-            """
-            SELECT u.id, u.username, u.nome_completo, u.email, u.role, u.supervisor_id, u.ativo, u.created_at,
-                   COALESCE(NULLIF(p.nome_completo, ''), p.username) AS supervisor_nome
-            FROM usuarios u
-            LEFT JOIN usuarios p ON p.id = u.supervisor_id
-            ORDER BY u.created_at
-            """
-        ).fetchall()
+        rows = selecionar_usuarios_para_admin(conn)
         professores = listar_professores_ativos(conn)
     finally:
         conn.close()
@@ -2935,15 +3028,7 @@ def api_list_estagiarios():
 def api_list_usuarios():
     conn = get_db()
     try:
-        rows = conn.execute(
-            """
-            SELECT u.id, u.username, u.nome_completo, u.email, u.role, u.supervisor_id, u.ativo, u.created_at,
-                   COALESCE(NULLIF(p.nome_completo, ''), p.username) AS supervisor_nome
-            FROM usuarios u
-            LEFT JOIN usuarios p ON p.id = u.supervisor_id
-            ORDER BY u.created_at
-            """
-        ).fetchall()
+        rows = selecionar_usuarios_para_admin(conn)
     finally:
         conn.close()
     return jsonify([dict(r) for r in rows])
@@ -3807,6 +3892,74 @@ def montar_agendamento_excel(dia, horario, sala, texto_principal, texto_secundar
     return dados_ag, erro
 
 
+COLUNAS_AGENDAMENTO_BACKUP = (
+    'id', 'dia_semana', 'horario', 'sala', 'estagiario', 'paciente',
+    'categoria', 'semestre', 'triagem', 'observacao', 'data_especifica',
+    'usuario_id', 'ocupa_sala', 'status_atendimento', 'created_at', 'updated_at'
+)
+
+
+def salvar_backup_antes_importacao(tipo, arquivo):
+    colunas = ', '.join(COLUNAS_AGENDAMENTO_BACKUP)
+    with db_connection(commit=True) as conn:
+        rows = conn.execute(f'SELECT {colunas} FROM agendamentos ORDER BY id').fetchall()
+        dados_json = json.dumps([dict(row) for row in rows], ensure_ascii=False)
+        conn.execute(
+            """
+            INSERT INTO backups_importacao(usuario, tipo, arquivo, total_agendamentos, dados_json)
+            VALUES(?,?,?,?,?)
+            """,
+            (
+                current_user.username if current_user.is_authenticated else 'sistema',
+                tipo,
+                (arquivo or '')[:180],
+                len(rows),
+                dados_json
+            )
+        )
+        conn.execute(
+            """
+            DELETE FROM backups_importacao
+            WHERE id NOT IN (
+                SELECT id
+                FROM backups_importacao
+                ORDER BY created_at DESC, id DESC
+                LIMIT 5
+            )
+            """
+        )
+
+
+def restaurar_ultimo_backup_importacao():
+    placeholders = ','.join('?' for _ in COLUNAS_AGENDAMENTO_BACKUP)
+    colunas = ', '.join(COLUNAS_AGENDAMENTO_BACKUP)
+    with db_connection(commit=True) as conn:
+        backup = conn.execute(
+            """
+            SELECT *
+            FROM backups_importacao
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+            """
+        ).fetchone()
+        if not backup:
+            return None, 'Não há importação recente para desfazer.'
+
+        try:
+            agendamentos = json.loads(backup['dados_json'])
+        except json.JSONDecodeError:
+            return None, 'O backup da importação está corrompido.'
+
+        conn.execute('DELETE FROM agendamentos')
+        for agendamento in agendamentos:
+            conn.execute(
+                f'INSERT INTO agendamentos({colunas}) VALUES({placeholders})',
+                [agendamento.get(coluna) for coluna in COLUNAS_AGENDAMENTO_BACKUP]
+            )
+        conn.execute('DELETE FROM backups_importacao WHERE id=?', (backup['id'],))
+        return backup, None
+
+
 def importar_xlsx_mapa(file_storage, substituir=False):
     try:
         from openpyxl import load_workbook
@@ -3913,6 +4066,7 @@ def import_csv():
     filename = (f.filename or '').lower()
     substituir = request.form.get('substituir') in ('1', 'true', 'sim', 'on')
     if filename.endswith('.xlsx'):
+        salvar_backup_antes_importacao('xlsx', filename)
         resultado, erro, status = importar_xlsx_mapa(f, substituir=substituir)
         if erro:
             return jsonify(erro), status
@@ -3920,6 +4074,7 @@ def import_csv():
     if not filename.endswith('.csv'):
         return jsonify({'erro': 'Apenas arquivos .csv ou .xlsx são aceitos'}), 400
 
+    salvar_backup_antes_importacao('csv', filename)
     stream = io.StringIO(f.read().decode('utf-8-sig'))
     reader = csv.DictReader(stream)
     inseridos = 0
@@ -3991,6 +4146,29 @@ def import_csv():
         'conflitos': conflitos,
         'erros': erros,
         'message': f'{inseridos} agendamento(s) importado(s) com sucesso.'
+    })
+
+
+@app.route('/api/import/desfazer', methods=['POST'])
+@login_required
+@requer_papel('coordenador')
+@limiter.limit('10 per hour')
+def desfazer_importacao():
+    backup, erro = restaurar_ultimo_backup_importacao()
+    if erro:
+        return jsonify({'erro': erro}), 404
+
+    registrar_log(
+        'DESFAZER_IMPORTACAO',
+        (
+            f'Importação desfeita. Arquivo anterior: {backup["arquivo"]}; '
+            f'{backup["total_agendamentos"]} agendamentos restaurados.'
+        )
+    )
+    return jsonify({
+        'message': 'Última importação desfeita.',
+        'restaurados': backup['total_agendamentos'],
+        'arquivo': backup['arquivo']
     })
 
 

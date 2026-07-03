@@ -479,6 +479,38 @@ async function submitImportExcel(e){
     btn.style.opacity = '';
   }
 }
+async function desfazerUltimaImportacao(){
+  const ok = confirm('Desfazer a ultima importacao e voltar o mapa para o estado anterior?');
+  if(!ok) return;
+
+  const btn = document.getElementById('undoImportBtn');
+  const result = document.getElementById('importResult');
+  btn.disabled = true;
+  btn.style.opacity = '0.6';
+  result.style.display = 'block';
+  result.textContent = 'Restaurando mapa anterior...';
+
+  try {
+    const res = await fetch('/api/import/desfazer', {
+      method: 'POST',
+      headers: {'X-CSRFToken': CSRF_TOKEN}
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.erro || 'Nao foi possivel desfazer a importacao.');
+
+    result.innerHTML =
+      `<strong>${data.restaurados || 0}</strong> agendamento(s) restaurado(s).` +
+      (data.arquivo ? `<br>Importacao desfeita: ${esc(data.arquivo)}` : '');
+    showToast('Importacao desfeita.', 'success');
+    renderGrid();
+  } catch(err) {
+    result.textContent = err.message || 'Falha ao desfazer importacao.';
+    showToast(result.textContent, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.style.opacity = '';
+  }
+}
 function showToast(msg,type='success'){
   const t=document.getElementById('toast');
   t.textContent=msg; t.className='toast show '+type;

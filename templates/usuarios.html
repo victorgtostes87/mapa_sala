@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Usuários</title>
+  <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/voltar.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/usuarios.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
+</head>
+<body>
+  <nav class="app-nav">
+    <a class="app-nav-brand" href="/"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
+    <div class="app-nav-title">Usuários</div>
+    <div class="app-nav-spacer"></div>
+    <div class="app-nav-user">
+      <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
+      <span class="role-badge role-{{ papel }}">{{ (papeis_label|default({})).get(papel, papel) }}</span>
+    </div>
+    <div class="app-nav-actions">
+      <a href="/" class="app-btn app-btn-ghost" onclick="voltarAbaAnterior(event, '/')"><i data-lucide="arrow-left"></i> Voltar</a>
+      <a href="{{ url_for('perfil') }}" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
+      <a href="{{ url_for('logout') }}" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="card">
+      <div class="header-row">
+        <h1 style="margin:0;display:flex;align-items:center;gap:8px"><i data-lucide="users"></i> Gerenciar Usuários</h1>
+        <button type="button" class="btn btn-primary" id="btnNovoUsuario"><i data-lucide="plus"></i> Novo usuário</button>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Nome completo</th>
+            <th>Usuário</th>
+            <th>E-mail</th>
+            <th>Papel</th>
+            <th>Supervisor</th>
+            <th>Status</th>
+            <th>Criado em</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if usuarios %}
+            {% for u in usuarios %}
+            <tr>
+              <td>
+                <strong class="user-full-name">{{ u.nome_completo or '—' }}</strong>
+              </td>
+              <td><span class="user-login">{{ u.username }}</span></td>
+              <td>{{ u.email or '—' }}</td>
+              <td>{{ (papeis_label|default({})).get(u.role, u.role) }}</td>
+              <td>{{ u.supervisor_nome or '—' }}</td>
+              <td>{{ 'Ativo' if u.ativo else 'Inativo' }}</td>
+              <td>{{ u.created_at[:10] if u.created_at else '—' }}</td>
+              <td>
+                <div class="actions">
+                  <button type="button" class="btn btn-secondary btn-editar" data-id="{{ u.id }}" data-username="{{ u.username }}" data-nome-completo="{{ u.nome_completo or '' }}" data-email="{{ u.email or '' }}" data-role="{{ u.role }}" data-supervisor-id="{{ u.supervisor_id or '' }}" data-ativo="{{ 1 if u.ativo else 0 }}">Editar</button>
+                  {% if u.username != usuario %}
+                  {% if u.ativo %}
+                  <button type="button" class="btn btn-danger btn-inativar" data-id="{{ u.id }}" data-username="{{ u.username }}">Inativar</button>
+                  {% else %}
+                  <button type="button" class="btn btn-primary btn-reativar" data-id="{{ u.id }}" data-username="{{ u.username }}" data-nome-completo="{{ u.nome_completo or '' }}" data-email="{{ u.email or '' }}" data-role="{{ u.role }}" data-supervisor-id="{{ u.supervisor_id or '' }}">Reativar</button>
+                  {% endif %}
+                  <button type="button" class="btn btn-danger btn-excluir" data-id="{{ u.id }}" data-username="{{ u.username }}">Excluir</button>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="8">Nenhum usuário cadastrado.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modalUsuario">
+    <div class="modal">
+      <h2 style="margin-top:0;" id="tituloModalUsuario">Novo Usuário</h2>
+
+      <div class="error-box" id="erroUsuario"></div>
+
+      <form id="formNovoUsuario">
+        <input type="hidden" id="userId" name="userId">
+
+        <label for="nome_completo">Nome completo</label>
+        <input type="text" id="nome_completo" name="nome_completo" placeholder="Ex: Hildiceia dos Santos Affonso">
+
+        <label for="username">Usuário *</label>
+        <input type="text" id="username" name="username" required>
+        <div class="help">Use o formato primeiro.último, sem acentos. Ex: hildiceia.affonso</div>
+
+        <label for="email">E-mail</label>
+        <input type="email" id="email" name="email" placeholder="nome@exemplo.com">
+        <div class="help">Usado para convite de acesso, recuperação de senha e avisos do sistema.</div>
+
+        <label for="role">Papel *</label>
+        <select id="role" name="role" required>
+          <option value="aluno">Aluno</option>
+          <option value="coordenador">Coordenador</option>
+          <option value="recepcao">Recepcionista</option>
+          <option value="professor">Professor</option>
+        </select>
+
+        <div id="supervisorBox">
+          <label for="supervisor_id">Supervisor do aluno</label>
+          <select id="supervisor_id" name="supervisor_id">
+            <option value="">Sem supervisor definido</option>
+            {% for prof in professores %}
+            <option value="{{ prof.id }}">{{ prof.nome_completo or prof.username }}</option>
+            {% endfor %}
+          </select>
+          <div class="help">Este campo faz o aluno aparecer na tela do professor responsável.</div>
+        </div>
+
+        <label for="ativo">Status *</label>
+        <select id="ativo" name="ativo" required>
+          <option value="1">Ativo</option>
+          <option value="0">Inativo</option>
+        </select>
+
+        <label for="password">Senha</label>
+        <input type="password" id="password" name="password" minlength="8">
+        <div class="help" id="senhaHelp">Mínimo 8 caracteres. Ao editar, deixe em branco para manter a senha atual.</div>
+
+        <label class="check-line">
+          <input type="checkbox" id="enviar_convite" name="enviar_convite">
+          Enviar convite por e-mail para criar senha
+        </label>
+        <div class="help">Use quando quiser que o próprio usuário crie a senha pelo link recebido no e-mail.</div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="btnCancelarUsuario">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <div class="user-toast" id="userToast"></div>
+
+  <script>
+    const modalUsuario = document.getElementById('modalUsuario');
+    const btnNovoUsuario = document.getElementById('btnNovoUsuario');
+    const btnCancelarUsuario = document.getElementById('btnCancelarUsuario');
+    const formNovoUsuario = document.getElementById('formNovoUsuario');
+    const erroUsuario = document.getElementById('erroUsuario');
+    const tituloModalUsuario = document.getElementById('tituloModalUsuario');
+    const roleSelect = document.getElementById('role');
+    const supervisorBox = document.getElementById('supervisorBox');
+    const supervisorSelect = document.getElementById('supervisor_id');
+    const nomeCompletoInput = document.getElementById('nome_completo');
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+    const conviteInput = document.getElementById('enviar_convite');
+    const userToast = document.getElementById('userToast');
+    const CSRF_TOKEN = {{ csrf_token() | tojson }};
+
+    function mostrarToastUsuario(msg, tipo = 'success') {
+      userToast.textContent = msg;
+      userToast.className = `user-toast show ${tipo === 'error' ? 'error' : ''}`;
+      setTimeout(() => {
+        userToast.className = 'user-toast';
+      }, 2600);
+    }
+
+    function recarregarComToast(msg, tipo = 'success') {
+      sessionStorage.setItem('usuariosToast', JSON.stringify({ msg, tipo }));
+      window.location.reload();
+    }
+
+    function mostrarToastPendente() {
+      const raw = sessionStorage.getItem('usuariosToast');
+      if (!raw) return;
+      sessionStorage.removeItem('usuariosToast');
+      try {
+        const data = JSON.parse(raw);
+        if (data && data.msg) mostrarToastUsuario(data.msg, data.tipo || 'success');
+      } catch (err) {
+        mostrarToastUsuario(raw);
+      }
+    }
+
+    function atualizarSupervisorVisivel() {
+      supervisorBox.style.display = roleSelect.value === 'aluno' ? 'block' : 'none';
+      if (roleSelect.value !== 'aluno') supervisorSelect.value = '';
+    }
+
+    function atualizarSenhaObrigatoria() {
+      const editando = !!document.getElementById('userId').value;
+      passwordInput.required = !editando && !conviteInput.checked;
+    }
+
+    function sugerirUsername(nome) {
+      const partes = nome
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z\s]/g, ' ')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+      if (partes.length < 2) return partes[0] || '';
+      return `${partes[0]}.${partes[partes.length - 1]}`;
+    }
+
+    function prepararNovoUsuario() {
+      tituloModalUsuario.textContent = 'Novo Usuário';
+      formNovoUsuario.reset();
+      document.getElementById('userId').value = '';
+      document.getElementById('ativo').value = '1';
+      passwordInput.required = true;
+      conviteInput.checked = false;
+      document.getElementById('senhaHelp').textContent = 'Mínimo 8 caracteres.';
+      atualizarSupervisorVisivel();
+      atualizarSenhaObrigatoria();
+    }
+
+    function abrirModalUsuario() {
+      prepararNovoUsuario();
+      erroUsuario.style.display = 'none';
+      erroUsuario.textContent = '';
+      modalUsuario.style.display = 'flex';
+    }
+
+    function abrirEditarUsuario(id, username, nomeCompleto, email, role, supervisorId, ativo) {
+      tituloModalUsuario.textContent = 'Editar Usuário';
+      document.getElementById('userId').value = id;
+      document.getElementById('nome_completo').value = nomeCompleto || '';
+      usernameInput.value = username;
+      document.getElementById('email').value = email || '';
+      roleSelect.value = role;
+      supervisorSelect.value = supervisorId || '';
+      document.getElementById('ativo').value = ativo ? '1' : '0';
+      passwordInput.value = '';
+      passwordInput.required = false;
+      conviteInput.checked = false;
+      document.getElementById('senhaHelp').textContent = 'Deixe em branco para manter a senha atual.';
+      erroUsuario.style.display = 'none';
+      erroUsuario.textContent = '';
+      atualizarSupervisorVisivel();
+      atualizarSenhaObrigatoria();
+      modalUsuario.style.display = 'flex';
+    }
+
+    function fecharModalUsuario() {
+      modalUsuario.style.display = 'none';
+      prepararNovoUsuario();
+      erroUsuario.style.display = 'none';
+      erroUsuario.textContent = '';
+    }
+
+    function mostrarErroUsuario(msg) {
+      erroUsuario.textContent = msg;
+      erroUsuario.style.display = 'block';
+    }
+
+    btnNovoUsuario.addEventListener('click', abrirModalUsuario);
+    btnCancelarUsuario.addEventListener('click', fecharModalUsuario);
+    roleSelect.addEventListener('change', atualizarSupervisorVisivel);
+    conviteInput.addEventListener('change', atualizarSenhaObrigatoria);
+    nomeCompletoInput.addEventListener('input', () => {
+      if (!usernameInput.value.trim()) {
+        usernameInput.value = sugerirUsername(nomeCompletoInput.value);
+      }
+    });
+
+    document.querySelectorAll('.btn-editar').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        abrirEditarUsuario(
+          parseInt(btn.dataset.id, 10),
+          btn.dataset.username,
+          btn.dataset.nomeCompleto,
+          btn.dataset.email,
+          btn.dataset.role,
+          btn.dataset.supervisorId,
+          btn.dataset.ativo === '1'
+        );
+      });
+    });
+
+    document.querySelectorAll('.btn-inativar').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        inativarUsuario(parseInt(btn.dataset.id, 10), btn.dataset.username);
+      });
+    });
+
+    document.querySelectorAll('.btn-reativar').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        reativarUsuario(parseInt(btn.dataset.id, 10), btn.dataset.username, btn.dataset.nomeCompleto, btn.dataset.email, btn.dataset.role, btn.dataset.supervisorId);
+      });
+    });
+
+    document.querySelectorAll('.btn-excluir').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        excluirUsuario(parseInt(btn.dataset.id, 10), btn.dataset.username);
+      });
+    });
+
+    modalUsuario.addEventListener('click', (e) => {
+      if (e.target === modalUsuario) fecharModalUsuario();
+    });
+
+    formNovoUsuario.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const userId = document.getElementById('userId').value;
+      const nome_completo = nomeCompletoInput.value.trim();
+      const username = usernameInput.value.trim();
+      const email = document.getElementById('email').value.trim();
+      const role = roleSelect.value;
+      const ativo = document.getElementById('ativo').value === '1';
+      const password = passwordInput.value;
+      const supervisor_id = role === 'aluno' ? supervisorSelect.value : '';
+      const enviar_convite = conviteInput.checked;
+
+      if (!username || (!userId && !password && !enviar_convite)) {
+        mostrarErroUsuario('Informe usuário e senha, ou marque para enviar convite por e-mail.');
+        return;
+      }
+
+      if (enviar_convite && !email) {
+        mostrarErroUsuario('Para enviar convite, informe o e-mail do usuário.');
+        return;
+      }
+
+      if (password && password.length < 8) {
+        mostrarErroUsuario('A senha deve ter no mínimo 8 caracteres.');
+        return;
+      }
+
+      const payload = { username, nome_completo, email, role, ativo, supervisor_id, enviar_convite };
+      if (password) payload.password = password;
+
+      try {
+        const resp = await fetch(userId ? `/api/usuarios/${userId}` : '/api/usuarios', {
+          method: userId ? 'PUT' : 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': CSRF_TOKEN
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          mostrarErroUsuario(data.erro || 'Erro ao salvar usuário.');
+          return;
+        }
+
+        const acao = userId ? 'Usuário atualizado com sucesso.' : 'Usuário cadastrado com sucesso.';
+        const complemento = data.email_enviado ? ' Convite enviado por e-mail.' : '';
+        recarregarComToast(acao + complemento);
+      } catch (err) {
+        mostrarErroUsuario('Não foi possível salvar agora. Verifique a conexão e tente novamente.');
+      }
+    });
+
+    async function inativarUsuario(id, username) {
+      if (!confirm(`Inativar o usuário "${username}"?`)) return;
+
+      try {
+        const resp = await fetch(`/api/usuarios/${id}`, {
+          method: 'DELETE',
+          headers: {'X-CSRFToken': CSRF_TOKEN}
+        });
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          alert(data.erro || 'Erro ao inativar usuário.');
+          return;
+        }
+
+        recarregarComToast(`Usuário "${username}" inativado com sucesso.`);
+      } catch (err) {
+        alert('Não foi possível inativar agora. Verifique a conexão e tente novamente.');
+      }
+    }
+
+    async function reativarUsuario(id, username, nomeCompleto, email, role, supervisorId) {
+      try {
+        const resp = await fetch(`/api/usuarios/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': CSRF_TOKEN
+          },
+          body: JSON.stringify({ username, nome_completo: nomeCompleto || '', email, role, supervisor_id: supervisorId || '', ativo: true })
+        });
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          alert(data.erro || 'Erro ao reativar usuário.');
+          return;
+        }
+
+        recarregarComToast(`Usuário "${username}" reativado com sucesso.`);
+      } catch (err) {
+        alert('Não foi possível reativar agora. Verifique a conexão e tente novamente.');
+      }
+    }
+
+    async function excluirUsuario(id, username) {
+      const ok = confirm(`Excluir definitivamente o usuário "${username}"?\n\nUse isso apenas para cadastros criados por engano. Se o usuário já usou o sistema, prefira inativar.`);
+      if (!ok) return;
+
+      try {
+        const resp = await fetch(`/api/usuarios/${id}/excluir-definitivo`, {
+          method: 'DELETE',
+          headers: {'X-CSRFToken': CSRF_TOKEN}
+        });
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          alert(data.erro || 'Erro ao excluir usuário.');
+          return;
+        }
+
+        recarregarComToast(`Usuário "${username}" excluído com sucesso.`);
+      } catch (err) {
+        alert('Não foi possível excluir agora. Verifique a conexão e tente novamente.');
+      }
+    }
+
+    atualizarSupervisorVisivel();
+    mostrarToastPendente();
+    lucide.createIcons();
+  </script>
+  <div class="version-footer">Versão {{ versao }}</div>
+</body>
+</html>

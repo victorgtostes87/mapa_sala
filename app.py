@@ -50,7 +50,7 @@ DB_PATH = os.environ.get(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 )
 
-VERSAO = '2026-07-07-v32'
+VERSAO = '2026-07-07-v34'
 EMAIL_BASE_URL = os.environ.get('EMAIL_BASE_URL', '').rstrip('/')
 EMAIL_FROM = os.environ.get('EMAIL_FROM', os.environ.get('SMTP_USER', ''))
 SMTP_HOST = os.environ.get('SMTP_HOST', '')
@@ -488,7 +488,7 @@ def selecionar_usuarios_para_admin(conn):
         else:
             supervisor_nome_expr = "COALESCE(p.username, '')"
 
-    order_expr = "u.created_at" if 'created_at' in cols else "u.id"
+    order_expr = "COALESCE(NULLIF(u.nome_completo, ''), u.username)" if 'nome_completo' in cols else "u.username"
     return conn.execute(
         f"""
         SELECT u.id,
@@ -502,7 +502,7 @@ def selecionar_usuarios_para_admin(conn):
                {supervisor_nome_expr} AS supervisor_nome
         FROM usuarios u
         {join_supervisor}
-        ORDER BY {order_expr}
+        ORDER BY {order_expr} COLLATE NOCASE, u.username COLLATE NOCASE
         """
     ).fetchall()
 

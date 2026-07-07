@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Coordenação</title>
+  <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/voltar.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/coordenacao.css') }}">
+</head>
+<body>
+  <nav class="app-nav">
+    <a class="app-nav-brand" href="/mapa" title="Voltar para o mapa"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
+    <div class="app-nav-title">Coordenação</div>
+    <div class="app-nav-spacer"></div>
+    <div class="app-nav-user">
+      <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
+      <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
+    </div>
+    <div class="app-nav-actions">
+      <a href="/" class="app-btn app-btn-ghost" onclick="voltarAbaAnterior(event, '/')"><i data-lucide="arrow-left"></i> Voltar</a>
+      <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
+      <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
+    </div>
+  </nav>
+
+  <main class="coord-page">
+    {% with mensagens = get_flashed_messages(with_categories=true) %}
+      {% if mensagens %}
+      <div class="flash-wrap">
+        {% for categoria, mensagem in mensagens %}
+        <div class="flash {{ categoria }}">{{ mensagem }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    {% endwith %}
+
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Agenda da coordenação</p>
+        <h1>Horários para conversar com a coordenadora</h1>
+        <p>Use esta tela para marcar conversas rápidas, tirar dúvidas ou tratar assuntos acadêmicos.</p>
+      </div>
+    </section>
+
+    {% if papel == 'coordenador' %}
+    <section class="layout-grid">
+      <form class="panel form-panel" method="post" action="/coordenacao/horarios">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <h2><i data-lucide="calendar-plus"></i> Disponibilizar horário</h2>
+        <label>Data</label>
+        <input type="date" name="data_disponivel" required>
+        <div class="two-cols">
+          <div>
+            <label>Início</label>
+            <select name="horario_inicio" required>
+              {% for h in horarios_padrao %}<option value="{{ h }}">{{ h }}</option>{% endfor %}
+            </select>
+          </div>
+          <div>
+            <label>Fim</label>
+            <select name="horario_fim">
+              <option value="">Não informar</option>
+              {% for h in horarios_padrao %}<option value="{{ h }}">{{ h }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+        <label>Local</label>
+        <input name="local" placeholder="Ex: Coordenação, sala da coordenação">
+        <label>Observação</label>
+        <textarea name="observacao" placeholder="Ex: horário para assuntos rápidos, até 20 minutos"></textarea>
+        <button class="btn primary" type="submit"><i data-lucide="plus"></i> Publicar horário</button>
+      </form>
+
+      <section class="panel">
+        <h2><i data-lucide="users-round"></i> Horários marcados</h2>
+        <div class="list">
+          {% if agendados %}
+            {% for ag in agendados %}
+            <article class="slot-card {{ ag.status }}">
+              <div>
+                <strong>{{ ag.data_label }} · {{ ag.horario_inicio }}{% if ag.horario_fim %} até {{ ag.horario_fim }}{% endif %}</strong>
+                <span>{{ ag.aluno_nome }} · {{ ag.assunto }}</span>
+                {% if ag.observacao %}<small>{{ ag.observacao }}</small>{% endif %}
+                {% if ag.resposta %}<small>Resposta: {{ ag.resposta }}</small>{% endif %}
+              </div>
+              <span class="status">{{ 'Cancelado' if ag.status == 'cancelado' else 'Confirmado' }}</span>
+              {% if ag.status == 'confirmado' %}
+              <form method="post" action="/coordenacao/agendamentos/{{ ag.id }}/cancelar">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input name="resposta" placeholder="Motivo opcional">
+                <button class="btn danger" type="submit"><i data-lucide="x"></i> Cancelar</button>
+              </form>
+              {% endif %}
+            </article>
+            {% endfor %}
+          {% else %}
+            <div class="empty"><i data-lucide="inbox"></i> Nenhum horário marcado.</div>
+          {% endif %}
+        </div>
+      </section>
+    </section>
+
+    <section class="panel">
+      <h2><i data-lucide="calendar-days"></i> Horários publicados</h2>
+      <div class="slot-grid">
+        {% for h in horarios %}
+        <article class="slot-card {{ 'busy' if h.ocupado else 'free' }}">
+          <div>
+            <strong>{{ h.data_label }} · {{ h.horario_inicio }}{% if h.horario_fim %} até {{ h.horario_fim }}{% endif %}</strong>
+            <span>{{ h.local or 'Local não informado' }}</span>
+            {% if h.observacao %}<small>{{ h.observacao }}</small>{% endif %}
+            {% if h.ocupado %}<small>Reservado por {{ h.aluno_nome }}</small>{% endif %}
+          </div>
+          {% if not h.ocupado %}
+          <form method="post" action="/coordenacao/horarios/{{ h.id }}/desativar">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn ghost" type="submit"><i data-lucide="trash-2"></i> Remover</button>
+          </form>
+          {% endif %}
+        </article>
+        {% else %}
+        <div class="empty"><i data-lucide="calendar-x"></i> Nenhum horário publicado.</div>
+        {% endfor %}
+      </div>
+    </section>
+    {% else %}
+    <section class="panel">
+      <h2><i data-lucide="calendar-check"></i> Meus horários com a coordenação</h2>
+      <div class="slot-grid">
+        {% for ag in meus_agendamentos %}
+        <article class="slot-card {{ ag.status }}">
+          <div>
+            <strong>{{ ag.data_label }} · {{ ag.horario_inicio }}{% if ag.horario_fim %} até {{ ag.horario_fim }}{% endif %}</strong>
+            <span>{{ ag.assunto }}</span>
+            <small>{{ ag.local or 'Local não informado' }}</small>
+            {% if ag.resposta %}<small>Resposta: {{ ag.resposta }}</small>{% endif %}
+          </div>
+          <span class="status">{{ 'Cancelado' if ag.status == 'cancelado' else 'Confirmado' }}</span>
+          {% if ag.status == 'confirmado' %}
+          <form method="post" action="/coordenacao/agendamentos/{{ ag.id }}/cancelar">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn ghost" type="submit"><i data-lucide="x"></i> Cancelar</button>
+          </form>
+          {% endif %}
+        </article>
+        {% else %}
+        <div class="empty"><i data-lucide="calendar"></i> Você ainda não marcou horário com a coordenação.</div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2><i data-lucide="calendar-plus"></i> Horários disponíveis</h2>
+      <div class="slot-grid">
+        {% for h in horarios if not h.ocupado %}
+        <article class="slot-card free">
+          <div>
+            <strong>{{ h.data_label }} · {{ h.horario_inicio }}{% if h.horario_fim %} até {{ h.horario_fim }}{% endif %}</strong>
+            <span>{{ h.local or 'Local não informado' }}</span>
+            {% if h.observacao %}<small>{{ h.observacao }}</small>{% endif %}
+          </div>
+          <form method="post" action="/coordenacao/agendar/{{ h.id }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input name="assunto" placeholder="Assunto da conversa" required>
+            <textarea name="observacao" placeholder="Detalhe opcional"></textarea>
+            <button class="btn primary" type="submit"><i data-lucide="check"></i> Marcar horário</button>
+          </form>
+        </article>
+        {% else %}
+        <div class="empty"><i data-lucide="calendar-x"></i> Nenhum horário livre publicado no momento.</div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+  </main>
+
+  <script>lucide.createIcons();</script>
+</body>
+</html>

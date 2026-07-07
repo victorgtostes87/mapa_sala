@@ -12,7 +12,7 @@
 <body>
 
 <nav class="app-nav main-map-nav">
-  <a class="app-nav-brand main-map-brand" href="/mapa" title="Voltar para o mapa"><img class="app-nav-logo main-map-logo" src="{{ url_for('static', filename='img/mapa-sala-logo.png') }}" alt=""><span>Mapa de Sala</span></a>
+  <a class="app-nav-brand main-map-brand" href="/mapa" title="Voltar para o mapa"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
   <img class="uvv-top-logo" src="{{ url_for('static', filename='img/uvv-logo.png') }}" alt="UVV">
   <div class="app-nav-spacer"></div>
   <div class="app-nav-user">
@@ -30,6 +30,7 @@
     </button>
     <div class="app-dropdown-menu" id="dropdownMenu">
       {% if papel == 'coordenador' %}
+      <a href="/coordenacao"><i data-lucide="messages-square"></i> Coordenação</a>
       <a href="/painel"><i data-lucide="layout-dashboard"></i> Painel</a>
       <a href="/afazeres"><i data-lucide="list-checks"></i> Afazeres</a>
       <a href="/reservas"><i data-lucide="bell"></i> Reservas {% if reservas_pendentes_count %}<span class="nav-badge">{{ reservas_pendentes_count }}</span>{% endif %}</a>
@@ -151,9 +152,17 @@
       <div class="form-row"><label>Paciente</label>
         <input type="text" id="fPaciente" placeholder="Nome do paciente" oninput="atualizarOcupacaoPreview();verificarConflito()"></div>
       <div class="form-grid">
-        <div class="form-row"><label>Categoria</label>
-          <select id="fCategoria" onchange="atualizarOcupacaoPreview();verificarConflito()"><option value="">Auto-detectar</option>
-            {% for c in categorias %}<option>{{c}}</option>{% endfor %}</select></div>
+        <div class="form-row"><label>Período do aluno</label>
+          <select id="fSemestre">
+            <option value="0">Não se aplica</option>
+            <option value="9">Estagiário 9°</option>
+            <option value="10">Estagiário 10°</option>
+          </select></div>
+        <div class="form-row"><label>Categoria / função do horário</label>
+          <select id="fCategoria" onchange="atualizarOcupacaoPreview();verificarConflito()"><option value="">Escolha a função</option>
+            {% for c in categorias_operacionais %}<option>{{c}}</option>{% endfor %}</select></div>
+      </div>
+      <div class="form-grid">
         <div class="form-row"><label>Triagem?</label>
           <select id="fTriagem" onchange="atualizarOcupacaoPreview();verificarConflito()"><option value="0">Não</option><option value="1">Sim</option></select></div>
       </div>

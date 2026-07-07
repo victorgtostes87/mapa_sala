@@ -36,6 +36,10 @@ class MapaSalasTestCase(unittest.TestCase):
                 conn.execute('DELETE FROM tarefas_painel')
             if 'solicitacoes_vagas' in tabelas:
                 conn.execute('DELETE FROM solicitacoes_vagas')
+            if 'coordenacao_agendamentos' in tabelas:
+                conn.execute('DELETE FROM coordenacao_agendamentos')
+            if 'coordenacao_horarios' in tabelas:
+                conn.execute('DELETE FROM coordenacao_horarios')
             conn.execute('DELETE FROM usuarios')
             self.coord_id = self._criar_usuario(conn, 'coordenador', 'coordenador')
             self.recepcao_id = self._criar_usuario(conn, 'recepcao', 'recepcao')
@@ -410,13 +414,166 @@ class MapaSalasTestCase(unittest.TestCase):
 
         conn = mapa.get_db()
         try:
-            status = conn.execute(
-                'SELECT status FROM solicitacoes_vagas WHERE id=?',
+            row = conn.execute(
+                'SELECT status, vagas_paciente_liberadas, vagas_triagem_liberadas FROM solicitacoes_vagas WHERE id=?',
                 (pedido['id'],)
-            ).fetchone()['status']
+            ).fetchone()
         finally:
             conn.close()
-        self.assertEqual(status, 'atendida')
+        self.assertEqual(row['status'], 'atendida')
+        self.assertEqual(row['vagas_paciente_liberadas'], 1)
+        self.assertEqual(row['vagas_triagem_liberadas'], 2)
+
+    def test_recepcao_atende_pedido_de_vagas_parcialmente(self):
+        self._login('professor1')
+        self.client.post(
+            '/minha-supervisao/solicitacoes-vagas',
+            data={
+                'csrf_token': self.csrf,
+                'aluno_id': str(self.aluno1_id),
+                'vagas_paciente': '2',
+                'vagas_triagem': '1',
+                'observacao': 'Abrir aos poucos'
+            }
+        )
+
+        conn = mapa.get_db()
+        try:
+            pedido = conn.execute('SELECT id FROM solicitacoes_vagas').fetchone()
+        finally:
+            conn.close()
+
+        self._login('recepcao')
+        resp = self.client.post(
+            f'/solicitacoes-vagas/{pedido["id"]}/status',
+            data={
+                'csrf_token': self.csrf,
+                'status': 'atendida_parcial',
+                'vagas_paciente_liberadas': '1',
+                'vagas_triagem_liberadas': '0',
+                'resposta': 'Liberado 1 paciente por enquanto.',
+                'next': '/reservas#pedidos-vagas'
+            }
+        )
+
+        self.assertEqual(resp.status_code, 302)
+        conn = mapa.get_db()
+        try:
+            row = conn.execute(
+                """
+                SELECT status, vagas_paciente_liberadas, vagas_triagem_liberadas
+                FROM solicitacoes_vagas
+                WHERE id=?
+                """,
+                (pedido['id'],)
+            ).fetchone()
+        finally:
+            conn.close()
+
+        self.assertEqual(row['status'], 'atendida_parcial')
+        self.assertEqual(row['vagas_paciente_liberadas'], 1)
+        self.assertEqual(row['vagas_triagem_liberadas'], 0)
+
+    def test_aluno_reserva_horario_com_coordenacao_e_recebe_email(self):
+        emails = self._capturar_emails()
+        data_uso = self._data_util_com_antecedencia()
+        conn = mapa.get_db()
+        try:
+            conn.execute('UPDATE usuarios SET email=? WHERE id=?', ('aluno1@example.com', self.aluno1_id))
+            conn.execute('UPDATE usuarios SET email=? WHERE id=?', ('coord@example.com', self.coord_id))
+            conn.commit()
+        finally:
+            conn.close()
+
+        self._login('coordenador')
+        criar = self.client.post(
+            '/coordenacao/horarios',
+            data={
+                'csrf_token': self.csrf,
+                'data_disponivel': data_uso,
+                'horario_inicio': '14:00',
+                'horario_fim': '15:00',
+                'local': 'Coordenação',
+                'observacao': 'Atendimento acadêmico'
+            }
+        )
+        self.assertEqual(criar.status_code, 302)
+
+        conn = mapa.get_db()
+        try:
+            horario = conn.execute('SELECT id FROM coordenacao_horarios').fetchone()
+        finally:
+            conn.close()
+
+        self._login('aluno1')
+        agendar = self.client.post(
+            f'/coordenacao/agendar/{horario["id"]}',
+            data={
+                'csrf_token': self.csrf,
+                'assunto': 'Dúvida sobre estágio',
+                'observacao': 'Quero conversar sobre horários.'
+            }
+        )
+
+        self.assertEqual(agendar.status_code, 302)
+        conn = mapa.get_db()
+        try:
+            ag = conn.execute('SELECT * FROM coordenacao_agendamentos').fetchone()
+        finally:
+            conn.close()
+
+        self.assertIsNotNone(ag)
+        self.assertEqual(ag['status'], 'confirmado')
+        self.assertTrue(any(e['destinatario'] == 'aluno1@example.com' for e in emails))
+        self.assertTrue(any(e['destinatario'] == 'coord@example.com' for e in emails))
+
+    def test_coordenador_cancela_horario_com_coordenacao_e_notifica_aluno(self):
+        emails = self._capturar_emails()
+        data_uso = self._data_util_com_antecedencia()
+        conn = mapa.get_db()
+        try:
+            conn.execute('UPDATE usuarios SET email=? WHERE id=?', ('aluno1@example.com', self.aluno1_id))
+            cur = conn.execute(
+                """
+                INSERT INTO coordenacao_horarios(
+                    coordenador_id, coordenador_nome, data_disponivel,
+                    horario_inicio, horario_fim, local
+                ) VALUES(?,?,?,?,?,?)
+                """,
+                (self.coord_id, 'coordenador', data_uso, '15:00', '16:00', 'Coordenação')
+            )
+            horario_id = cur.lastrowid
+            ag_cur = conn.execute(
+                """
+                INSERT INTO coordenacao_agendamentos(horario_id, aluno_id, aluno_nome, assunto)
+                VALUES(?,?,?,?)
+                """,
+                (horario_id, self.aluno1_id, 'aluno1', 'Conversa com coordenação')
+            )
+            agendamento_id = ag_cur.lastrowid
+            conn.commit()
+        finally:
+            conn.close()
+
+        self._login('coordenador')
+        resp = self.client.post(
+            f'/coordenacao/agendamentos/{agendamento_id}/cancelar',
+            data={
+                'csrf_token': self.csrf,
+                'resposta': 'Precisei remarcar este horário.'
+            }
+        )
+
+        self.assertEqual(resp.status_code, 302)
+        conn = mapa.get_db()
+        try:
+            ag = conn.execute('SELECT status FROM coordenacao_agendamentos WHERE id=?', (agendamento_id,)).fetchone()
+        finally:
+            conn.close()
+
+        self.assertEqual(ag['status'], 'cancelado')
+        self.assertTrue(any(e['destinatario'] == 'aluno1@example.com' for e in emails))
+        self.assertTrue(any('cancelado' in e['assunto'].lower() for e in emails))
 
     def test_recepcao_cria_e_conclui_afazer_compartilhado(self):
         self._login('recepcao')
@@ -1104,6 +1261,73 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertEqual(reserva_atualizada['status'], 'aprovada')
         self.assertEqual(total_agendamentos, 2)
 
+    def test_reserva_de_sala_aparece_sobre_horario_fixo_informativo(self):
+        data_uso = self._data_util_com_antecedencia()
+        dia = mapa.dia_semana_da_data(data_uso)
+        conn = mapa.get_db()
+        try:
+            mapa.inserir_agendamento(conn, {
+                'dia': dia,
+                'horario': '14:00',
+                'sala': 'Consultório 1',
+                'estagiario': 'aluno1',
+                'paciente': '',
+                'categoria': 'MARCAR',
+                'semestre': 9,
+                'triagem': 0,
+                'observacao': 'Horário fixo aberto para paciente',
+                'data_especifica': '',
+                'usuario_id': self.aluno1_id,
+                'ocupa_sala': 0
+            })
+            conn.commit()
+        finally:
+            conn.close()
+
+        self._login('aluno1')
+        criar = self.client.post(
+            '/reservas/sala',
+            data={
+                'csrf_token': self.csrf,
+                'data_uso': data_uso,
+                'horario_inicio': '14:00',
+                'horario_fim': '15:00',
+                'tipo_sala': 'comum',
+                'finalidade': 'Estudo de prontuário',
+                'observacao': ''
+            }
+        )
+        self.assertEqual(criar.status_code, 302)
+
+        conn = mapa.get_db()
+        try:
+            reserva = conn.execute("SELECT * FROM reservas WHERE tipo='sala'").fetchone()
+        finally:
+            conn.close()
+
+        self.client.get('/logout')
+        self._login('recepcao')
+        aprovar = self.client.post(
+            f'/reservas/{reserva["id"]}/aprovar',
+            data={
+                'csrf_token': self.csrf,
+                'sala_atribuida': 'Consultório 1',
+                'resposta': 'Aprovado'
+            }
+        )
+        self.assertEqual(aprovar.status_code, 302)
+
+        resp = self.client.get(
+            f'/api/agendamentos?dia_semana={dia}&horario=14:00&sala=Consult%C3%B3rio+1'
+        )
+        dados = resp.get_json()
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(dados), 2)
+        self.assertEqual(dados[0]['ocupa_sala'], 1)
+        self.assertEqual(dados[0]['data_especifica'], data_uso)
+        self.assertTrue(any(ag['categoria'] == 'MARCAR' and ag['ocupa_sala'] == 0 for ag in dados))
+
     def test_reabrir_reserva_de_sala_remove_agendamentos_criados(self):
         data_uso = self._data_util_com_antecedencia()
         self._login('aluno1')
@@ -1694,6 +1918,41 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertIsNone(erro)
         self.assertEqual(dados['categoria'], 'ESTAGIÁRIO 10°')
         self.assertEqual(dados['triagem'], 1)
+
+    def test_importador_excel_separa_periodo_da_categoria_marcar(self):
+        dados, erro = mapa.montar_agendamento_excel(
+            'SEGUNDA',
+            '08:00',
+            'Consultório 3',
+            'Maria Vitória 10º (Christiane)',
+            'MARCAR TRIAGEM',
+            ano=2026
+        )
+
+        self.assertIsNone(erro)
+        self.assertEqual(dados['estagiario'], 'Maria Vitória 10º (Christiane)')
+        self.assertEqual(dados['semestre'], 10)
+        self.assertEqual(dados['categoria'], 'MARCAR')
+        self.assertEqual(dados['triagem'], 1)
+        self.assertEqual(dados['paciente'], '')
+        self.assertEqual(dados['ocupa_sala'], 0)
+
+    def test_importador_excel_mantem_paciente_marcado_com_periodo_separado(self):
+        dados, erro = mapa.montar_agendamento_excel(
+            'TERÇA',
+            '09:00',
+            'Consultório 7 (Divã)',
+            'Rafael Souza 9º (Roger)',
+            'Paciente Exemplo',
+            ano=2026
+        )
+
+        self.assertIsNone(erro)
+        self.assertEqual(dados['estagiario'], 'Rafael Souza 9º (Roger)')
+        self.assertEqual(dados['paciente'], 'Paciente Exemplo')
+        self.assertEqual(dados['semestre'], 9)
+        self.assertEqual(dados['categoria'], 'OUTRO')
+        self.assertEqual(dados['ocupa_sala'], 1)
 
 
 if __name__ == '__main__':

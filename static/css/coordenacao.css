@@ -1,0 +1,215 @@
+:root{
+  --bg:#0f172a;
+  --surface:#1e293b;
+  --surface-soft:#263348;
+  --border:#334155;
+  --text:#e2e8f0;
+  --muted:#94a3b8;
+  --primary:#3b82f6;
+  --success:#16a34a;
+  --warning:#d97706;
+  --danger:#dc2626;
+  --radius:8px;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+
+body{
+  min-height:100vh;
+  background:var(--bg);
+  color:var(--text);
+  font-family:"Segoe UI",system-ui,sans-serif;
+  font-size:14px;
+}
+
+.coord-page{
+  max-width:1160px;
+  margin:0 auto;
+  padding:22px 18px 44px;
+}
+
+.hero,
+.panel{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+}
+
+.hero{
+  padding:18px;
+  margin-bottom:14px;
+}
+
+.eyebrow{
+  color:var(--primary);
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  font-size:11px;
+  font-weight:900;
+  margin-bottom:4px;
+}
+
+h1{font-size:24px;line-height:1.15;color:#f8fafc}
+h2{font-size:17px;display:flex;align-items:center;gap:8px;margin-bottom:12px}
+h2 i{width:18px;height:18px;color:var(--primary)}
+
+.hero p,
+small,
+.slot-card span{
+  color:var(--muted);
+}
+
+.layout-grid{
+  display:grid;
+  grid-template-columns:360px 1fr;
+  gap:14px;
+  margin-bottom:14px;
+}
+
+.panel{
+  padding:16px;
+  margin-bottom:14px;
+}
+
+label{
+  display:block;
+  margin:11px 0 5px;
+  color:#cbd5e1;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.03em;
+  text-transform:uppercase;
+}
+
+input,
+select,
+textarea{
+  width:100%;
+  min-height:40px;
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  background:#111827;
+  color:var(--text);
+  padding:9px 10px;
+  font-size:14px;
+  outline:none;
+}
+
+textarea{min-height:76px;resize:vertical}
+input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(59,130,246,.14)}
+
+.two-cols{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+
+.btn{
+  min-height:38px;
+  border:0;
+  border-radius:var(--radius);
+  padding:8px 12px;
+  cursor:pointer;
+  text-decoration:none;
+  font-size:13px;
+  font-weight:900;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  white-space:nowrap;
+}
+
+.btn i{width:16px;height:16px}
+.btn.primary{background:var(--primary);color:#fff;margin-top:12px}
+.btn.primary:hover{background:#2563eb}
+.btn.danger{background:var(--danger);color:#fff}
+.btn.ghost{background:#111827;color:#cbd5e1;border:1px solid var(--border)}
+
+.slot-grid,
+.list{
+  display:grid;
+  gap:10px;
+}
+
+.slot-grid{
+  grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+}
+
+.slot-card{
+  display:grid;
+  gap:10px;
+  padding:13px;
+  border:1px solid var(--border);
+  border-left:4px solid var(--primary);
+  border-radius:var(--radius);
+  background:#162033;
+}
+
+.slot-card.free{border-left-color:var(--success)}
+.slot-card.busy,
+.slot-card.confirmado{border-left-color:var(--warning)}
+.slot-card.cancelado{border-left-color:#64748b;opacity:.75}
+
+.slot-card strong{
+  display:block;
+  color:#f8fafc;
+  margin-bottom:3px;
+}
+
+.slot-card small{
+  display:block;
+  margin-top:4px;
+  line-height:1.35;
+}
+
+.slot-card form{
+  display:grid;
+  gap:8px;
+}
+
+.status{
+  justify-self:start;
+  border-radius:999px;
+  padding:4px 8px;
+  background:#1e3a8a;
+  color:#dbeafe;
+  font-size:11px;
+  font-weight:900;
+  text-transform:uppercase;
+}
+
+.empty{
+  min-height:72px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:9px;
+  padding:18px;
+  color:var(--muted);
+  border:1px dashed var(--border);
+  border-radius:var(--radius);
+  background:#111827;
+  font-weight:800;
+}
+
+.empty i{width:20px;height:20px}
+
+.flash{
+  border-radius:var(--radius);
+  padding:11px 13px;
+  margin-bottom:12px;
+  font-weight:800;
+}
+
+.flash.success{background:#052e16;border:1px solid #15803d;color:#bbf7d0}
+.flash.error{background:#431407;border:1px solid #ef4444;color:#fecaca}
+
+@media (max-width:820px){
+  .coord-page{padding:12px 10px 34px}
+  .layout-grid{grid-template-columns:1fr}
+  .two-cols{grid-template-columns:1fr}
+  .slot-grid{grid-template-columns:1fr}
+  input,select,textarea{font-size:16px;min-height:44px}
+  .btn{width:100%}
+}

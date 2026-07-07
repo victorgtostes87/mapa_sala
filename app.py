@@ -50,7 +50,7 @@ DB_PATH = os.environ.get(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 )
 
-VERSAO = '2026-07-07-v34'
+VERSAO = '2026-07-07-v39'
 EMAIL_BASE_URL = os.environ.get('EMAIL_BASE_URL', '').rstrip('/')
 EMAIL_FROM = os.environ.get('EMAIL_FROM', os.environ.get('SMTP_USER', ''))
 SMTP_HOST = os.environ.get('SMTP_HOST', '')
@@ -79,6 +79,18 @@ STATUS_SOLICITACAO_VAGA = {
     'atendida': 'Atendida',
     'recusada': 'Recusada',
 }
+
+
+def preparar_solicitacao_vaga(row):
+    item = dict(row)
+    item['status_label'] = STATUS_SOLICITACAO_VAGA.get(item.get('status'), item.get('status'))
+    item['vagas_paciente'] = int(item.get('vagas_paciente') or 0)
+    item['vagas_triagem'] = int(item.get('vagas_triagem') or 0)
+    item['vagas_paciente_liberadas'] = int(item.get('vagas_paciente_liberadas') or 0)
+    item['vagas_triagem_liberadas'] = int(item.get('vagas_triagem_liberadas') or 0)
+    item['vagas_paciente_faltantes'] = max(0, item['vagas_paciente'] - item['vagas_paciente_liberadas'])
+    item['vagas_triagem_faltantes'] = max(0, item['vagas_triagem'] - item['vagas_triagem_liberadas'])
+    return item
 
 
 # ========================================
@@ -254,6 +266,11 @@ CATEGORIAS = [
     'NUTRIÇÃO', 'PSICODIAGNÓSTICO', 'PSIQUIATRIA',
     'AMBULATÓRIO NEUROPSICOLOGIA', 'PLANTÃO PSICOLÓGICO',
     'PRONTUÁRIO/ESTUDAR', 'LIVRE', 'OUTRO'
+]
+
+CATEGORIAS_OPERACIONAIS = [
+    c for c in CATEGORIAS
+    if not c.startswith('ESTAGIÁRIO')
 ]
 
 CATEGORIAS_OCUPAM_SALA = (
@@ -583,7 +600,7 @@ def normalizar_supervisor_id(valor):
 
 
 def email_configurado():
-    return bool(SMTP_HOST and EMAIL_FROM)
+    return bool(SMTP_HOST and EMAIL_FROM and SMTP_USER and SMTP_PASSWORD)
 
 
 def url_absoluta(endpoint, **valores):
@@ -962,6 +979,73 @@ def notificar_reserva_email(reserva, status, resposta=''):
     return enviar_email(usuario['email'], f'Reserva {status_txt} - Mapa de Sala', corpo)
 
 
+def formatar_data_iso(data_iso):
+    try:
+        return datetime.strptime(data_iso or '', '%Y-%m-%d').strftime('%d/%m/%Y')
+    except (TypeError, ValueError):
+        return data_iso or '-'
+
+
+def montar_detalhes_coord_agendamento(agendamento):
+    horario = agendamento.get('horario_inicio') or ''
+    if agendamento.get('horario_fim'):
+        horario = f'{horario} até {agendamento.get("horario_fim")}'
+    return [
+        ('Aluno', agendamento.get('aluno_nome') or '-'),
+        ('Data', formatar_data_iso(agendamento.get('data_disponivel'))),
+        ('Horário', horario or '-'),
+        ('Local', agendamento.get('local') or '-'),
+        ('Assunto', agendamento.get('assunto') or '-'),
+        ('Observação', agendamento.get('observacao') or '-'),
+        ('Status', agendamento.get('status') or '-'),
+    ]
+
+
+def notificar_coord_agendamento_email(agendamento, evento, resposta=''):
+    if not agendamento:
+        return 0
+
+    assunto_aluno = {
+        'criado': 'Horário com a coordenação confirmado',
+        'cancelado': 'Horário com a coordenação cancelado',
+        'alterado': 'Horário com a coordenação atualizado',
+    }.get(evento, 'Horário com a coordenação atualizado')
+    mensagem_aluno = {
+        'criado': 'Seu horário para conversar com a coordenação foi confirmado.',
+        'cancelado': 'Seu horário para conversar com a coordenação foi cancelado.',
+        'alterado': 'Seu horário para conversar com a coordenação foi atualizado.',
+    }.get(evento, 'Seu horário com a coordenação foi atualizado.')
+
+    enviados = 0
+    aluno_email = agendamento.get('aluno_email') or ''
+    if aluno_email:
+        corpo_aluno = corpo_email_padrao(
+            f'Olá, {agendamento.get("aluno_nome") or "aluno"}!',
+            mensagem_aluno,
+            'Informações do horário',
+            montar_detalhes_coord_agendamento(agendamento),
+            f'Mensagem da coordenação: {resposta}' if resposta else 'Acesse o sistema para acompanhar seus horários.'
+        )
+        if enviar_email(aluno_email, assunto_aluno, corpo_aluno):
+            enviados += 1
+
+    if evento == 'criado':
+        corpo_coord = corpo_email_padrao(
+            'Olá!',
+            'Um aluno reservou um horário para conversar com a coordenação.',
+            'Informações do horário',
+            montar_detalhes_coord_agendamento(agendamento),
+            'Acesse a tela Coordenação para acompanhar.'
+        )
+        enviados += enviar_email_multiplos(
+            emails_usuarios_por_papel('coordenador'),
+            'Novo horário reservado com a coordenação',
+            corpo_coord
+        )
+
+    return enviados
+
+
 def limpar_logs_antigos(conn):
     """Remove historico antigo para impedir crescimento continuo do arquivo SQLite."""
     cur = conn.execute(
@@ -1182,6 +1266,8 @@ def criar_tabelas_base(conn):
         "aluno_nome TEXT DEFAULT '',"
         "vagas_paciente INTEGER DEFAULT 0,"
         "vagas_triagem INTEGER DEFAULT 0,"
+        "vagas_paciente_liberadas INTEGER DEFAULT 0,"
+        "vagas_triagem_liberadas INTEGER DEFAULT 0,"
         "observacao TEXT DEFAULT '',"
         "status TEXT DEFAULT 'pendente',"
         "resposta TEXT DEFAULT '',"
@@ -1191,6 +1277,34 @@ def criar_tabelas_base(conn):
         ");"
         "CREATE INDEX IF NOT EXISTS idx_solicitacoes_vagas_status ON solicitacoes_vagas(status);"
         "CREATE INDEX IF NOT EXISTS idx_solicitacoes_vagas_professor ON solicitacoes_vagas(professor_id);"
+        "CREATE TABLE IF NOT EXISTS coordenacao_horarios ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "coordenador_id INTEGER DEFAULT NULL REFERENCES usuarios(id) ON DELETE SET NULL,"
+        "coordenador_nome TEXT DEFAULT '',"
+        "data_disponivel TEXT NOT NULL,"
+        "horario_inicio TEXT NOT NULL,"
+        "horario_fim TEXT DEFAULT '',"
+        "local TEXT DEFAULT '',"
+        "observacao TEXT DEFAULT '',"
+        "ativo INTEGER DEFAULT 1,"
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+        ");"
+        "CREATE TABLE IF NOT EXISTS coordenacao_agendamentos ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "horario_id INTEGER NOT NULL REFERENCES coordenacao_horarios(id) ON DELETE CASCADE,"
+        "aluno_id INTEGER DEFAULT NULL REFERENCES usuarios(id) ON DELETE SET NULL,"
+        "aluno_nome TEXT DEFAULT '',"
+        "assunto TEXT DEFAULT '',"
+        "observacao TEXT DEFAULT '',"
+        "status TEXT DEFAULT 'confirmado',"
+        "resposta TEXT DEFAULT '',"
+        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
+        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+        ");"
+        "CREATE INDEX IF NOT EXISTS idx_coord_horarios_data ON coordenacao_horarios(data_disponivel, horario_inicio);"
+        "CREATE INDEX IF NOT EXISTS idx_coord_ag_horario ON coordenacao_agendamentos(horario_id);"
+        "CREATE INDEX IF NOT EXISTS idx_coord_ag_aluno ON coordenacao_agendamentos(aluno_id);"
         "CREATE TABLE IF NOT EXISTS backups_importacao ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
         "usuario TEXT DEFAULT '',"
@@ -1349,6 +1463,18 @@ def aplicar_migracoes_simples(conn):
         'historico',
         'user_agent',
         "ALTER TABLE historico ADD COLUMN user_agent TEXT DEFAULT ''"
+    )
+    adicionar_coluna_se_ausente(
+        conn,
+        'solicitacoes_vagas',
+        'vagas_paciente_liberadas',
+        "ALTER TABLE solicitacoes_vagas ADD COLUMN vagas_paciente_liberadas INTEGER DEFAULT 0"
+    )
+    adicionar_coluna_se_ausente(
+        conn,
+        'solicitacoes_vagas',
+        'vagas_triagem_liberadas',
+        "ALTER TABLE solicitacoes_vagas ADD COLUMN vagas_triagem_liberadas INTEGER DEFAULT 0"
     )
     return ocupa_col_criada
 
@@ -1864,6 +1990,7 @@ def renderizar_mapa_sala():
         salas=SALAS,
         horarios=HORARIOS,
         categorias=CATEGORIAS,
+        categorias_operacionais=CATEGORIAS_OPERACIONAIS,
         dias=DIAS,
         professores=professores,
         usuario=current_user.username,
@@ -2052,10 +2179,7 @@ def painel_recepcao():
         checklist_auto=checklist_auto,
         horarios_abertos_preview=[dict(r) for r in horarios_abertos_rows],
         total_horarios_abertos=total_horarios_abertos,
-        solicitacoes_vagas=[
-            {**dict(r), 'status_label': STATUS_SOLICITACAO_VAGA.get(r['status'], r['status'])}
-            for r in solicitacoes_vagas_pendentes
-        ],
+        solicitacoes_vagas=[preparar_solicitacao_vaga(r) for r in solicitacoes_vagas_pendentes],
     )
 
 
@@ -2156,23 +2280,59 @@ def atualizar_solicitacao_vagas(solicitacao_id):
         flash('Status inválido para solicitação de vagas.', 'error')
         return redirect(proximo)
 
+    try:
+        liberadas_paciente = max(0, int(request.form.get('vagas_paciente_liberadas') or 0))
+        liberadas_triagem = max(0, int(request.form.get('vagas_triagem_liberadas') or 0))
+    except (TypeError, ValueError):
+        flash('Informe números válidos para as vagas liberadas.', 'error')
+        return redirect(proximo)
+
     conn = get_db()
     try:
         row = conn.execute(
-            'SELECT id, aluno_nome FROM solicitacoes_vagas WHERE id=?',
+            """
+            SELECT id, aluno_nome, vagas_paciente, vagas_triagem
+            FROM solicitacoes_vagas
+            WHERE id=?
+            """,
             (solicitacao_id,)
         ).fetchone()
         if not row:
             flash('Solicitação de vagas não encontrada.', 'error')
             return redirect(proximo)
 
+        vagas_paciente = int(row['vagas_paciente'] or 0)
+        vagas_triagem = int(row['vagas_triagem'] or 0)
+        if status == 'atendida':
+            liberadas_paciente = vagas_paciente
+            liberadas_triagem = vagas_triagem
+        elif status == 'recusada':
+            liberadas_paciente = 0
+            liberadas_triagem = 0
+
+        if liberadas_paciente > vagas_paciente or liberadas_triagem > vagas_triagem:
+            flash('O número liberado não pode ser maior do que o pedido pelo professor.', 'error')
+            return redirect(proximo)
+
+        if status == 'atendida_parcial':
+            if liberadas_paciente + liberadas_triagem <= 0:
+                flash('Para atender em parte, informe pelo menos uma vaga liberada.', 'error')
+                return redirect(proximo)
+            if liberadas_paciente == vagas_paciente and liberadas_triagem == vagas_triagem:
+                status = 'atendida'
+
         conn.execute(
             """
             UPDATE solicitacoes_vagas
-            SET status=?, resposta=?, analisado_por=?, updated_at=CURRENT_TIMESTAMP
+            SET status=?,
+                resposta=?,
+                vagas_paciente_liberadas=?,
+                vagas_triagem_liberadas=?,
+                analisado_por=?,
+                updated_at=CURRENT_TIMESTAMP
             WHERE id=?
             """,
-            (status, resposta, current_user.username, solicitacao_id)
+            (status, resposta, liberadas_paciente, liberadas_triagem, current_user.username, solicitacao_id)
         )
         conn.commit()
     finally:
@@ -2231,6 +2391,283 @@ def afazeres_recepcao():
         papel_label=PAPEIS_LABEL.get(current_user.role, current_user.role),
         tarefas=[dict(t) for t in tarefas],
     )
+
+
+def row_coord_agendamento(conn, agendamento_id):
+    return conn.execute(
+        """
+        SELECT ca.*,
+               ch.data_disponivel,
+               ch.horario_inicio,
+               ch.horario_fim,
+               ch.local,
+               ch.coordenador_nome,
+               u.email AS aluno_email
+        FROM coordenacao_agendamentos ca
+        JOIN coordenacao_horarios ch ON ch.id = ca.horario_id
+        LEFT JOIN usuarios u ON u.id = ca.aluno_id
+        WHERE ca.id=?
+        """,
+        (agendamento_id,)
+    ).fetchone()
+
+
+@app.route('/coordenacao')
+@login_required
+@requer_papel_page('coordenador', 'aluno')
+def coordenacao_page():
+    hoje = data_hoje_iso()
+    conn = get_db()
+    try:
+        horarios_rows = conn.execute(
+            """
+            SELECT ch.*,
+                   ca.id AS agendamento_id,
+                   ca.aluno_nome,
+                   ca.assunto,
+                   ca.status AS agendamento_status
+            FROM coordenacao_horarios ch
+            LEFT JOIN coordenacao_agendamentos ca
+              ON ca.horario_id = ch.id
+             AND ca.status='confirmado'
+            WHERE ch.data_disponivel >= ?
+              AND ch.ativo=1
+            ORDER BY ch.data_disponivel, ch.horario_inicio
+            """,
+            (hoje,)
+        ).fetchall()
+        meus_rows = conn.execute(
+            """
+            SELECT ca.*,
+                   ch.data_disponivel,
+                   ch.horario_inicio,
+                   ch.horario_fim,
+                   ch.local,
+                   ch.coordenador_nome
+            FROM coordenacao_agendamentos ca
+            JOIN coordenacao_horarios ch ON ch.id = ca.horario_id
+            WHERE ca.aluno_id=?
+              AND ch.data_disponivel >= ?
+            ORDER BY ch.data_disponivel, ch.horario_inicio
+            """,
+            (current_user.id, hoje)
+        ).fetchall() if current_user.role == 'aluno' else []
+        agendados_rows = conn.execute(
+            """
+            SELECT ca.*,
+                   ch.data_disponivel,
+                   ch.horario_inicio,
+                   ch.horario_fim,
+                   ch.local,
+                   ch.coordenador_nome,
+                   u.email AS aluno_email
+            FROM coordenacao_agendamentos ca
+            JOIN coordenacao_horarios ch ON ch.id = ca.horario_id
+            LEFT JOIN usuarios u ON u.id = ca.aluno_id
+            WHERE ch.data_disponivel >= ?
+            ORDER BY ch.data_disponivel, ch.horario_inicio
+            """,
+            (hoje,)
+        ).fetchall() if current_user.role == 'coordenador' else []
+    finally:
+        conn.close()
+
+    horarios = []
+    for row in horarios_rows:
+        item = dict(row)
+        item['data_label'] = formatar_data_iso(item.get('data_disponivel'))
+        item['ocupado'] = bool(item.get('agendamento_id'))
+        horarios.append(item)
+
+    meus_agendamentos = []
+    for row in meus_rows:
+        item = dict(row)
+        item['data_label'] = formatar_data_iso(item.get('data_disponivel'))
+        meus_agendamentos.append(item)
+
+    agendados = []
+    for row in agendados_rows:
+        item = dict(row)
+        item['data_label'] = formatar_data_iso(item.get('data_disponivel'))
+        agendados.append(item)
+
+    return render_template(
+        'coordenacao.html',
+        usuario=current_user.username,
+        papel=current_user.role,
+        papel_label=PAPEIS_LABEL.get(current_user.role, current_user.role),
+        horarios=horarios,
+        meus_agendamentos=meus_agendamentos,
+        agendados=agendados,
+        horarios_padrao=HORARIOS,
+    )
+
+
+@app.route('/coordenacao/horarios', methods=['POST'])
+@login_required
+@requer_papel_page('coordenador')
+def criar_horario_coordenacao():
+    data_disponivel = request.form.get('data_disponivel', '').strip()
+    horario_inicio = request.form.get('horario_inicio', '').strip()
+    horario_fim = request.form.get('horario_fim', '').strip()
+    local = request.form.get('local', '').strip()
+    observacao = request.form.get('observacao', '').strip()
+
+    data_disponivel, erro_data = normalizar_data_especifica(data_disponivel)
+    if erro_data:
+        flash(erro_data, 'error')
+        return redirect(url_for('coordenacao_page'))
+    if data_disponivel < data_hoje_iso():
+        flash('Escolha uma data de hoje em diante.', 'error')
+        return redirect(url_for('coordenacao_page'))
+    if horario_inicio not in HORARIOS:
+        flash('Escolha um horário inicial válido.', 'error')
+        return redirect(url_for('coordenacao_page'))
+    if horario_fim and horario_fim not in HORARIOS:
+        flash('Escolha um horário final válido.', 'error')
+        return redirect(url_for('coordenacao_page'))
+    if horario_fim and HORARIOS.index(horario_fim) <= HORARIOS.index(horario_inicio):
+        flash('O horário final deve ser depois do inicial.', 'error')
+        return redirect(url_for('coordenacao_page'))
+
+    coordenador_nome = current_user.nome_completo or current_user.username
+    conn = get_db()
+    try:
+        existe = conn.execute(
+            """
+            SELECT id
+            FROM coordenacao_horarios
+            WHERE data_disponivel=? AND horario_inicio=? AND ativo=1
+            """,
+            (data_disponivel, horario_inicio)
+        ).fetchone()
+        if existe:
+            flash('Já existe um horário publicado nessa data e horário.', 'error')
+            return redirect(url_for('coordenacao_page'))
+        conn.execute(
+            """
+            INSERT INTO coordenacao_horarios(
+                coordenador_id, coordenador_nome, data_disponivel,
+                horario_inicio, horario_fim, local, observacao
+            ) VALUES(?,?,?,?,?,?,?)
+            """,
+            (current_user.id, coordenador_nome, data_disponivel, horario_inicio, horario_fim, local, observacao)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    registrar_log('CRIAR_HORARIO_COORDENACAO', f'{current_user.username} abriu {data_disponivel} {horario_inicio}')
+    flash('Horário disponibilizado para os alunos.', 'success')
+    return redirect(url_for('coordenacao_page'))
+
+
+@app.route('/coordenacao/horarios/<int:horario_id>/desativar', methods=['POST'])
+@login_required
+@requer_papel_page('coordenador')
+def desativar_horario_coordenacao(horario_id):
+    conn = get_db()
+    try:
+        ocupado = conn.execute(
+            "SELECT id FROM coordenacao_agendamentos WHERE horario_id=? AND status='confirmado'",
+            (horario_id,)
+        ).fetchone()
+        if ocupado:
+            flash('Esse horário já tem aluno marcado. Cancele o agendamento antes de remover o horário.', 'error')
+            return redirect(url_for('coordenacao_page'))
+        conn.execute('UPDATE coordenacao_horarios SET ativo=0, updated_at=CURRENT_TIMESTAMP WHERE id=?', (horario_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+    registrar_log('DESATIVAR_HORARIO_COORDENACAO', f'{current_user.username} removeu horário #{horario_id}')
+    flash('Horário removido da lista de disponibilidade.', 'success')
+    return redirect(url_for('coordenacao_page'))
+
+
+@app.route('/coordenacao/agendar/<int:horario_id>', methods=['POST'])
+@login_required
+@requer_papel_page('aluno')
+def agendar_horario_coordenacao(horario_id):
+    assunto = request.form.get('assunto', '').strip()
+    observacao = request.form.get('observacao', '').strip()
+    if not assunto:
+        flash('Informe rapidamente o assunto da conversa.', 'error')
+        return redirect(url_for('coordenacao_page'))
+
+    aluno_nome = current_user.nome_completo or current_user.username
+    conn = get_db()
+    try:
+        horario = conn.execute(
+            """
+            SELECT *
+            FROM coordenacao_horarios
+            WHERE id=? AND ativo=1 AND data_disponivel>=?
+            """,
+            (horario_id, data_hoje_iso())
+        ).fetchone()
+        if not horario:
+            flash('Esse horário não está mais disponível.', 'error')
+            return redirect(url_for('coordenacao_page'))
+        ocupado = conn.execute(
+            "SELECT id FROM coordenacao_agendamentos WHERE horario_id=? AND status='confirmado'",
+            (horario_id,)
+        ).fetchone()
+        if ocupado:
+            flash('Esse horário acabou de ser reservado por outro aluno.', 'error')
+            return redirect(url_for('coordenacao_page'))
+
+        cur = conn.execute(
+            """
+            INSERT INTO coordenacao_agendamentos(horario_id, aluno_id, aluno_nome, assunto, observacao)
+            VALUES(?,?,?,?,?)
+            """,
+            (horario_id, current_user.id, aluno_nome, assunto, observacao)
+        )
+        conn.commit()
+        agendamento = row_coord_agendamento(conn, cur.lastrowid)
+    finally:
+        conn.close()
+
+    if agendamento:
+        notificar_coord_agendamento_email(dict(agendamento), 'criado')
+    registrar_log('AGENDAR_COORDENACAO', f'{current_user.username} reservou horário #{horario_id}')
+    flash('Horário com a coordenação confirmado.', 'success')
+    return redirect(url_for('coordenacao_page'))
+
+
+@app.route('/coordenacao/agendamentos/<int:agendamento_id>/cancelar', methods=['POST'])
+@login_required
+@requer_papel_page('coordenador', 'aluno')
+def cancelar_agendamento_coordenacao(agendamento_id):
+    resposta = request.form.get('resposta', '').strip()
+    conn = get_db()
+    try:
+        agendamento = row_coord_agendamento(conn, agendamento_id)
+        if not agendamento:
+            flash('Agendamento não encontrado.', 'error')
+            return redirect(url_for('coordenacao_page'))
+        if current_user.role == 'aluno' and agendamento['aluno_id'] != current_user.id:
+            flash('Você não pode cancelar um horário de outro aluno.', 'error')
+            return redirect(url_for('coordenacao_page'))
+        conn.execute(
+            """
+            UPDATE coordenacao_agendamentos
+            SET status='cancelado', resposta=?, updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            (resposta, agendamento_id)
+        )
+        conn.commit()
+        agendamento_atualizado = row_coord_agendamento(conn, agendamento_id)
+    finally:
+        conn.close()
+
+    if agendamento_atualizado:
+        notificar_coord_agendamento_email(dict(agendamento_atualizado), 'cancelado', resposta=resposta)
+    registrar_log('CANCELAR_COORDENACAO', f'{current_user.username} cancelou horário de coordenação #{agendamento_id}')
+    flash('Horário com a coordenação cancelado.', 'success')
+    return redirect(url_for('coordenacao_page'))
 
 
 @app.route('/sobre')
@@ -2415,8 +2852,7 @@ def minha_supervisao():
     total_alunos_sem_paciente = 0
     solicitacoes_por_aluno = {}
     for row in solicitacoes_rows:
-        sol = dict(row)
-        sol['status_label'] = STATUS_SOLICITACAO_VAGA.get(sol.get('status'), sol.get('status'))
+        sol = preparar_solicitacao_vaga(row)
         solicitacoes_por_aluno.setdefault(sol.get('aluno_id'), []).append(sol)
 
     for aluno_row in alunos_rows:
@@ -2483,9 +2919,7 @@ def minha_supervisao():
 
     solicitacoes_vagas = []
     for row in solicitacoes_rows:
-        sol = dict(row)
-        sol['status_label'] = STATUS_SOLICITACAO_VAGA.get(sol.get('status'), sol.get('status'))
-        solicitacoes_vagas.append(sol)
+        solicitacoes_vagas.append(preparar_solicitacao_vaga(row))
 
     return render_template(
         'minha_supervisao.html',
@@ -2942,7 +3376,17 @@ def trocar_senha():
         finally:
             conn.close()
         registrar_log('TROCAR_SENHA', f'Usuário {current_user.username} alterou a própria senha')
-        notificar_senha_alterada_email(row, 'troca')
+        try:
+            if not notificar_senha_alterada_email(row, 'troca'):
+                registrar_log(
+                    'EMAIL_NAO_ENVIADO',
+                    f'Aviso de senha alterada não enviado para {current_user.username}: SMTP indisponível ou e-mail ausente'
+                )
+        except Exception as exc:
+            registrar_log(
+                'EMAIL_ERRO',
+                f'Falha ao enviar aviso de senha alterada para {current_user.username}: {exc}'
+            )
         flash('Senha alterada com sucesso!', 'success')
         return redirect(url_for('perfil'))
     return render_template('trocar_senha.html', usuario=current_user.username, papel=current_user.role)
@@ -3389,7 +3833,12 @@ def list_ag():
     if current_user.role == 'aluno':
         q += ' AND (a.usuario_id = ? OR (a.usuario_id IS NULL AND a.estagiario = ?))'
         p += [current_user.id, current_user.username]
-    q += ' ORDER BY a.horario, a.sala, a.data_especifica'
+    q += (
+        ' ORDER BY a.horario, a.sala, '
+        'a.ocupa_sala DESC, '
+        "CASE WHEN a.data_especifica IS NOT NULL AND a.data_especifica != '' THEN 0 ELSE 1 END, "
+        'a.data_especifica, a.id'
+    )
     conn = get_db()
     try:
         rows = conn.execute(q, p).fetchall()
@@ -3884,11 +4333,20 @@ def categoria_por_texto_excel(texto):
         return 'AMBULATÓRIO NEUROPSICOLOGIA'
     if 'PLANT' in up:
         return 'PLANTÃO PSICOLÓGICO'
-    if re.search(r'\b10\s*[°º]', texto):
-        return 'ESTAGIÁRIO 10°'
-    if re.search(r'\b9\s*[°º]', texto):
-        return 'ESTAGIÁRIO 9°'
     return 'OUTRO'
+
+
+def semestre_por_texto_excel(texto):
+    if re.search(r'\b10\s*[°º]', texto or ''):
+        return 10
+    if re.search(r'\b9\s*[°º]', texto or ''):
+        return 9
+    return 0
+
+
+def texto_excel_eh_marcador_operacional(texto):
+    categoria = categoria_por_texto_excel(texto or '')
+    return categoria if categoria in ('MARCAR', 'NÃO MARCAR') else ''
 
 
 def montar_agendamento_excel(dia, horario, sala, texto_principal, texto_secundario, ano=None):
@@ -3901,22 +4359,33 @@ def montar_agendamento_excel(dia, horario, sala, texto_principal, texto_secundar
 
     triagem = 1 if re.search(r'\btriagem\b', texto_total, flags=re.I) else 0
     data_especifica = extrair_data_pontual_excel(texto_total, ano)
+    semestre = semestre_por_texto_excel(texto_total)
+    categoria_principal = categoria_por_texto_excel(texto_principal)
+    categoria_secundaria = categoria_por_texto_excel(texto_secundario)
+    marcador_secundario = texto_excel_eh_marcador_operacional(texto_secundario)
     categoria = categoria_por_texto_excel(texto_total)
     estagiario = ''
     paciente = ''
     observacao = ''
 
-    if categoria.startswith('ESTAGIÁRIO'):
+    if marcador_secundario and semestre:
         estagiario = limpar_marcadores_excel(texto_principal)
-        paciente = limpar_marcadores_excel(texto_secundario)
-        if paciente.upper() in ('MARCAR', 'MARCAR TRIAGEM', 'NÃO MARCAR', 'NAO MARCAR'):
-            observacao = paciente
-            paciente = ''
+        categoria = marcador_secundario
+        observacao = limpar_marcadores_excel(texto_secundario)
     elif categoria in ('MARCAR', 'NÃO MARCAR'):
         estagiario = limpar_marcadores_excel(texto_principal)
         observacao = limpar_marcadores_excel(texto_total)
         if categoria == 'MARCAR':
             estagiario = ''
+    elif semestre:
+        estagiario = limpar_marcadores_excel(texto_principal)
+        paciente = limpar_marcadores_excel(texto_secundario)
+        if categoria_principal != 'OUTRO':
+            categoria = categoria_principal
+        elif categoria_secundaria != 'OUTRO':
+            categoria = categoria_secundaria
+        else:
+            categoria = 'OUTRO'
     else:
         estagiario = limpar_marcadores_excel(texto_principal)
         observacao = limpar_marcadores_excel(texto_total)
@@ -3931,6 +4400,7 @@ def montar_agendamento_excel(dia, horario, sala, texto_principal, texto_secundar
         'estagiario': estagiario,
         'paciente': paciente,
         'categoria': categoria,
+        'semestre': semestre,
         'triagem': triagem,
         'observacao': observacao,
         'data_especifica': data_especifica,

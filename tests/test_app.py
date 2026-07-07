@@ -34,6 +34,8 @@ class MapaSalasTestCase(unittest.TestCase):
                 conn.execute('DELETE FROM reservas')
             if 'tarefas_painel' in tabelas:
                 conn.execute('DELETE FROM tarefas_painel')
+            if 'solicitacoes_vagas' in tabelas:
+                conn.execute('DELETE FROM solicitacoes_vagas')
             conn.execute('DELETE FROM usuarios')
             self.coord_id = self._criar_usuario(conn, 'coordenador', 'coordenador')
             self.recepcao_id = self._criar_usuario(conn, 'recepcao', 'recepcao')
@@ -344,6 +346,77 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertIn('Triagem aberta', html)
         self.assertNotIn('aluno2', html)
         self.assertNotIn('Paciente De Outro Professor', html)
+
+    def test_professor_precisa_escolher_aluno_para_solicitar_vagas(self):
+        self._login('professor1')
+
+        resp = self.client.post(
+            '/minha-supervisao/solicitacoes-vagas',
+            data={
+                'csrf_token': self.csrf,
+                'aluno_id': '',
+                'vagas_paciente': '1',
+                'vagas_triagem': '0',
+                'observacao': 'Abrir horário para paciente'
+            }
+        )
+
+        self.assertEqual(resp.status_code, 302)
+        conn = mapa.get_db()
+        try:
+            total = conn.execute('SELECT COUNT(*) AS total FROM solicitacoes_vagas').fetchone()['total']
+        finally:
+            conn.close()
+        self.assertEqual(total, 0)
+
+    def test_recepcao_aprova_pedido_de_vagas_na_tela_reservas(self):
+        self._login('professor1')
+        criar = self.client.post(
+            '/minha-supervisao/solicitacoes-vagas',
+            data={
+                'csrf_token': self.csrf,
+                'aluno_id': str(self.aluno1_id),
+                'vagas_paciente': '1',
+                'vagas_triagem': '2',
+                'observacao': 'Aluno precisa completar carga prática'
+            }
+        )
+        self.assertEqual(criar.status_code, 302)
+
+        self._login('recepcao')
+        tela = self.client.get('/reservas')
+        html = tela.get_data(as_text=True)
+
+        self.assertEqual(tela.status_code, 200)
+        self.assertIn('Pedidos dos professores', html)
+        self.assertIn('Aluno precisa completar carga prática', html)
+
+        conn = mapa.get_db()
+        try:
+            pedido = conn.execute('SELECT id FROM solicitacoes_vagas').fetchone()
+        finally:
+            conn.close()
+
+        aprovar = self.client.post(
+            f'/solicitacoes-vagas/{pedido["id"]}/status',
+            data={
+                'csrf_token': self.csrf,
+                'status': 'atendida',
+                'resposta': 'Aprovado pela recepção.',
+                'next': '/reservas#pedidos-vagas'
+            }
+        )
+        self.assertEqual(aprovar.status_code, 302)
+
+        conn = mapa.get_db()
+        try:
+            status = conn.execute(
+                'SELECT status FROM solicitacoes_vagas WHERE id=?',
+                (pedido['id'],)
+            ).fetchone()['status']
+        finally:
+            conn.close()
+        self.assertEqual(status, 'atendida')
 
     def test_recepcao_cria_e_conclui_afazer_compartilhado(self):
         self._login('recepcao')

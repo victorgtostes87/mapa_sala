@@ -122,6 +122,16 @@ def label_status_reserva(status):
     }.get(status, status)
 
 
+def label_status_solicitacao_vaga(status):
+    return {
+        'pendente': 'Pendente',
+        'em_analise': 'Em análise',
+        'atendida_parcial': 'Atendida parcialmente',
+        'atendida': 'Atendida',
+        'recusada': 'Recusada',
+    }.get(status, status)
+
+
 def preparar_reserva(row, candidatos_sala):
     r = dict(row)
     r['status_label'] = label_status_reserva(r.get('status'))
@@ -235,6 +245,7 @@ def registrar_rotas_reservas(app, deps):
             removidas = limpar_salas_vencidas(conn)
             if removidas:
                 conn.commit()
+            solicitacoes_vagas_rows = []
             if current_user.role == 'aluno':
                 rows = conn.execute(
                     reserva_select + """
@@ -265,6 +276,14 @@ def registrar_rotas_reservas(app, deps):
                     """,
                     (data_hoje_iso(),)
                 ).fetchall()
+                solicitacoes_vagas_rows = conn.execute(
+                    """
+                    SELECT *
+                    FROM solicitacoes_vagas
+                    WHERE status IN ('pendente', 'em_analise', 'atendida_parcial')
+                    ORDER BY created_at ASC
+                    """
+                ).fetchall()
             else:
                 flash('Acesso negado.', 'error')
                 return redirect(url_for('index'))
@@ -287,6 +306,11 @@ def registrar_rotas_reservas(app, deps):
         minhas_reservas = [preparar_reserva(r, candidatos_sala) for r in rows]
         pendentes = [preparar_reserva(r, candidatos_sala) for r in pendentes]
         caderno_instrumentos = [preparar_reserva(r, candidatos_sala) for r in caderno_rows]
+        solicitacoes_vagas = []
+        for row in solicitacoes_vagas_rows:
+            item = dict(row)
+            item['status_label'] = label_status_solicitacao_vaga(item.get('status'))
+            solicitacoes_vagas.append(item)
         aprovadas_sala = [
             r for r in minhas_reservas
             if r.get('tipo') == 'sala' and r.get('status') == 'aprovada'
@@ -315,6 +339,7 @@ def registrar_rotas_reservas(app, deps):
             recentes_instrumento=[r for r in minhas_reservas if r.get('tipo') == 'instrumento'],
             aprovadas_sala=aprovadas_sala,
             aprovadas_instrumentos=aprovadas_instrumentos,
+            solicitacoes_vagas=solicitacoes_vagas,
         )
 
     @app.route('/reservas/limpar-salas-vencidas', methods=['POST'])

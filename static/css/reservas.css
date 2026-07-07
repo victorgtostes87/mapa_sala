@@ -159,6 +159,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0
   border-color:#bfdbfe;
 }
 
+.board.requests{
+  border-color:#7c3aed;
+}
+
 .board-title{
   display:flex;
   align-items:center;
@@ -187,6 +191,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0
 .reserva-card.recusada{border-left:4px solid var(--danger)}
 .reserva-card.devolvido,
 .reserva-card.guardado{border-left:4px solid #64748b}
+.reserva-card.pedido-vaga{border-left:4px solid #7c3aed}
 
 .card-top{
   display:flex;
@@ -224,6 +229,9 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0
 .status.recusada{background:#7f1d1d;color:#fecaca}
 .status.devolvido,
 .status.guardado{background:#475569;color:#e2e8f0}
+.status.em_analise{background:#1e3a8a;color:#dbeafe}
+.status.atendida_parcial{background:#4c1d95;color:#ddd6fe}
+.status.atendida{background:#14532d;color:#bbf7d0}
 
 .meta-list{
   display:flex;
@@ -271,6 +279,16 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0
   margin-top:12px;
   padding-top:12px;
   border-top:1px solid var(--border);
+}
+
+.vaga-actions{
+  margin-top:12px;
+  padding-top:12px;
+  border-top:1px solid var(--border);
+}
+
+.vaga-actions textarea{
+  min-height:66px;
 }
 
 .button-row{
@@ -328,4 +346,5 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0
   .form-card .btn{width:100%}
   .correction-line{grid-template-columns:1fr}
   .button-row{display:grid;grid-template-columns:1fr}
+  .vaga-actions .button-row{grid-template-columns:1fr}
 }

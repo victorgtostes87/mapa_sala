@@ -11,7 +11,7 @@
 </head>
 <body>
   <nav class="app-nav">
-    <a class="app-nav-brand" href="/"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
+    <a class="app-nav-brand" href="/mapa" title="Voltar para o mapa"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
     <div class="app-nav-title">Reservas</div>
     <div class="app-nav-spacer"></div>
     <div class="app-nav-user">
@@ -154,6 +154,40 @@
   </div>
   {% endmacro %}
 
+  {% macro pedido_vaga_card(sol) %}
+  <article class="reserva-card pedido-vaga {{ sol.status }}">
+    <div class="card-top">
+      <div>
+        <span class="kind">Pedido de vagas</span>
+        <h3>{{ sol.aluno_nome }}</h3>
+      </div>
+      <span class="status {{ sol.status }}">{{ sol.status_label }}</span>
+    </div>
+
+    <div class="meta-list">
+      <span><i data-lucide="graduation-cap"></i>{{ sol.professor_nome }}</span>
+      <span><i data-lucide="user-plus"></i>{{ sol.vagas_paciente }} paciente(s)</span>
+      <span><i data-lucide="clipboard-check"></i>{{ sol.vagas_triagem }} triagem(ns)</span>
+    </div>
+
+    {% if sol.observacao %}<p><strong>Observação do professor:</strong> {{ sol.observacao }}</p>{% endif %}
+    {% if sol.resposta %}<p><strong>Resposta anterior:</strong> {{ sol.resposta }}</p>{% endif %}
+
+    <form class="vaga-actions" method="post" action="{{ url_for('atualizar_solicitacao_vagas', solicitacao_id=sol.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="next" value="/reservas#pedidos-vagas">
+      <label>Resposta para o professor</label>
+      <textarea name="resposta" placeholder="Ex: aprovado; recepção vai buscar fichas compatíveis.">{{ sol.resposta }}</textarea>
+      <div class="button-row">
+        <button class="btn secondary" type="submit" name="status" value="em_analise"><i data-lucide="clock-3"></i> Em análise</button>
+        <button class="btn primary" type="submit" name="status" value="atendida"><i data-lucide="check"></i> Aprovar</button>
+        <button class="btn correction" type="submit" name="status" value="atendida_parcial"><i data-lucide="check-check"></i> Parcial</button>
+        <button class="btn danger" type="submit" name="status" value="recusada"><i data-lucide="x"></i> Recusar</button>
+      </div>
+    </form>
+  </article>
+  {% endmacro %}
+
   <main class="reservas-page">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -276,6 +310,19 @@
     </section>
 
     {% else %}
+    <section class="board requests" id="pedidos-vagas">
+      <div class="board-title">
+        <h2><i data-lucide="users-round"></i> Pedidos dos professores</h2>
+      </div>
+      <div class="list">
+        {% if solicitacoes_vagas %}
+          {% for sol in solicitacoes_vagas %}{{ pedido_vaga_card(sol) }}{% endfor %}
+        {% else %}
+          {{ empty_box('Nenhum pedido de vaga de paciente ou triagem pendente.') }}
+        {% endif %}
+      </div>
+    </section>
+
     <section class="board">
       <div class="board-title">
         <h2><i data-lucide="door-open"></i> Reservas de sala pendentes</h2>

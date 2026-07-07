@@ -50,7 +50,7 @@ DB_PATH = os.environ.get(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 )
 
-VERSAO = '2026-07-07-v30'
+VERSAO = '2026-07-07-v32'
 EMAIL_BASE_URL = os.environ.get('EMAIL_BASE_URL', '').rstrip('/')
 EMAIL_FROM = os.environ.get('EMAIL_FROM', os.environ.get('SMTP_USER', ''))
 SMTP_HOST = os.environ.get('SMTP_HOST', '')
@@ -1505,7 +1505,21 @@ def checar_conflito(dia, horario, sala, data_especifica='', excluir_id=None):
 
 
 def contar_reservas_pendentes():
-    return reservas_mod.contar_reservas_pendentes(get_db)
+    total = reservas_mod.contar_reservas_pendentes(get_db)
+    if not current_user.is_authenticated or current_user.role not in ('coordenador', 'recepcao'):
+        return total
+    conn = get_db()
+    try:
+        row = conn.execute(
+            """
+            SELECT COUNT(*) AS total
+            FROM solicitacoes_vagas
+            WHERE status IN ('pendente', 'em_analise', 'atendida_parcial')
+            """
+        ).fetchone()
+        return total + (row['total'] if row else 0)
+    finally:
+        conn.close()
 
 
 def validar_antecedencia_minima(data_uso, horario_inicio):
@@ -2020,7 +2034,7 @@ def painel_recepcao():
         checklist_auto.append({
             'titulo': 'Responder solicitações de vagas',
             'detalhe': f'{len(solicitacoes_vagas_pendentes)} pedido(s), somando {total_vagas} vaga(s).',
-            'url': url_for('painel_recepcao') + '#solicitacoes-vagas'
+            'url': url_for('reservas') + '#pedidos-vagas'
         })
 
     return render_template(
@@ -2135,9 +2149,12 @@ def criar_solicitacao_vagas():
 def atualizar_solicitacao_vagas(solicitacao_id):
     status = request.form.get('status', '').strip()
     resposta = request.form.get('resposta', '').strip()
+    proximo = request.form.get('next') or request.referrer or (url_for('painel_recepcao') + '#solicitacoes-vagas')
+    if not str(proximo).startswith('/'):
+        proximo = url_for('painel_recepcao') + '#solicitacoes-vagas'
     if status not in STATUS_SOLICITACAO_VAGA:
         flash('Status inválido para solicitação de vagas.', 'error')
-        return redirect(url_for('painel_recepcao') + '#solicitacoes-vagas')
+        return redirect(proximo)
 
     conn = get_db()
     try:
@@ -2147,7 +2164,7 @@ def atualizar_solicitacao_vagas(solicitacao_id):
         ).fetchone()
         if not row:
             flash('Solicitação de vagas não encontrada.', 'error')
-            return redirect(url_for('painel_recepcao') + '#solicitacoes-vagas')
+            return redirect(proximo)
 
         conn.execute(
             """
@@ -2166,7 +2183,7 @@ def atualizar_solicitacao_vagas(solicitacao_id):
         f'{current_user.username} marcou solicitação #{solicitacao_id} como {status}'
     )
     flash('Solicitação de vagas atualizada.', 'success')
-    return redirect(url_for('painel_recepcao') + '#solicitacoes-vagas')
+    return redirect(proximo)
 
 
 @app.route('/painel/tarefas/<int:tid>/concluir', methods=['POST'])

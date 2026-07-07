@@ -50,7 +50,7 @@ DB_PATH = os.environ.get(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 )
 
-VERSAO = '2026-06-30-v29'
+VERSAO = '2026-07-07-v30'
 EMAIL_BASE_URL = os.environ.get('EMAIL_BASE_URL', '').rstrip('/')
 EMAIL_FROM = os.environ.get('EMAIL_FROM', os.environ.get('SMTP_USER', ''))
 SMTP_HOST = os.environ.get('SMTP_HOST', '')

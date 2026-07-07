@@ -11,16 +11,21 @@
 </head>
 <body>
   <nav class="app-nav">
-    <a class="app-nav-brand" href="/mapa" title="Voltar para o mapa"><img class="app-nav-logo" src="{{ url_for('static', filename='img/mapa-sala-logo.png') }}" alt=""><span>Mapa de Sala</span></a>
-    <div class="app-nav-title">Mapa de Sala - Policlínica Psicologia UVV</div>
+    <a class="app-nav-brand" href="/painel" title="Painel da recepção">
+      <i data-lucide="layout-dashboard"></i>
+      <span>Painel da Recepção</span>
+    </a>
     <div class="app-nav-spacer"></div>
     <div class="app-nav-user">
       <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
       <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
     </div>
     <div class="app-nav-actions">
-      <a href="/" class="app-btn app-btn-ghost" onclick="voltarAbaAnterior(event, '/')"><i data-lucide="arrow-left"></i> Voltar</a>
+      <a href="/afazeres" class="app-btn app-btn-ghost"><i data-lucide="list-checks"></i> Afazeres</a>
+      <a href="/reservas" class="app-btn app-btn-ghost"><i data-lucide="bell"></i> Reservas</a>
+      <a href="/horarios-abertos" class="app-btn app-btn-ghost"><i data-lucide="clock"></i> Horários abertos</a>
       <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
+      <a href="/sobre" class="app-btn app-btn-ghost"><i data-lucide="info"></i> Sobre</a>
       <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
     </div>
   </nav>
@@ -30,9 +35,9 @@
       <div>
         <p class="eyebrow">Hoje, {{ hoje_label }}</p>
         <h1>Painel da recepção</h1>
-        <p class="muted">Foco no que precisa ser resolvido: reservas pendentes, instrumentos pendentes e afazeres do turno.</p>
+        <p class="muted">Uma visão curta do que precisa de atenção no turno.</p>
       </div>
-      <a class="quick-map" href="/afazeres"><i data-lucide="list-checks"></i> Abrir afazeres</a>
+      <a class="hero-action" href="/afazeres"><i data-lucide="list-checks"></i> Abrir afazeres</a>
     </section>
 
     {% with mensagens = get_flashed_messages(with_categories=true) %}
@@ -66,7 +71,7 @@
 
     <section class="action-today">
       <div>
-        <p class="eyebrow">Precisa de ação hoje</p>
+        <p class="eyebrow">Precisa de ação</p>
         <h2>{{ (pendentes_sala|length) + (pendentes_instrumento|length) + (tarefas_manuais|length) + (solicitacoes_vagas|length) }} item(ns) para conferir</h2>
       </div>
       <div class="action-links">
@@ -141,7 +146,7 @@
           {% endfor %}
         </div>
         {% else %}
-        <div class="empty positive"><i data-lucide="check-circle-2"></i><span>Nenhuma reserva de sala pendente. Não há nada para aprovar agora.</span></div>
+        <div class="empty positive"><i data-lucide="check-circle-2"></i><span>Nenhuma reserva de sala pendente.</span></div>
         {% endif %}
       </article>
 
@@ -207,16 +212,6 @@
     </section>
   </main>
 
-  <script>
-    lucide.createIcons();
-    function togglePainelMenu(ev){
-      ev.stopPropagation();
-      document.getElementById('painelDropdownMenu').classList.toggle('open');
-    }
-    document.addEventListener('click', function(){
-      var menu = document.getElementById('painelDropdownMenu');
-      if(menu) menu.classList.remove('open');
-    });
-  </script>
+  <script>lucide.createIcons();</script>
 </body>
 </html>

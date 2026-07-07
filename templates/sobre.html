@@ -5,14 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sobre o Sistema</title>
   <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
-<script src="{{ url_for('static', filename='js/voltar.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/voltar.js') }}"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/painel_recepcao.css') }}">
 </head>
 <body>
   <nav class="app-nav">
-    <a class="app-nav-brand" href="/sobre"><i data-lucide="info"></i><span>Sobre</span></a>
-    <div class="app-nav-title">Mapa de Sala - Policlínica Psicologia UVV</div>
+    <a class="app-nav-brand" href="/sobre" title="Sobre o sistema">
+      <i data-lucide="info"></i>
+      <span>Sobre</span>
+    </a>
     <div class="app-nav-spacer"></div>
     <div class="app-nav-user">
       <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
@@ -26,32 +28,49 @@
   </nav>
 
   <main class="dashboard-page">
-    <section class="hero">
+    <section class="hero about-hero">
       <div>
         <p class="eyebrow">Informações do sistema</p>
         <h1>Mapa de Sala - Policlínica Psicologia UVV</h1>
-        <p class="muted">Sistema interno para organização de salas, reservas, instrumentos e rotina da recepção.</p>
+        <p class="muted">Sistema interno para organizar salas, reservas, instrumentos e tarefas da recepção.</p>
       </div>
+      <img class="about-logo" src="{{ url_for('static', filename='img/uvv-logo.png') }}" alt="UVV">
     </section>
 
     <section class="panel-grid">
       <article class="panel">
         <div class="panel-head">
           <div>
-            <p class="eyebrow">Versão</p>
+            <p class="eyebrow">Versão atual</p>
             <h2>{{ versao }}</h2>
           </div>
         </div>
-        <p class="muted">Esta versão inclui mapa de sala, reservas, afazeres compartilhados, impressão e exportação.</p>
+        <p class="muted">Esta versão inclui mapa de salas, tela do aluno, tela do professor, reservas, caderno de instrumentos, afazeres, impressão e exportação.</p>
       </article>
+
       <article class="panel">
         <div class="panel-head">
           <div>
-            <p class="eyebrow">Uso diário</p>
-            <h2>Feito para rotina interna</h2>
+            <p class="eyebrow">Objetivo</p>
+            <h2>Reduzir conflito e retrabalho</h2>
           </div>
         </div>
-        <p class="muted">O foco é ajudar recepção, coordenação, professores e alunos a reduzir conflitos de horário e retrabalho.</p>
+        <p class="muted">O foco é facilitar a rotina da recepção, coordenação, professores e alunos, sem substituir o sistema clínico oficial.</p>
+      </article>
+
+      <article class="panel wide">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Uso diário</p>
+            <h2>Ferramenta simples para a clínica-escola</h2>
+          </div>
+        </div>
+        <div class="about-list">
+          <span><i data-lucide="calendar-days"></i> Visualização rápida dos horários e salas</span>
+          <span><i data-lucide="clipboard-list"></i> Reservas de sala e instrumentos</span>
+          <span><i data-lucide="users-round"></i> Visões específicas para alunos e professores</span>
+          <span><i data-lucide="list-checks"></i> Afazeres compartilhados da recepção</span>
+        </div>
       </article>
     </section>
   </main>

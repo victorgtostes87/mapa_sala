@@ -50,7 +50,7 @@ DB_PATH = os.environ.get(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 )
 
-VERSAO = '2026-07-08-v40'
+VERSAO = '2026-07-08-v41'
 EMAIL_BASE_URL = os.environ.get('EMAIL_BASE_URL', '').rstrip('/')
 EMAIL_FROM = os.environ.get('EMAIL_FROM', os.environ.get('SMTP_USER', ''))
 SMTP_HOST = os.environ.get('SMTP_HOST', '')
@@ -71,7 +71,7 @@ limiter = Limiter(
     storage_uri='memory://'
 )
 
-PAPEIS_VALIDOS = ('coordenador', 'recepcao', 'professor', 'aluno')
+PAPEIS_VALIDOS = ('coordenador', 'recepcao', 'professor', 'aluno', 'somente_leitura')
 STATUS_SOLICITACAO_VAGA = {
     'pendente': 'Pendente',
     'em_analise': 'Em análise',
@@ -296,7 +296,8 @@ PAPEIS_LABEL = {
     'coordenador': 'Coordenador',
     'recepcao': 'Recepcionista',
     'professor': 'Professor',
-    'aluno': 'Aluno'
+    'aluno': 'Aluno',
+    'somente_leitura': 'Somente leitura'
 }
 
 LOG_RETENCAO_DIAS = 15
@@ -1998,6 +1999,120 @@ def renderizar_mapa_sala():
     )
 
 
+def coletar_painel_coordenacao():
+    hoje = data_hoje_iso()
+    filtro_agendamento_ativo = (
+        "((a.data_especifica IS NULL OR a.data_especifica = '') "
+        "OR a.data_especifica >= ?)"
+    )
+    joins_aluno = (
+        "LEFT JOIN usuarios aluno ON aluno.id = a.usuario_id "
+        "LEFT JOIN usuarios aluno_nome ON aluno_nome.username = a.estagiario "
+        "     AND aluno_nome.role='aluno' AND a.usuario_id IS NULL "
+        "LEFT JOIN usuarios prof ON prof.id = COALESCE(aluno.supervisor_id, aluno_nome.supervisor_id)"
+    )
+    nome_aluno = "COALESCE(NULLIF(aluno.nome_completo, ''), aluno.username, NULLIF(aluno_nome.nome_completo, ''), aluno_nome.username, a.estagiario)"
+    nome_supervisor = "COALESCE(NULLIF(prof.nome_completo, ''), prof.username, 'Sem supervisor')"
+
+    with db_connection() as conn:
+        total_alunos = conn.execute(
+            "SELECT COUNT(*) FROM usuarios WHERE role='aluno' AND ativo=1"
+        ).fetchone()[0]
+
+        alunos_sem_paciente = conn.execute(
+            """
+            SELECT u.id, COALESCE(NULLIF(u.nome_completo, ''), u.username) AS aluno,
+                   COALESCE(NULLIF(p.nome_completo, ''), p.username, 'Sem supervisor') AS supervisor
+            FROM usuarios u
+            LEFT JOIN usuarios p ON p.id = u.supervisor_id
+            WHERE u.role='aluno' AND u.ativo=1
+              AND NOT EXISTS (
+                SELECT 1
+                FROM agendamentos a
+                WHERE TRIM(COALESCE(a.paciente, '')) != ''
+                  AND COALESCE(a.status_atendimento, '') = ''
+                  AND ((a.usuario_id = u.id) OR (a.usuario_id IS NULL AND a.estagiario = u.username))
+                  AND ((a.data_especifica IS NULL OR a.data_especifica = '') OR a.data_especifica >= ?)
+              )
+            ORDER BY supervisor COLLATE NOCASE, aluno COLLATE NOCASE
+            LIMIT 80
+            """,
+            (hoje,)
+        ).fetchall()
+
+        triagens_abertas = conn.execute(
+            f"""
+            SELECT a.id, a.dia_semana, a.horario, a.sala,
+                   {nome_aluno} AS aluno,
+                   {nome_supervisor} AS supervisor,
+                   a.categoria, a.data_especifica
+            FROM agendamentos a
+            {joins_aluno}
+            WHERE a.triagem=1
+              AND TRIM(COALESCE(a.paciente, '')) = ''
+              AND COALESCE(a.status_atendimento, '') = ''
+              AND {filtro_agendamento_ativo}
+            ORDER BY supervisor COLLATE NOCASE, aluno COLLATE NOCASE, a.dia_semana, a.horario
+            LIMIT 80
+            """,
+            (hoje,)
+        ).fetchall()
+
+        horarios_ociosos = conn.execute(
+            f"""
+            SELECT a.id, a.dia_semana, a.horario, a.sala,
+                   {nome_aluno} AS aluno,
+                   {nome_supervisor} AS supervisor,
+                   a.categoria, a.data_especifica
+            FROM agendamentos a
+            {joins_aluno}
+            WHERE COALESCE(a.ocupa_sala, 0)=0
+              AND TRIM(COALESCE(a.paciente, '')) = ''
+              AND COALESCE(a.status_atendimento, '') = ''
+              AND COALESCE(a.categoria, '') != 'NÃO MARCAR'
+              AND {filtro_agendamento_ativo}
+            ORDER BY a.dia_semana, a.horario, a.sala
+            LIMIT 120
+            """,
+            (hoje,)
+        ).fetchall()
+
+        ocupacao_por_dia = conn.execute(
+            """
+            SELECT dia_semana, COUNT(*) AS total
+            FROM agendamentos a
+            WHERE COALESCE(a.ocupa_sala, 0)=1
+              AND COALESCE(a.status_atendimento, '') = ''
+              AND ((a.data_especifica IS NULL OR a.data_especifica = '') OR a.data_especifica >= ?)
+            GROUP BY dia_semana
+            """,
+            (hoje,)
+        ).fetchall()
+
+    mapa_dias = {r['dia_semana']: r['total'] for r in ocupacao_por_dia}
+    return {
+        'total_alunos': total_alunos,
+        'alunos_sem_paciente': [dict(r) for r in alunos_sem_paciente],
+        'triagens_abertas': [dict(r) for r in triagens_abertas],
+        'horarios_ociosos': [dict(r) for r in horarios_ociosos],
+        'dias': [{'label': DIAS_PT.get(dia, dia), 'total': mapa_dias.get(dia, 0)} for dia in DIAS],
+    }
+
+
+@app.route('/painel-coordenacao')
+@login_required
+@requer_papel_page('coordenador', 'somente_leitura')
+def painel_coordenacao():
+    dados = coletar_painel_coordenacao()
+    return render_template(
+        'painel_coordenacao.html',
+        usuario=current_user.username,
+        papel=current_user.role,
+        papel_label=PAPEIS_LABEL.get(current_user.role, current_user.role),
+        dados=dados
+    )
+
+
 @app.route('/painel')
 @login_required
 @requer_papel_page('coordenador', 'recepcao')
@@ -2694,6 +2809,23 @@ def termo_uso():
     )
 
 
+@app.route('/ajuda')
+@app.route('/ajuda/<topico>')
+@login_required
+def ajuda(topico='recepcao'):
+    topicos_validos = ('recepcao', 'coordenacao', 'backup')
+    if topico not in topicos_validos:
+        topico = 'recepcao'
+    return render_template(
+        'ajuda.html',
+        usuario=current_user.username,
+        papel=current_user.role,
+        papel_label=PAPEIS_LABEL.get(current_user.role, current_user.role),
+        topico=topico,
+        versao=VERSAO
+    )
+
+
 @app.route('/horarios-abertos')
 @login_required
 @requer_papel_page('coordenador', 'recepcao')
@@ -2952,7 +3084,7 @@ def minha_supervisao():
 
 @app.route('/relatorio-semanal')
 @login_required
-@requer_papel_page('coordenador')
+@requer_papel_page('coordenador', 'somente_leitura')
 def relatorio_semanal():
     hoje_dt = datetime.now().date()
     inicio_dt = hoje_dt - timedelta(days=hoje_dt.weekday())
@@ -4001,7 +4133,7 @@ def update_ag(aid):
 
 @app.route('/api/agendamentos/<int:aid>', methods=['DELETE'])
 @login_required
-@requer_papel('coordenador', 'recepcao')
+@requer_papel('coordenador')
 @limiter.limit('30 per minute')
 def delete_ag(aid):
     conn = get_db()

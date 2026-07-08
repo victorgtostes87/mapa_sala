@@ -41,7 +41,8 @@
       <option>LOGIN</option><option>LOGOUT</option><option>BACKUP</option>
       <option>CRIAR</option><option>EDITAR</option><option>EXCLUIR</option>
       <option>CRIAR_USUARIO</option><option>EDITAR_USUARIO</option><option>EXCLUIR_USUARIO</option>
-      <option>IMPORTAR_CSV</option><option>IMPORTAR_XLSX</option><option>EXPORTAR</option>
+      <option>IMPORTAR_CSV</option><option>IMPORTAR_XLSX</option><option>DESFAZER_IMPORTACAO</option><option>EXPORTAR</option>
+      <option>LIMPAR_LOGS</option><option>APAGAR_LOGS_RECENTES</option>
     </select>
     <button type="button" class="btn-secondary" id="btnFiltrar">Filtrar</button>
     <button type="button" class="btn-secondary" id="btnLimpar">Limpar</button>
@@ -82,9 +83,10 @@ let ultimaAcao = '';
 const CORES = {
   CRIAR:'acao-criar', EDITAR:'acao-editar', EXCLUIR:'acao-excluir',
   LOGIN:'acao-login', LOGOUT:'acao-logout', EXPORTAR:'acao-exportar',
-  BACKUP:'acao-backup', IMPORTAR_CSV:'acao-importar', IMPORTAR_XLSX:'acao-importar',
+  BACKUP:'acao-backup', IMPORTAR_CSV:'acao-importar', IMPORTAR_XLSX:'acao-importar', DESFAZER_IMPORTACAO:'acao-importar',
   CRIAR_USUARIO:'acao-criar', EDITAR_USUARIO:'acao-editar',
-  EXCLUIR_USUARIO:'acao-excluir', INATIVAR_USUARIO:'acao-excluir'
+  EXCLUIR_USUARIO:'acao-excluir', INATIVAR_USUARIO:'acao-excluir',
+  LIMPAR_LOGS:'acao-excluir', APAGAR_LOGS_RECENTES:'acao-excluir'
 };
 
 function formatTs(ts){
@@ -105,7 +107,7 @@ function atualizarResumo(logs){
   document.getElementById('sumTotal').textContent = totalRegistros;
   document.getElementById('sumLogin').textContent = logs.filter(r => r.acao === 'LOGIN').length;
   document.getElementById('sumBackup').textContent = logs.filter(r => r.acao === 'BACKUP').length;
-  document.getElementById('sumChanges').textContent = logs.filter(r => ['CRIAR','EDITAR','EXCLUIR','CRIAR_USUARIO','EDITAR_USUARIO','EXCLUIR_USUARIO','INATIVAR_USUARIO'].includes(r.acao)).length;
+  document.getElementById('sumChanges').textContent = logs.filter(r => ['CRIAR','EDITAR','EXCLUIR','CRIAR_USUARIO','EDITAR_USUARIO','EXCLUIR_USUARIO','INATIVAR_USUARIO','IMPORTAR_CSV','IMPORTAR_XLSX','DESFAZER_IMPORTACAO','LIMPAR_LOGS','APAGAR_LOGS_RECENTES'].includes(r.acao)).length;
 }
 
 function render(logs){

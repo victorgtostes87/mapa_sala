@@ -5,6 +5,7 @@ const PROFESSORES = window.MAPA_CONFIG.professores || [];
 const PAPEL = window.MAPA_CONFIG.papel;
 const CSRF_TOKEN = window.MAPA_CONFIG.csrfToken;
 const PODE_EDITAR = ['coordenador','recepcao'].includes(PAPEL);
+const PODE_EXCLUIR = PAPEL === 'coordenador';
 let currentDay = DIAS[0];
 let debTimer = null;
 let conflictTimer = null;
@@ -304,7 +305,7 @@ async function openModal(id){
   }
   document.getElementById('readOnlyView').style.display='none';
   document.getElementById('editView').style.display='block';
-  document.getElementById('deleteBtn').style.display=id?'inline-flex':'none';
+  document.getElementById('deleteBtn').style.display=(id && PODE_EXCLUIR)?'inline-flex':'none';
   if(id){
     try {
       const r = await fetch('/api/agendamentos/'+id);
@@ -413,6 +414,10 @@ async function saveAg(){
   } else { showToast((data.erro||'Erro ao salvar'),'error'); }
 }
 function deleteAg(){
+  if(!PODE_EXCLUIR){
+    showToast('Apenas coordenador pode remover agendamentos.', 'error');
+    return;
+  }
   const id=document.getElementById('fId').value;
   if(!id) return;
   const sala    = document.getElementById('fSala').value;
@@ -501,7 +506,7 @@ async function submitImportExcel(e){
   }
 }
 async function desfazerUltimaImportacao(){
-  const ok = confirm('Desfazer a ultima importacao e voltar o mapa para o estado anterior?');
+  const ok = confirm('Desfazer a última importação e voltar o mapa para o estado anterior?');
   if(!ok) return;
 
   const btn = document.getElementById('undoImportBtn');

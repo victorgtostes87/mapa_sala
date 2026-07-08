@@ -1,0 +1,21 @@
+:root{--bg:#0f172a;--surface:#1e293b;--surface2:#162033;--border:#334155;--text:#e2e8f0;--text2:#94a3b8;--accent:#3b82f6;--warn:#f59e0b;--ok:#22c55e;--radius:8px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif}
+.coord-page{max-width:1180px;margin:24px auto 44px;padding:0 18px}
+.hero{background:linear-gradient(135deg,#1e293b,#172033);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.eyebrow{color:#93c5fd;text-transform:uppercase;letter-spacing:.5px;font-size:11px;font-weight:800;margin-bottom:6px}
+.hero h1{font-size:26px;margin-bottom:6px}.hero p{color:var(--text2);line-height:1.5}
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.metrics article{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:15px}
+.metrics span,.panel header span{display:block;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;font-size:11px;font-weight:800}
+.metrics strong{display:block;font-size:28px;margin-top:6px}.metrics .warn strong{color:var(--warn)}.metrics .info strong{color:#38bdf8}
+.panel-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;min-height:220px}
+.panel header{margin-bottom:12px}.panel h2{font-size:18px;margin-top:4px}
+.list{display:grid;gap:8px;max-height:430px;overflow:auto;padding-right:4px}
+.row,.day-row{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px}
+.row strong,.day-row strong{display:block;color:#f8fafc}.row span{display:block;color:var(--text2);font-size:12px;margin-top:4px;line-height:1.4}
+.schedule strong{font-size:13px}.day-list{display:grid;gap:8px}.day-row{display:flex;align-items:center;justify-content:space-between}
+.day-row span{color:var(--text2)}.day-row strong{font-size:18px;color:#93c5fd}
+.empty{border:1px dashed var(--border);border-radius:var(--radius);padding:16px;color:var(--text2);background:var(--surface2);line-height:1.5}
+@media (max-width:900px){.metrics,.panel-grid{grid-template-columns:1fr}.coord-page{padding:0 12px;margin-top:16px}.hero h1{font-size:22px}}

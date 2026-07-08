@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Painel da Coordenação</title>
+  <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/voltar.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/painel_coordenacao.css') }}">
+</head>
+<body>
+  <nav class="app-nav">
+    <a class="app-nav-brand" href="/mapa" title="Voltar para o mapa"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
+    <div class="app-nav-title">Painel da coordenação</div>
+    <div class="app-nav-spacer"></div>
+    <div class="app-nav-user">
+      <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
+      <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
+    </div>
+    <div class="app-nav-actions">
+      <a href="/" class="app-btn app-btn-ghost" onclick="voltarAbaAnterior(event, '/')"><i data-lucide="arrow-left"></i> Voltar</a>
+      <a href="/relatorio-semanal" class="app-btn app-btn-ghost"><i data-lucide="file-bar-chart"></i> Relatório</a>
+      <a href="/ajuda/coordenacao" class="app-btn app-btn-ghost"><i data-lucide="book-open"></i> Ajuda</a>
+      <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
+    </div>
+  </nav>
+
+  <main class="coord-page">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Visão acadêmica e operacional</p>
+        <h1>Painel da coordenação</h1>
+        <p>Indicadores simples para acompanhar alunos sem paciente, triagens abertas e horários que ainda podem ser aproveitados.</p>
+      </div>
+    </section>
+
+    <section class="metrics">
+      <article>
+        <span>Alunos ativos</span>
+        <strong>{{ dados.total_alunos }}</strong>
+      </article>
+      <article class="warn">
+        <span>Alunos sem paciente</span>
+        <strong>{{ dados.alunos_sem_paciente|length }}</strong>
+      </article>
+      <article class="info">
+        <span>Triagens abertas</span>
+        <strong>{{ dados.triagens_abertas|length }}</strong>
+      </article>
+      <article class="neutral">
+        <span>Horários ociosos</span>
+        <strong>{{ dados.horarios_ociosos|length }}</strong>
+      </article>
+    </section>
+
+    <section class="panel-grid">
+      <article class="panel">
+        <header>
+          <div>
+            <span>Relatório</span>
+            <h2>Alunos sem paciente</h2>
+          </div>
+        </header>
+        {% if dados.alunos_sem_paciente %}
+        <div class="list">
+          {% for item in dados.alunos_sem_paciente %}
+          <div class="row">
+            <strong>{{ item.aluno }}</strong>
+            <span>{{ item.supervisor }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty">Todos os alunos ativos têm pelo menos um paciente ou triagem marcada.</div>
+        {% endif %}
+      </article>
+
+      <article class="panel">
+        <header>
+          <div>
+            <span>Relatório</span>
+            <h2>Triagens abertas</h2>
+          </div>
+        </header>
+        {% if dados.triagens_abertas %}
+        <div class="list">
+          {% for item in dados.triagens_abertas %}
+          <div class="row schedule">
+            <strong>{{ item.aluno or 'Aluno não identificado' }}</strong>
+            <span>{{ item.supervisor }} · {{ item.dia_semana }} {{ item.horario }} · {{ item.sala }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty">Nenhuma triagem aberta sem paciente no momento.</div>
+        {% endif %}
+      </article>
+
+      <article class="panel">
+        <header>
+          <div>
+            <span>Relatório</span>
+            <h2>Horários ociosos</h2>
+          </div>
+        </header>
+        {% if dados.horarios_ociosos %}
+        <div class="list">
+          {% for item in dados.horarios_ociosos %}
+          <div class="row schedule">
+            <strong>{{ item.dia_semana }} {{ item.horario }} · {{ item.sala }}</strong>
+            <span>{{ item.aluno or item.categoria or 'Disponível' }}{% if item.supervisor %} · {{ item.supervisor }}{% endif %}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty">Nenhum horário ocioso encontrado pelos critérios atuais.</div>
+        {% endif %}
+      </article>
+
+      <article class="panel">
+        <header>
+          <div>
+            <span>Uso das salas</span>
+            <h2>Atendimentos por dia</h2>
+          </div>
+        </header>
+        <div class="day-list">
+          {% for dia in dados.dias %}
+          <div class="day-row">
+            <span>{{ dia.label }}</span>
+            <strong>{{ dia.total }}</strong>
+          </div>
+          {% endfor %}
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script>lucide.createIcons();</script>
+</body>
+</html>

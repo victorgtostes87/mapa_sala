@@ -21,7 +21,7 @@
   </div>
 
   <div class="app-nav-actions">
-    {% if papel == 'coordenador' %}
+    {% if papel in ['coordenador', 'recepcao'] %}
     <button class="app-btn app-btn-primary" onclick="openModal(null)"><i data-lucide="circle-plus"></i> Novo</button>
     {% endif %}
     <div class="app-dropdown" id="menuDropdown">
@@ -30,6 +30,8 @@
     </button>
     <div class="app-dropdown-menu" id="dropdownMenu">
       {% if papel == 'coordenador' %}
+      <a href="/painel-coordenacao"><i data-lucide="bar-chart-3"></i> Painel coordenação</a>
+      <a href="/relatorio-semanal"><i data-lucide="file-bar-chart"></i> Relatório semanal</a>
       <a href="/coordenacao"><i data-lucide="messages-square"></i> Coordenação</a>
       <a href="/painel"><i data-lucide="layout-dashboard"></i> Painel</a>
       <a href="/afazeres"><i data-lucide="list-checks"></i> Afazeres</a>
@@ -42,6 +44,7 @@
       <button onclick="openImportModal()"><i data-lucide="upload"></i> Importar Excel</button>
       <button onclick="exportCSV()"><i data-lucide="download"></i> Exportar</button>
       <a href="/imprimir" target="_blank"><i data-lucide="printer"></i> Imprimir</a>
+      <a href="/ajuda/coordenacao"><i data-lucide="book-open"></i> Ajuda</a>
       {% elif papel == 'recepcao' %}
       <a href="/painel"><i data-lucide="layout-dashboard"></i> Painel</a>
       <a href="/afazeres"><i data-lucide="list-checks"></i> Afazeres</a>
@@ -49,6 +52,11 @@
       <a href="/horarios-abertos"><i data-lucide="calendar-plus"></i> Horários abertos</a>
       <button onclick="exportCSV()"><i data-lucide="download"></i> Exportar</button>
       <a href="/imprimir" target="_blank"><i data-lucide="printer"></i> Imprimir</a>
+      <a href="/ajuda/recepcao"><i data-lucide="book-open"></i> Ajuda</a>
+      {% elif papel == 'somente_leitura' %}
+      <a href="/painel-coordenacao"><i data-lucide="bar-chart-3"></i> Painel coordenação</a>
+      <a href="/relatorio-semanal"><i data-lucide="file-bar-chart"></i> Relatório semanal</a>
+      <a href="/ajuda/coordenacao"><i data-lucide="book-open"></i> Ajuda</a>
       {% endif %}
       <a href="/perfil"><i data-lucide="user-round"></i> Perfil</a>
       <a href="/sobre"><i data-lucide="info"></i> Sobre</a>
@@ -241,7 +249,7 @@
   <div class="modal">
     <h2>Importar mapa do Excel</h2>
     <p style="color:var(--text2);font-size:12px;line-height:1.5;margin-bottom:14px">
-      Use um arquivo .xlsx no modelo do mapa antigo. O sistema l- apenas as abas de segunda a sexta e ignora a aba TRIAGEM.
+      Use um arquivo .xlsx no modelo do mapa antigo. O sistema lê apenas as abas de segunda a sexta e ignora a aba TRIAGEM.
     </p>
     <form id="importForm">
       <div class="form-row">
@@ -256,11 +264,11 @@
         Se essa opção ficar desmarcada, o sistema tenta adicionar os dados e avisa quando encontrar conflitos.
       </div>
       <div style="font-size:11px;color:var(--text2);line-height:1.45;margin-top:8px">
-        Antes de importar, o sistema guarda uma copia do mapa atual. Se algo ficar errado, use "Desfazer ultima importacao".
+        Antes de importar, o sistema guarda uma cópia do mapa atual. Se algo ficar errado, use "Desfazer última importação".
       </div>
       <div id="importResult" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-top:14px;font-size:12px;color:var(--text2);line-height:1.6"></div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-danger" id="undoImportBtn" onclick="desfazerUltimaImportacao()"><i data-lucide="rotate-ccw"></i> Desfazer ultima importacao</button>
+        <button type="button" class="btn btn-danger" id="undoImportBtn" onclick="desfazerUltimaImportacao()"><i data-lucide="rotate-ccw"></i> Desfazer última importação</button>
         <button type="button" class="btn btn-ghost" onclick="closeImportModal()"><i data-lucide="x"></i> Cancelar</button>
         <button type="submit" class="btn btn-primary" id="importBtn"><i data-lucide="upload"></i> Importar</button>
       </div>

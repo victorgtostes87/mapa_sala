@@ -46,6 +46,7 @@ class MapaSalasTestCase(unittest.TestCase):
             self.professor_id = self._criar_usuario(conn, 'professor1', 'professor')
             self.aluno1_id = self._criar_usuario(conn, 'aluno1', 'aluno')
             self.aluno2_id = self._criar_usuario(conn, 'aluno2', 'aluno')
+            self.leitura_id = self._criar_usuario(conn, 'direcao', 'somente_leitura')
             conn.execute('UPDATE usuarios SET supervisor_id=? WHERE id=?', (self.professor_id, self.aluno1_id))
             conn.commit()
         finally:
@@ -116,6 +117,39 @@ class MapaSalasTestCase(unittest.TestCase):
         while data.weekday() >= 5:
             data += timedelta(days=1)
         return data.strftime('%Y-%m-%d')
+
+    def test_somente_leitura_consulta_mapa_e_painel_sem_editar(self):
+        self._login('direcao')
+
+        mapa_resp = self.client.get('/mapa')
+        painel_resp = self.client.get('/painel-coordenacao')
+        criar_resp = self._criar_agendamento_api()
+        importar_resp = self.client.post(
+            '/api/import',
+            data={'file': (io.BytesIO(b''), 'mapa.csv')},
+            headers={'X-CSRFToken': self.csrf}
+        )
+
+        self.assertEqual(mapa_resp.status_code, 200)
+        self.assertEqual(painel_resp.status_code, 200)
+        self.assertEqual(criar_resp.status_code, 403)
+        self.assertEqual(importar_resp.status_code, 403)
+
+    def test_apenas_coordenador_remove_agendamento(self):
+        self._login('coordenador')
+        criado = self._criar_agendamento_api()
+        self.assertEqual(criado.status_code, 201)
+        ag_id = criado.get_json()['id']
+
+        self.client.get('/logout')
+        self._login('recepcao')
+        negado = self.client.delete(f'/api/agendamentos/{ag_id}', headers={'X-CSRFToken': self.csrf})
+        self.assertEqual(negado.status_code, 403)
+
+        self.client.get('/logout')
+        self._login('coordenador')
+        removido = self.client.delete(f'/api/agendamentos/{ag_id}', headers={'X-CSRFToken': self.csrf})
+        self.assertEqual(removido.status_code, 200)
 
     def test_recepcao_cria_agendamento_vinculado_ao_aluno(self):
         self._login('recepcao')

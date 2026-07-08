@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ajuda do Sistema</title>
+  <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/voltar.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/ajuda.css') }}">
+</head>
+<body>
+  <nav class="app-nav">
+    <a class="app-nav-brand" href="/mapa" title="Voltar para o mapa"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
+    <div class="app-nav-title">Ajuda</div>
+    <div class="app-nav-spacer"></div>
+    <div class="app-nav-user">
+      <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
+      <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
+    </div>
+    <div class="app-nav-actions">
+      <a href="/" class="app-btn app-btn-ghost" onclick="voltarAbaAnterior(event, '/')"><i data-lucide="arrow-left"></i> Voltar</a>
+      <a href="/sobre" class="app-btn app-btn-ghost"><i data-lucide="info"></i> Sobre</a>
+      <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
+    </div>
+  </nav>
+
+  <main class="help-page">
+    <section class="hero">
+      <p class="eyebrow">Documentação curta</p>
+      <h1>Como usar o sistema</h1>
+      <p>Guia rápido para consulta no dia a dia. O sistema é um apoio operacional e não substitui o prontuário nem o sistema clínico oficial.</p>
+    </section>
+
+    <nav class="help-tabs">
+      <a class="{{ 'active' if topico == 'recepcao' else '' }}" href="/ajuda/recepcao">Recepção</a>
+      <a class="{{ 'active' if topico == 'coordenacao' else '' }}" href="/ajuda/coordenacao">Coordenação</a>
+      <a class="{{ 'active' if topico == 'backup' else '' }}" href="/ajuda/backup">Restaurar backup</a>
+    </nav>
+
+    {% if topico == 'recepcao' %}
+    <section class="doc-card">
+      <h2>Como usar: recepção</h2>
+      <ol>
+        <li>Abra o <strong>Painel</strong> para ver pendências do turno.</li>
+        <li>Use <strong>Horários abertos</strong> para encontrar alunos que ainda podem receber paciente ou triagem.</li>
+        <li>Use <strong>Reservas</strong> para aprovar ou recusar pedidos de sala e acompanhar instrumentos.</li>
+        <li>Use <strong>Afazeres</strong> como lista compartilhada, no lugar de post-its no monitor.</li>
+        <li>No mapa, cadastre somente informações operacionais: aluno, sala, horário, categoria e se é triagem.</li>
+      </ol>
+      <div class="note">Evite colocar dados clínicos sensíveis em observações. Se a informação pertence ao atendimento, ela deve ficar no sistema clínico oficial.</div>
+    </section>
+    {% elif topico == 'coordenacao' %}
+    <section class="doc-card">
+      <h2>Como usar: coordenação</h2>
+      <ol>
+        <li>Use o <strong>Painel da coordenação</strong> para acompanhar alunos sem paciente, triagens abertas e horários ociosos.</li>
+        <li>Use <strong>Relatório semanal</strong> para uma visão resumida do uso das salas e supervisões.</li>
+        <li>Use <strong>Usuários</strong> para cadastrar, editar, inativar ou excluir cadastros criados por engano.</li>
+        <li>Use <strong>Logs</strong> para conferir ações importantes: login, criação, edição, exclusão, importação, backup e apagamento de logs.</li>
+        <li>Use <strong>Backup</strong> antes de importar Excel ou fazer mudanças grandes no mapa.</li>
+      </ol>
+      <div class="note">Permissões críticas ficam com coordenador: excluir usuário, excluir agendamento, importar Excel, baixar backup e apagar logs.</div>
+    </section>
+    {% else %}
+    <section class="doc-card">
+      <h2>Como restaurar backup</h2>
+      <ol>
+        <li>Avise a coordenação e combine um horário sem usuários usando o sistema.</li>
+        <li>Baixe o backup mais seguro disponível e guarde uma cópia do banco atual antes de substituir qualquer arquivo.</li>
+        <li>No PythonAnywhere, abra o console Bash e entre na pasta do projeto.</li>
+        <li>Substitua o arquivo do banco SQLite pelo backup escolhido.</li>
+        <li>Rode o comando de manutenção e depois faça reload do Web App.</li>
+        <li>Entre no sistema e confira usuários, mapa, reservas e logs principais.</li>
+      </ol>
+      <pre><code>cd ~/mapa_sala
+flask --app app manutencao
+flask --app app manutencao --vacuum</code></pre>
+      <div class="note danger">Restaurar backup troca o estado do sistema. Faça isso só quando houver erro real, importação incorreta ou perda de dados.</div>
+    </section>
+    {% endif %}
+  </main>
+
+  <script>lucide.createIcons();</script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-const SALAS = window.MAPA_CONFIG.salas;
+﻿const SALAS = window.MAPA_CONFIG.salas;
 const HORARIOS = window.MAPA_CONFIG.horarios;
 const DIAS = window.MAPA_CONFIG.dias;
 const PROFESSORES = window.MAPA_CONFIG.professores || [];
@@ -148,6 +148,7 @@ function renderAgendamentoCell(ag, cellTemOcupacao=false){
   const cls = CAT_CLASS[ag.categoria] || 'cat-outro';
   const badgeHtml = ag.triagem ? '<span class="badge">triagem</span>' : '';
   const dataHtml  = ag.data_especifica ? '<span class="badge badge-date">somente '+formatarDataCurta(ag.data_especifica)+'</span>' : '<span class="badge badge-fixed">fixo semanal</span>';
+  const periodoHtml = parseInt(ag.semestre) ? `<span class="badge badge-periodo">${parseInt(ag.semestre)}- período</span>` : '';
   const statusLabel = STATUS_ATENDIMENTO_LABEL[ag.status_atendimento] || '';
   const statusHtml = statusLabel ? `<span class="badge badge-cancelado">${statusLabel}</span>` : '';
   const ocupa = parseInt(ag.ocupa_sala) === 1;
@@ -164,7 +165,7 @@ function renderAgendamentoCell(ag, cellTemOcupacao=false){
     ${ag.paciente ? '<div class="patient">'+esc(ag.paciente)+'</div>' : ''}
     ${supervisorHtml}
     ${obsHtml}
-    <div style="display:flex;gap:3px;flex-wrap:wrap">${statusHtml}${badgeHtml}${dataHtml}</div>
+    <div style="display:flex;gap:3px;flex-wrap:wrap">${periodoHtml}${statusHtml}${badgeHtml}${dataHtml}</div>
     ${usarBtn}
   </div>`;
 }
@@ -263,7 +264,7 @@ async function verificarConflito() {
       box.classList.add('show');
       btn.disabled=true; btn.style.opacity='0.4'; btn.style.cursor='not-allowed'; temConflito=true;
     } else if(data.conflito){
-      msg.textContent=`${sala} — ${horario} (${dia}): ocupada por ${data.estagiario||data.categoria||'outro'}`;
+      msg.textContent=`${sala} · ${horario} (${dia}): ocupada por ${data.estagiario||data.categoria||'outro'}`;
       box.classList.add('show');
       btn.disabled=true; btn.style.opacity='0.4'; btn.style.cursor='not-allowed'; temConflito=true;
     } else {
@@ -291,9 +292,9 @@ async function openModal(id){
       if (!r.ok) throw new Error(d.erro || 'Não foi possível abrir o agendamento.');
       document.getElementById('readOnlyContent').innerHTML=
         `<strong>Sala:</strong> ${esc(d.sala)}<br><strong>Horário:</strong> ${esc(d.horario)}<br>
-         <strong>Estagiário:</strong> ${esc(d.estagiario)||'—'}<br>
-         <strong>Paciente:</strong> ${esc(d.paciente)||'—'}<br>
-         <strong>Categoria:</strong> ${esc(d.categoria)||'—'}<br>
+         <strong>Estagiário:</strong> ${esc(d.estagiario)||'-'}<br>
+         <strong>Paciente:</strong> ${esc(d.paciente)||'-'}<br>
+         <strong>Categoria:</strong> ${esc(d.categoria)||'-'}<br>
          <strong>Ocupa sala:</strong> ${parseInt(d.ocupa_sala)===1?'Sim':'Não'}<br>
          ${d.observacao?'<strong>Obs:</strong> '+esc(d.observacao):''}`;
     } catch (err) {
@@ -313,7 +314,7 @@ async function openModal(id){
       document.getElementById('fEstagiario').value=d.estagiario||'';
       atualizarSupervisorHint(d.supervisor_nome || '');
       document.getElementById('fPaciente').value=d.paciente||'';
-      setF('fCategoria',d.categoria); setF('fTriagem',d.triagem);
+      setCategoriaSelecionada(d.categoria); setF('fSemestre',d.semestre || 0); setF('fTriagem',d.triagem);
       setF('fStatusAtendimento',d.status_atendimento || '');
       document.getElementById('fData').value=d.data_especifica||'';
       document.getElementById('fObs').value=d.observacao||'';
@@ -323,7 +324,7 @@ async function openModal(id){
       return;
     }
   } else {
-    setF('fDia',currentDay); setF('fCategoria',''); setF('fTriagem',0); setF('fStatusAtendimento',''); setF('fOcupaSala','');
+    setF('fDia',currentDay); setCategoriaSelecionada(''); setF('fSemestre',0); setF('fTriagem',0); setF('fStatusAtendimento',''); setF('fOcupaSala','');
     ['fEstagiario','fPaciente','fData','fObs'].forEach(id=>document.getElementById(id).value='');
     atualizarSupervisorHint('');
     document.getElementById('fObs').placeholder='Ex: estudar, lançar prontuário, professor não liberou, uso interno...';
@@ -349,18 +350,38 @@ function openUsoPontual(h,s){
   },50);
 }
 function setF(id,val){ const el=document.getElementById(id); if(el) el.value=val; }
+function setCategoriaSelecionada(valor){
+  const select = document.getElementById('fCategoria');
+  if(!select) return;
+  const existe = Array.from(select.options).some(opt => opt.value === valor);
+  if(!existe && valor){
+    const opt = document.createElement('option');
+    opt.value = valor;
+    opt.textContent = `Registro antigo: ${valor}`;
+    opt.dataset.legacy = '1';
+    select.appendChild(opt);
+  }
+  select.value = valor || '';
+}
 function closeModal(){ document.getElementById('modalOverlay').classList.remove('open'); }
 function closeModalIfBg(e){ if(e.target.id==='modalOverlay') closeModal(); }
 async function saveAg(){
   if(temConflito){ showToast('Resolva o conflito antes de salvar!','error'); return; }
   const id=document.getElementById('fId').value;
+  const categoriaSelecionada = document.getElementById('fCategoria').value;
+  const semestreSelecionado = parseInt(document.getElementById('fSemestre')?.value)||0;
+  if(semestreSelecionado && !categoriaSelecionada){
+    showToast('Escolha a função do horário: MARCAR, NÃO MARCAR, prontuário, supervisão etc.','error');
+    return;
+  }
   const body={
     dia_semana:document.getElementById('fDia').value,
     horario:document.getElementById('fHorario').value,
     sala:document.getElementById('fSala').value,
     estagiario:document.getElementById('fEstagiario').value.trim(),
     paciente:document.getElementById('fPaciente').value.trim(),
-    categoria:document.getElementById('fCategoria').value,
+    categoria:categoriaSelecionada,
+    semestre:semestreSelecionado,
     triagem:parseInt(document.getElementById('fTriagem').value)||0,
     status_atendimento:document.getElementById('fStatusAtendimento')?.value || '',
     data_especifica:document.getElementById('fData').value.trim(),

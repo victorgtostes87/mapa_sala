@@ -20,6 +20,7 @@
     <div class="app-nav-actions">
       <a href="/coordenacao" class="app-btn app-btn-ghost"><i data-lucide="messages-square"></i> Coordenação</a>
       <a href="/reservas" class="app-btn app-btn-primary"><i data-lucide="clipboard-list"></i> Solicitar reserva</a>
+      <a href="/termo-uso" class="app-btn app-btn-ghost"><i data-lucide="shield-check"></i> Termo</a>
       <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
       <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
     </div>
@@ -30,7 +31,7 @@
       <div>
         <p class="eyebrow">Área do aluno</p>
         <h1>Seu mapa pessoal</h1>
-        <p class="muted">Veja rapidamente seus pacientes, horários aguardando marcação e reservas futuras.</p>
+        <p class="muted">Veja seus horários, salas e reservas. Por segurança, esta tela não exibe dados sensíveis de pacientes.</p>
       </div>
       <div class="hero-actions">
         <a href="#pacientes" class="filter-btn active"><i data-lucide="users"></i> Pacientes</a>
@@ -41,7 +42,7 @@
 
     <section class="summary">
       <a class="summary-card patient-summary" href="#pacientes">
-        <span>Pacientes marcados</span>
+        <span>Horários com paciente</span>
         <strong>{{ total_atendimentos }}</strong>
       </a>
       <a class="summary-card open-summary" href="#horarios">
@@ -68,7 +69,7 @@
       </div>
       <div class="now-list">
         {% if total_atendimentos %}
-        <div class="now-item ok"><i data-lucide="user-check"></i><span>Você tem paciente marcado. Confira dia, horário e sala em Pacientes.</span></div>
+        <div class="now-item ok"><i data-lucide="user-check"></i><span>Você tem horário com paciente marcado. Confira dia, horário e sala.</span></div>
         {% else %}
         <div class="now-item quiet"><i data-lucide="user-x"></i><span>Você ainda não tem paciente marcado.</span></div>
         {% endif %}
@@ -87,9 +88,9 @@
     <section class="section-head" id="pacientes">
       <div>
         <p class="eyebrow">Pacientes</p>
-        <h2>Pacientes fixos e triagens pontuais</h2>
+        <h2>Horários com paciente ou triagem marcada</h2>
       </div>
-      <span>{{ total_atendimentos }} paciente(s)</span>
+      <span>{{ total_atendimentos }} horário(s)</span>
     </section>
 
     {% if atendimentos_paciente %}
@@ -103,7 +104,7 @@
         <div class="appointment-main">
           <div class="card-top">
             <div>
-              <h2>{{ ag.paciente }}</h2>
+              <h2>{{ ag.paciente_label_aluno }}</h2>
               <p>{{ ag.sala }} · {{ ag.categoria or 'Sem categoria' }}</p>
             </div>
             <div class="badges">
@@ -117,9 +118,6 @@
             {% else %}
             <div><i data-lucide="repeat"></i><span>Atendimento fixo semanal</span></div>
             {% endif %}
-            {% if ag.observacao %}
-            <div><i data-lucide="sticky-note"></i><span>{{ ag.observacao }}</span></div>
-            {% endif %}
           </div>
         </div>
       </article>
@@ -129,14 +127,14 @@
     <section class="empty-state compact">
       <i data-lucide="calendar-x"></i>
       <h2>Você ainda não tem paciente marcado</h2>
-      <p>Quando a recepção marcar um paciente fixo ou uma triagem pontual, ele aparecerá nesta parte.</p>
+      <p>Quando a recepção marcar um paciente fixo ou uma triagem pontual, o horário aparecerá nesta parte.</p>
     </section>
     {% endif %}
 
     <section class="section-head" id="horarios">
       <div>
         <p class="eyebrow">Horários</p>
-        <h2>Horários reservados (abertos ou fechados)</h2>
+        <h2>Horários reservados sem paciente</h2>
       </div>
       <span>{{ total_fixos }} horário(s)</span>
     </section>
@@ -158,13 +156,10 @@
           <div class="details compact-details">
             <div><i data-lucide="tag"></i><span>{{ ag.categoria or 'Sem categoria' }}</span></div>
             {% if ag.paciente_pontual_label %}
-            <div><i data-lucide="calendar-check"></i><span>Uso pontual: <strong>{{ ag.paciente_pontual_label }}</strong></span></div>
+            <div><i data-lucide="calendar-check"></i><span>{{ ag.paciente_pontual_label }}</span></div>
             {% endif %}
             {% if ag.triagem and not ag.paciente_pontual_label %}
             <div class="triagem-warning"><i data-lucide="clipboard-check"></i><span>Aguardando paciente da recepção</span></div>
-            {% endif %}
-            {% if ag.observacao %}
-            <div><i data-lucide="sticky-note"></i><span>{{ ag.observacao }}</span></div>
             {% endif %}
           </div>
         </div>

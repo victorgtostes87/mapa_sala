@@ -749,7 +749,8 @@ class MapaSalasTestCase(unittest.TestCase):
         html = resp.get_data(as_text=True)
 
         self.assertEqual(resp.status_code, 200)
-        self.assertIn('Paciente Do Aluno', html)
+        self.assertIn('Paciente marcado', html)
+        self.assertNotIn('Paciente Do Aluno', html)
         self.assertNotIn('Paciente De Outro Aluno', html)
 
     def test_tela_aluno_separa_fixos_de_pacientes_marcados(self):
@@ -822,8 +823,10 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertIn('Salas e instrumentos reservados', html)
         self.assertIn('Você tem triagem livre ainda sem paciente marcado.', html)
         self.assertIn('Você tem horário aberto', html)
-        self.assertIn('Paciente Fixo', html)
-        self.assertIn('Triagem Marcada', html)
+        self.assertIn('Paciente marcado', html)
+        self.assertIn('Triagem marcada', html)
+        self.assertNotIn('Paciente Fixo', html)
+        self.assertNotIn('Triagem Marcada', html)
         self.assertIn('Triagem sem paciente marcado', html)
         self.assertIn('Consultório 3', html)
         self.assertEqual(html.count('Triagem sem paciente marcado'), 1)
@@ -854,7 +857,7 @@ class MapaSalasTestCase(unittest.TestCase):
 
         self.assertEqual(resp.status_code, 200)
         self.assertIn('Horário aberto sem paciente', html)
-        self.assertIn('Professor liberou para paciente', html)
+        self.assertNotIn('Professor liberou para paciente', html)
 
     def test_tela_aluno_mostra_reservas_futuras_e_oculta_passadas(self):
         data_futura = self._data_util_com_antecedencia()

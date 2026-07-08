@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login - Mapa de Sala - Policlínica Psicologia UVV</title>
+  <title>{{ titulo }} - Mapa de Sala</title>
   <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
 </head>
@@ -11,8 +11,8 @@
   <div class="card">
     <div class="logo">
       <img class="login-logo-img" src="{{ url_for('static', filename='img/mapa-sala-logo.png') }}" alt="">
-      <h1>Mapa de Sala</h1>
-      <p>Policlínica Psicologia UVV</p>
+      <h1>{{ titulo }}</h1>
+      <p>Usuário: {{ usuario }}</p>
     </div>
 
     {% with messages = get_flashed_messages() %}
@@ -23,21 +23,20 @@
       {% endif %}
     {% endwith %}
 
-    <form method="POST" action="/login">
+    <form method="POST" action="/definir-senha/{{ token }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-group">
-        <label for="username">Usuário ou e-mail</label>
-        <input type="text" id="username" name="username" placeholder="Digite seu usuário ou e-mail" autocomplete="username" required autofocus>
+        <label for="nova_senha">Nova senha</label>
+        <input type="password" id="nova_senha" name="nova_senha" minlength="8" autocomplete="new-password" required autofocus>
       </div>
       <div class="form-group">
-        <label for="password">Senha</label>
-        <input type="password" id="password" name="password" placeholder="Digite sua senha" autocomplete="current-password" required>
+        <label for="confirmar_senha">Confirmar senha</label>
+        <input type="password" id="confirmar_senha" name="confirmar_senha" minlength="8" autocomplete="new-password" required>
       </div>
-      <button type="submit" class="btn"><i data-lucide="lock-keyhole"></i> Entrar</button>
+      <button type="submit" class="btn"><i data-lucide="key-round"></i> Salvar senha</button>
     </form>
 
-    <p class="footer-text"><a href="/recuperar-senha">Esqueci minha senha</a></p>
-    <p class="footer-text">Acesso restrito - apenas usuários autorizados</p>
+    <p class="footer-text"><a href="/login">Voltar para o login</a></p>
   </div>
   <script>lucide.createIcons();</script>
 </body>

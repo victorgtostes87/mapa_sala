@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Termo de Uso Interno</title>
+  <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/voltar.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/painel_recepcao.css') }}">
+</head>
+<body>
+  <nav class="app-nav">
+    <a class="app-nav-brand" href="/mapa" title="Voltar para o mapa"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
+    <div class="app-nav-title">Termo de uso</div>
+    <div class="app-nav-spacer"></div>
+    <div class="app-nav-user">
+      <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
+      <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
+    </div>
+    <div class="app-nav-actions">
+      <a href="/" class="app-btn app-btn-ghost" onclick="voltarAbaAnterior(event, '/')"><i data-lucide="arrow-left"></i> Voltar</a>
+      <a href="/sobre" class="app-btn app-btn-ghost"><i data-lucide="info"></i> Sobre</a>
+      <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
+    </div>
+  </nav>
+
+  <main class="dashboard-page">
+    <section class="hero about-hero">
+      <div>
+        <p class="eyebrow">Uso interno</p>
+        <h1>Termo simples de uso do Mapa de Sala</h1>
+        <p class="muted">Este sistema é uma ferramenta operacional para organizar salas, reservas e horários acadêmicos.</p>
+      </div>
+    </section>
+
+    <section class="panel-grid">
+      <article class="panel wide">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Finalidade</p>
+            <h2>O sistema não é prontuário</h2>
+          </div>
+        </div>
+        <p class="muted">
+          O Mapa de Sala não substitui o sistema clínico oficial da instituição e não deve ser usado para registrar
+          evolução, diagnóstico, queixa, hipótese clínica, conteúdo de sessão ou qualquer informação sensível de paciente.
+        </p>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Pode registrar</p>
+            <h2>Dados operacionais</h2>
+          </div>
+        </div>
+        <div class="about-list">
+          <span><i data-lucide="calendar"></i> Dia e horário</span>
+          <span><i data-lucide="door-open"></i> Sala ou recurso reservado</span>
+          <span><i data-lucide="user-round"></i> Aluno responsável</span>
+          <span><i data-lucide="tag"></i> Tipo de horário: atendimento, triagem ou reserva</span>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Não registrar</p>
+            <h2>Dados clínicos sensíveis</h2>
+          </div>
+        </div>
+        <div class="about-list">
+          <span><i data-lucide="ban"></i> Conteúdo de sessão</span>
+          <span><i data-lucide="ban"></i> Diagnóstico ou hipótese diagnóstica</span>
+          <span><i data-lucide="ban"></i> Queixa ou motivo detalhado</span>
+          <span><i data-lucide="ban"></i> Informações íntimas ou de saúde do paciente</span>
+        </div>
+      </article>
+
+      <article class="panel wide">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Responsabilidade</p>
+            <h2>Uso adequado</h2>
+          </div>
+        </div>
+        <p class="muted">
+          Cada usuário deve acessar apenas as informações necessárias para sua função. Em computadores compartilhados,
+          recomenda-se sair do sistema ao terminar o uso. Em caso de dúvida sobre o que registrar, a orientação é não
+          inserir dado sensível e procurar a coordenação.
+        </p>
+      </article>
+    </section>
+  </main>
+
+  <script>lucide.createIcons();</script>
+</body>
+</html>

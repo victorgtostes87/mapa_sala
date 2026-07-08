@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -37,6 +37,8 @@
       <a href="/horarios-abertos"><i data-lucide="calendar-plus"></i> Horários abertos</a>
       <a href="/usuarios"><i data-lucide="users"></i> Usuários</a>
       <a href="/logs"><i data-lucide="clipboard-list"></i> Logs</a>
+      <a href="/api/backup"><i data-lucide="database-backup"></i> Backup</a>
+      <a href="/termo-uso"><i data-lucide="shield-check"></i> Termo de uso</a>
       <button onclick="openImportModal()"><i data-lucide="upload"></i> Importar Excel</button>
       <button onclick="exportCSV()"><i data-lucide="download"></i> Exportar</button>
       <a href="/imprimir" target="_blank"><i data-lucide="printer"></i> Imprimir</a>
@@ -239,7 +241,7 @@
   <div class="modal">
     <h2>Importar mapa do Excel</h2>
     <p style="color:var(--text2);font-size:12px;line-height:1.5;margin-bottom:14px">
-      Use um arquivo .xlsx no modelo do mapa antigo. O sistema lê apenas as abas de segunda a sexta e ignora a aba TRIAGEM.
+      Use um arquivo .xlsx no modelo do mapa antigo. O sistema l- apenas as abas de segunda a sexta e ignora a aba TRIAGEM.
     </p>
     <form id="importForm">
       <div class="form-row">

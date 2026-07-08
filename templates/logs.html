@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -11,9 +11,9 @@
 </head>
 <body>
 <nav class="app-nav">
-  <a class="app-nav-brand" href="/"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
-  <div class="app-nav-title">Logs do Sistema</div>
-  <div class="app-nav-spacer"></div>
+    <a class="app-nav-brand" href="/mapa" title="Voltar para o mapa"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
+    <div class="app-nav-title">Logs do sistema</div>
+    <div class="app-nav-spacer"></div>
   <div class="app-nav-user">
     <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
     <span class="role-badge role-{{ papel }}">{{ (papeis_label|default({})).get(papel, papel) }}</span>
@@ -151,7 +151,7 @@ function renderControles(total){
   if(total <= 1){ ctrl.innerHTML = ''; return; }
   ctrl.innerHTML = `
     <button class="pag-btn" onclick="irPara(${pagAtual-1})" ${pagAtual===1?'disabled':''}>Anterior</button>
-    <span class="pag-sep">Página ${pagAtual} de ${total}</span>
+    <span class="pag-sep">P-gina ${pagAtual} de ${total}</span>
     <button class="pag-btn" onclick="irPara(${pagAtual+1})" ${pagAtual===total?'disabled':''}>Próxima</button>
   `;
 }

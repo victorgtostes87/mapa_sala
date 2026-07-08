@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Saúde do Sistema</title>
+  <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/saude.css') }}">
+</head>
+<body>
+  <nav class="app-nav">
+    <a class="app-nav-brand" href="/mapa" title="Voltar para o mapa"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
+    <div class="app-nav-title">Saúde do sistema</div>
+    <div class="app-nav-spacer"></div>
+    <div class="app-nav-user">
+      <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
+      <span class="role-badge role-{{ papel }}">{{ (papeis_label|default({})).get(papel, papel) }}</span>
+    </div>
+    <div class="app-nav-actions">
+      <a href="{{ url_for('logs_page') }}" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Logs</a>
+      <a href="{{ url_for('backup_db') }}" class="app-btn app-btn-primary"><i data-lucide="database-backup"></i> Backup</a>
+      <a href="{{ url_for('perfil') }}" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
+    </div>
+  </nav>
+
+  <main class="health-page">
+    <section class="status-band {% if saude.banco_ok %}ok{% else %}fail{% endif %}">
+      <div>
+        <span>Banco de dados</span>
+        <strong>{% if saude.banco_ok %}OK{% else %}Atenção{% endif %}</strong>
+      </div>
+      <p>Integridade: {{ saude.integridade }}</p>
+    </section>
+
+    <section class="metrics">
+      <article><span>Versão</span><strong>{{ saude.versao }}</strong></article>
+      <article><span>Usuários ativos</span><strong>{{ saude.usuarios_ativos }}</strong><em>{{ saude.usuarios_total }} no total</em></article>
+      <article><span>Agendamentos</span><strong>{{ saude.agendamentos_total }}</strong></article>
+      <article><span>Reservas pendentes</span><strong>{{ saude.reservas_pendentes }}</strong></article>
+      <article><span>Logs atuais</span><strong>{{ saude.logs_total }}</strong></article>
+    </section>
+
+    <section class="panel">
+      <header>
+        <div>
+          <span>Backup</span>
+          <h1>Último backup registrado</h1>
+        </div>
+      </header>
+      {% if saude.ultimo_backup %}
+      <div class="backup-row">
+        <strong>{{ saude.ultimo_backup.ts }}</strong>
+        <span>{{ saude.ultimo_backup.usuario }}</span>
+        <em>{{ saude.ultimo_backup.dados }}</em>
+      </div>
+      {% else %}
+      <div class="empty">Nenhum backup confirmado ainda.</div>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <header>
+        <div>
+          <span>Migrações</span>
+          <h1>Alterações de banco aplicadas</h1>
+        </div>
+      </header>
+      {% if saude.migrations %}
+      <div class="migration-list">
+        {% for m in saude.migrations %}
+        <div class="migration-row">
+          <strong>{{ m.version }}</strong>
+          <span>{{ m.description }}</span>
+          <em>{{ m.applied_at }}</em>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty">Nenhuma migração registrada ainda.</div>
+      {% endif %}
+    </section>
+  </main>
+
+  <script>lucide.createIcons();</script>
+</body>
+</html>

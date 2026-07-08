@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-br">
 <head>
   <meta charset="utf-8">
@@ -46,7 +46,7 @@
     </div>
 
     {% if r.finalidade %}<p><strong>Finalidade:</strong> {{ r.finalidade }}</p>{% endif %}
-    {% if r.observacao %}<p><strong>Observação:</strong> {{ r.observacao }}</p>{% endif %}
+    {% if papel in ['coordenador', 'recepcao'] and r.observacao %}<p><strong>Observação:</strong> {{ r.observacao }}</p>{% endif %}
     {% if r.resposta %}<p><strong>Resposta:</strong> {{ r.resposta }}</p>{% endif %}
 
     {% if modo == 'aprovar' %}
@@ -56,7 +56,7 @@
         <label>Sala para aprovar</label>
         <select name="sala_atribuida" required>
           {% for sala in r.salas_aprovacao %}
-          <option value="{{ sala }}" {% if sala == r.sala_atribuida %}selected{% endif %}>{{ sala }}{% if sala == r.sala_atribuida %} (sugestão){% endif %}</option>
+          <option value="{{ sala }}" {% if sala == r.sala_atribuida %}selected{% endif %}>{{ sala }}{% if sala == r.sala_atribuida %} (sugestáo){% endif %}</option>
           {% endfor %}
         </select>
         <input name="resposta" placeholder="Mensagem opcional para o aluno">
@@ -108,7 +108,7 @@
     </div>
 
     {% if r.finalidade %}<p><strong>Finalidade:</strong> {{ r.finalidade }}</p>{% endif %}
-    {% if r.observacao %}<p><strong>Observação:</strong> {{ r.observacao }}</p>{% endif %}
+    {% if papel in ['coordenador', 'recepcao'] and r.observacao %}<p><strong>Observação:</strong> {{ r.observacao }}</p>{% endif %}
     {% if r.resposta %}<p><strong>Resposta:</strong> {{ r.resposta }}</p>{% endif %}
 
     {% if modo == 'aprovar' %}
@@ -170,6 +170,21 @@
       <span><i data-lucide="clipboard-check"></i>{{ sol.vagas_triagem }} triagem(ns)</span>
     </div>
 
+    <div class="vaga-summary">
+      <div>
+        <span>Pedido</span>
+        <strong>{{ sol.vagas_paciente }} paciente(s) / {{ sol.vagas_triagem }} triagem(ns)</strong>
+      </div>
+      <div>
+        <span>Liberado</span>
+        <strong>{{ sol.vagas_paciente_liberadas }} paciente(s) / {{ sol.vagas_triagem_liberadas }} triagem(ns)</strong>
+      </div>
+      <div>
+        <span>Falta</span>
+        <strong>{{ sol.vagas_paciente_faltantes }} paciente(s) / {{ sol.vagas_triagem_faltantes }} triagem(ns)</strong>
+      </div>
+    </div>
+
     {% if sol.observacao %}<p><strong>Observação do professor:</strong> {{ sol.observacao }}</p>{% endif %}
     {% if sol.resposta %}<p><strong>Resposta anterior:</strong> {{ sol.resposta }}</p>{% endif %}
 
@@ -177,11 +192,21 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="next" value="/reservas#pedidos-vagas">
       <label>Resposta para o professor</label>
-      <textarea name="resposta" placeholder="Ex: aprovado; recepção vai buscar fichas compatíveis.">{{ sol.resposta }}</textarea>
+      <textarea name="resposta" placeholder="Ex: aprovado; recepção vai buscar fichas compatéveis.">{{ sol.resposta }}</textarea>
+      <div class="vaga-release-grid">
+        <div>
+          <label>Pacientes liberados</label>
+          <input type="number" name="vagas_paciente_liberadas" min="0" max="{{ sol.vagas_paciente }}" value="{{ sol.vagas_paciente_liberadas }}">
+        </div>
+        <div>
+          <label>Triagens liberadas</label>
+          <input type="number" name="vagas_triagem_liberadas" min="0" max="{{ sol.vagas_triagem }}" value="{{ sol.vagas_triagem_liberadas }}">
+        </div>
+      </div>
       <div class="button-row">
         <button class="btn secondary" type="submit" name="status" value="em_analise"><i data-lucide="clock-3"></i> Em análise</button>
-        <button class="btn primary" type="submit" name="status" value="atendida"><i data-lucide="check"></i> Aprovar</button>
-        <button class="btn correction" type="submit" name="status" value="atendida_parcial"><i data-lucide="check-check"></i> Parcial</button>
+        <button class="btn primary" type="submit" name="status" value="atendida"><i data-lucide="check"></i> Aprovar tudo</button>
+        <button class="btn correction" type="submit" name="status" value="atendida_parcial"><i data-lucide="check-check"></i> Atender parte</button>
         <button class="btn danger" type="submit" name="status" value="recusada"><i data-lucide="x"></i> Recusar</button>
       </div>
     </form>
@@ -291,7 +316,7 @@
         {% if minhas_salas_visiveis %}
           {% for r in minhas_salas_visiveis %}{{ sala_card(r) }}{% endfor %}
         {% else %}
-          {{ empty_box('Suas reservas de sala aparecerão aqui.') }}
+          {{ empty_box('Suas reservas de sala apareceráo aqui.') }}
         {% endif %}
       </div>
     </section>
@@ -304,7 +329,7 @@
         {% if minhas_instrumentos %}
           {% for r in minhas_instrumentos %}{{ teste_card(r) }}{% endfor %}
         {% else %}
-          {{ empty_box('Suas solicitações de testes aparecerão aqui.') }}
+          {{ empty_box('Suas solicitações de testes apareceráo aqui.') }}
         {% endif %}
       </div>
     </section>

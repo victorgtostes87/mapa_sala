@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -11,7 +11,7 @@
 </head>
 <body>
   <nav class="app-nav">
-    <a class="app-nav-brand" href="/"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
+    <a class="app-nav-brand" href="/mapa" title="Voltar para o mapa"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
     <div class="app-nav-title">Usuários</div>
     <div class="app-nav-spacer"></div>
     <div class="app-nav-user">
@@ -32,6 +32,14 @@
         <button type="button" class="btn btn-primary" id="btnNovoUsuario"><i data-lucide="plus"></i> Novo usuário</button>
       </div>
 
+      <div class="user-tools">
+        <label for="buscaUsuarios">Buscar usuário</label>
+        <div class="search-box">
+          <i data-lucide="search"></i>
+          <input type="search" id="buscaUsuarios" placeholder="Buscar por nome, usuário, e-mail, papel ou supervisor">
+        </div>
+      </div>
+
       <table>
         <thead>
           <tr>
@@ -48,16 +56,16 @@
         <tbody>
           {% if usuarios %}
             {% for u in usuarios %}
-            <tr>
+            <tr class="user-row" data-search="{{ ((u.nome_completo or '') ~ ' ' ~ u.username ~ ' ' ~ (u.email or '') ~ ' ' ~ u.role ~ ' ' ~ ((papeis_label|default({})).get(u.role, u.role)) ~ ' ' ~ (u.supervisor_nome or '') ~ ' ' ~ ('ativo' if u.ativo else 'inativo'))|lower }}">
               <td>
-                <strong class="user-full-name">{{ u.nome_completo or '—' }}</strong>
+                <strong class="user-full-name">{{ u.nome_completo or '-' }}</strong>
               </td>
               <td><span class="user-login">{{ u.username }}</span></td>
-              <td>{{ u.email or '—' }}</td>
+              <td>{{ u.email or '-' }}</td>
               <td>{{ (papeis_label|default({})).get(u.role, u.role) }}</td>
-              <td>{{ u.supervisor_nome or '—' }}</td>
+              <td>{{ u.supervisor_nome or '-' }}</td>
               <td>{{ 'Ativo' if u.ativo else 'Inativo' }}</td>
-              <td>{{ u.created_at[:10] if u.created_at else '—' }}</td>
+              <td>{{ u.created_at[:10] if u.created_at else '-' }}</td>
               <td>
                 <div class="actions">
                   <button type="button" class="btn btn-secondary btn-editar" data-id="{{ u.id }}" data-username="{{ u.username }}" data-nome-completo="{{ u.nome_completo or '' }}" data-email="{{ u.email or '' }}" data-role="{{ u.role }}" data-supervisor-id="{{ u.supervisor_id or '' }}" data-ativo="{{ 1 if u.ativo else 0 }}">Editar</button>
@@ -78,6 +86,9 @@
               <td colspan="8">Nenhum usuário cadastrado.</td>
             </tr>
           {% endif %}
+          <tr id="semResultadoUsuarios" hidden>
+            <td colspan="8">Nenhum usuário encontrado com essa busca.</td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -92,26 +103,34 @@
       <form id="formNovoUsuario">
         <input type="hidden" id="userId" name="userId">
 
-        <label for="nome_completo">Nome completo</label>
-        <input type="text" id="nome_completo" name="nome_completo" placeholder="Ex: Hildiceia dos Santos Affonso">
+        <div class="form-field">
+          <label for="nome_completo">Nome completo</label>
+          <input type="text" id="nome_completo" name="nome_completo" placeholder="Ex: Hildiceia dos Santos Affonso">
+        </div>
 
-        <label for="username">Usuário *</label>
-        <input type="text" id="username" name="username" required readonly>
-        <div class="help">Gerado automaticamente pelo nome completo. Ex: Victor Guimarães Tostes vira victor.tostes.</div>
+        <div class="form-field">
+          <label for="username">Usuário *</label>
+          <input type="text" id="username" name="username" required readonly>
+          <div class="help">Gerado automaticamente pelo nome completo. Ex: Victor Guimarães Tostes vira victor.tostes.</div>
+        </div>
 
-        <label for="email">E-mail</label>
-        <input type="email" id="email" name="email" placeholder="nome@exemplo.com">
-        <div class="help">Usado para convite de acesso, recuperação de senha e avisos do sistema.</div>
+        <div class="form-field">
+          <label for="email">E-mail</label>
+          <input type="email" id="email" name="email" placeholder="nome@exemplo.com">
+          <div class="help">Usado para convite de acesso, recuperação de senha e avisos do sistema.</div>
+        </div>
 
-        <label for="role">Papel *</label>
-        <select id="role" name="role" required>
-          <option value="aluno">Aluno</option>
-          <option value="coordenador">Coordenador</option>
-          <option value="recepcao">Recepcionista</option>
-          <option value="professor">Professor</option>
-        </select>
+        <div class="form-field">
+          <label for="role">Papel *</label>
+          <select id="role" name="role" required>
+            <option value="aluno">Aluno</option>
+            <option value="coordenador">Coordenador</option>
+            <option value="recepcao">Recepcionista</option>
+            <option value="professor">Professor</option>
+          </select>
+        </div>
 
-        <div id="supervisorBox">
+        <div class="form-field" id="supervisorBox">
           <label for="supervisor_id">Supervisor do aluno</label>
           <select id="supervisor_id" name="supervisor_id">
             <option value="">Sem supervisor definido</option>
@@ -122,21 +141,27 @@
           <div class="help">Este campo faz o aluno aparecer na tela do professor responsável.</div>
         </div>
 
-        <label for="ativo">Status *</label>
-        <select id="ativo" name="ativo" required>
-          <option value="1">Ativo</option>
-          <option value="0">Inativo</option>
-        </select>
+        <div class="form-field">
+          <label for="ativo">Status *</label>
+          <select id="ativo" name="ativo" required>
+            <option value="1">Ativo</option>
+            <option value="0">Inativo</option>
+          </select>
+        </div>
 
-        <label for="password">Senha</label>
-        <input type="password" id="password" name="password" minlength="8">
-        <div class="help" id="senhaHelp">Mínimo 8 caracteres. Ao editar, deixe em branco para manter a senha atual.</div>
+        <div class="form-field">
+          <label for="password">Senha</label>
+          <input type="password" id="password" name="password" minlength="8">
+          <div class="help" id="senhaHelp">Mínimo 8 caracteres. Ao editar, deixe em branco para manter a senha atual.</div>
+        </div>
 
-        <label class="check-line">
-          <input type="checkbox" id="enviar_convite" name="enviar_convite">
-          Enviar convite por e-mail para criar senha
-        </label>
-        <div class="help">Use quando quiser que o próprio usuário crie a senha pelo link recebido no e-mail.</div>
+        <div class="form-field full">
+          <label class="check-line">
+            <input type="checkbox" id="enviar_convite" name="enviar_convite">
+            Enviar convite por e-mail para criar senha
+          </label>
+          <div class="help">Use quando quiser que o próprio usuário crie a senha pelo link recebido no e-mail.</div>
+        </div>
 
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" id="btnCancelarUsuario">Cancelar</button>
@@ -162,6 +187,9 @@
     const passwordInput = document.getElementById('password');
     const conviteInput = document.getElementById('enviar_convite');
     const userToast = document.getElementById('userToast');
+    const buscaUsuarios = document.getElementById('buscaUsuarios');
+    const linhasUsuarios = Array.from(document.querySelectorAll('.user-row'));
+    const semResultadoUsuarios = document.getElementById('semResultadoUsuarios');
     const CSRF_TOKEN = {{ csrf_token() | tojson }};
 
     function mostrarToastUsuario(msg, tipo = 'success') {
@@ -170,6 +198,24 @@
       setTimeout(() => {
         userToast.className = 'user-toast';
       }, 2600);
+    }
+
+    function normalizarBusca(valor) {
+      return (valor || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+    }
+
+    function filtrarUsuarios() {
+      const termo = normalizarBusca(buscaUsuarios?.value || '').trim();
+      let visiveis = 0;
+      linhasUsuarios.forEach((linha) => {
+        const mostrar = !termo || normalizarBusca(linha.dataset.search).includes(termo);
+        linha.hidden = !mostrar;
+        if (mostrar) visiveis += 1;
+      });
+      if (semResultadoUsuarios) semResultadoUsuarios.hidden = visiveis !== 0;
     }
 
     function recarregarComToast(msg, tipo = 'success') {
@@ -272,6 +318,7 @@
     roleSelect.addEventListener('change', atualizarSupervisorVisivel);
     conviteInput.addEventListener('change', atualizarSenhaObrigatoria);
     nomeCompletoInput.addEventListener('input', atualizarUsernamePeloNome);
+    buscaUsuarios?.addEventListener('input', filtrarUsuarios);
 
     document.querySelectorAll('.btn-editar').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -433,6 +480,7 @@
     }
 
     atualizarSupervisorVisivel();
+    filtrarUsuarios();
     mostrarToastPendente();
     lucide.createIcons();
   </script>

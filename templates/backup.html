@@ -11,7 +11,7 @@
 </head>
 <body>
   <nav class="app-nav">
-    <a class="app-nav-brand" href="/"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
+    <a class="app-nav-brand" href="/mapa" title="Voltar para o mapa"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
     <div class="app-nav-title">Backup</div>
     <div class="app-nav-spacer"></div>
     <div class="app-nav-user">
@@ -19,23 +19,33 @@
       <span class="role-badge role-{{ papel }}">{{ (papeis_label|default({})).get(papel, papel) }}</span>
     </div>
     <div class="app-nav-actions">
-      <a href="{{ url_for('logs_page') }}" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Logs</a>
       <a href="{{ url_for('saude_sistema') }}" class="app-btn app-btn-ghost"><i data-lucide="activity"></i> Saúde</a>
-      <a href="{{ url_for('perfil') }}" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
+      <a href="{{ url_for('sobre') }}" class="app-btn app-btn-ghost"><i data-lucide="info"></i> Sobre</a>
       <a href="{{ url_for('logout') }}" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
     </div>
   </nav>
+
   <main class="container">
     <section class="card">
       <h1>Backup do banco de dados</h1>
       <p>
-        Este arquivo contém informações sensíveis do sistema, incluindo dados de agendamentos,
-        usuários e hashes de senha. Baixe apenas quando realmente precisar e guarde em local seguro.
+        O backup gera uma cópia completa do banco SQLite usado pelo sistema. Ele serve para recuperação em caso de erro,
+        importação incorreta, perda de dados ou necessidade de auditoria técnica.
       </p>
 
       <div class="warning">
-        Depois de baixar, não envie este arquivo por grupos de mensagem e não deixe salvo em computadores compartilhados.
+        Este arquivo contém informações sensíveis, incluindo usuários, agendamentos, reservas, logs e hashes de senha.
+        Baixe apenas quando necessário e guarde em local seguro.
       </div>
+
+      <h2>Orientação de uso</h2>
+      <ul>
+        <li>Faça backup antes de importar Excel ou fazer mudanças grandes.</li>
+        <li>Não envie o arquivo em grupos de mensagem.</li>
+        <li>Não deixe salvo em computador compartilhado.</li>
+        <li>Guarde em pasta restrita da coordenação ou local institucional autorizado.</li>
+        <li>Se precisar restaurar, procure quem mantém o sistema antes de substituir o banco.</li>
+      </ul>
 
       <div class="actions">
         <a class="btn btn-primary" href="{{ url_for('backup_db', confirmar='sim') }}">Baixar backup agora</a>

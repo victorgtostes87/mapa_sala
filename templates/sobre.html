@@ -11,10 +11,8 @@
 </head>
 <body>
   <nav class="app-nav">
-    <a class="app-nav-brand" href="/sobre" title="Sobre o sistema">
-      <i data-lucide="info"></i>
-      <span>Sobre</span>
-    </a>
+    <a class="app-nav-brand" href="/mapa" title="Voltar para o mapa"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
+    <div class="app-nav-title">Sobre</div>
     <div class="app-nav-spacer"></div>
     <div class="app-nav-user">
       <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
@@ -22,6 +20,10 @@
     </div>
     <div class="app-nav-actions">
       <a href="/" class="app-btn app-btn-ghost" onclick="voltarAbaAnterior(event, '/')"><i data-lucide="arrow-left"></i> Voltar</a>
+      <a href="/termo-uso" class="app-btn app-btn-ghost"><i data-lucide="shield-check"></i> Termo</a>
+      {% if papel == 'coordenador' %}
+      <a href="/api/backup" class="app-btn app-btn-ghost"><i data-lucide="database-backup"></i> Backup</a>
+      {% endif %}
       <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
       <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
     </div>
@@ -32,7 +34,7 @@
       <div>
         <p class="eyebrow">Informações do sistema</p>
         <h1>Mapa de Sala - Policlínica Psicologia UVV</h1>
-        <p class="muted">Sistema interno para organizar salas, reservas, instrumentos e tarefas da recepção.</p>
+        <p class="muted">Sistema interno para organizar salas, reservas, instrumentos, horários acadêmicos e tarefas da recepção.</p>
       </div>
       <img class="about-logo" src="{{ url_for('static', filename='img/uvv-logo.png') }}" alt="UVV">
     </section>
@@ -45,7 +47,7 @@
             <h2>{{ versao }}</h2>
           </div>
         </div>
-        <p class="muted">Esta versão inclui mapa de salas, tela do aluno, tela do professor, reservas, caderno de instrumentos, afazeres, impressão e exportação.</p>
+        <p class="muted">Esta versão inclui mapa de salas, tela restrita do aluno, tela do professor, reservas, caderno de instrumentos, afazeres, coordenação, impressão, importação e exportação.</p>
       </article>
 
       <article class="panel">
@@ -61,15 +63,16 @@
       <article class="panel wide">
         <div class="panel-head">
           <div>
-            <p class="eyebrow">Uso diário</p>
-            <h2>Ferramenta simples para a clínica-escola</h2>
+            <p class="eyebrow">Uso adequado</p>
+            <h2>Ferramenta operacional, não prontuário</h2>
           </div>
         </div>
+        <p class="muted">Este sistema não deve receber evolução, diagnóstico, queixa clínica, conteúdo de sessão ou informações sensíveis de pacientes.</p>
         <div class="about-list">
           <span><i data-lucide="calendar-days"></i> Visualização rápida dos horários e salas</span>
           <span><i data-lucide="clipboard-list"></i> Reservas de sala e instrumentos</span>
-          <span><i data-lucide="users-round"></i> Visões específicas para alunos e professores</span>
-          <span><i data-lucide="list-checks"></i> Afazeres compartilhados da recepção</span>
+          <span><i data-lucide="users-round"></i> Visões específicas por papel</span>
+          <span><i data-lucide="shield-check"></i> Tela do aluno com dados reduzidos</span>
         </div>
       </article>
     </section>

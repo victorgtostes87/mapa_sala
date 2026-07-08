@@ -50,7 +50,7 @@ DB_PATH = os.environ.get(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapa_salas.db')
 )
 
-VERSAO = '2026-07-07-v39'
+VERSAO = '2026-07-08-v40'
 EMAIL_BASE_URL = os.environ.get('EMAIL_BASE_URL', '').rstrip('/')
 EMAIL_FROM = os.environ.get('EMAIL_FROM', os.environ.get('SMTP_USER', ''))
 SMTP_HOST = os.environ.get('SMTP_HOST', '')
@@ -2682,6 +2682,18 @@ def sobre():
     )
 
 
+@app.route('/termo-uso')
+@login_required
+def termo_uso():
+    return render_template(
+        'termo_uso.html',
+        usuario=current_user.username,
+        papel=current_user.role,
+        papel_label=PAPEIS_LABEL.get(current_user.role, current_user.role),
+        versao=VERSAO
+    )
+
+
 @app.route('/horarios-abertos')
 @login_required
 @requer_papel_page('coordenador', 'recepcao')
@@ -3158,6 +3170,8 @@ def meus_agendamentos():
                 ag['data_label'] = datetime.strptime(ag['data_especifica'], '%Y-%m-%d').strftime('%d/%m/%Y')
             except ValueError:
                 ag['data_label'] = ag['data_especifica']
+        ag['paciente_label_aluno'] = 'Triagem marcada' if ag['eh_triagem'] else 'Paciente marcado'
+        ag['observacao_aluno'] = ''
 
         if ag['tem_paciente']:
             atendimentos_paciente.append(ag)
@@ -3176,7 +3190,7 @@ def meus_agendamentos():
         if pacientes_pontuais:
             primeiro = pacientes_pontuais[0]
             ag['paciente_pontual_label'] = (
-                f"{primeiro.get('paciente', '')} em {primeiro.get('data_label') or primeiro.get('data_especifica')}"
+                f"Uso pontual em {primeiro.get('data_label') or primeiro.get('data_especifica')}"
             )
 
         if ag['tem_paciente']:
@@ -3237,7 +3251,7 @@ def meus_agendamentos():
                 continue
             item = dict(ag)
             item['semana_tipo'] = 'paciente'
-            item['semana_titulo'] = ag.get('paciente') or 'Paciente marcado'
+            item['semana_titulo'] = ag.get('paciente_label_aluno') or 'Paciente marcado'
             item['semana_descricao'] = 'Triagem marcada' if ag.get('eh_triagem') else 'Atendimento com paciente'
             itens.append(item)
         for ag in horarios_fixos:

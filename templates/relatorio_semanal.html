@@ -1,9 +1,9 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-br">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Relatório Semanal</title>
+  <title>Relatério Semanal</title>
   <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/voltar.js') }}"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
@@ -11,8 +11,8 @@
 </head>
 <body>
   <nav class="app-nav">
-    <a class="app-nav-brand" href="/painel"><i data-lucide="bar-chart-3"></i><span>Relatório Semanal</span></a>
-    <div class="app-nav-title">Mapa de Sala - Policlínica Psicologia UVV</div>
+    <a class="app-nav-brand" href="/mapa" title="Voltar para o mapa"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
+    <div class="app-nav-title">Relatério semanal</div>
     <div class="app-nav-spacer"></div>
     <div class="app-nav-user">
       <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
@@ -29,7 +29,7 @@
     <section class="hero">
       <div>
         <p class="eyebrow">{{ periodo }}</p>
-        <h1>Relatório semanal simples</h1>
+        <h1>Relatério semanal simples</h1>
         <p class="muted">Uma visão rápida para coordenação e recepção acompanharem uso das salas, reservas e horários ainda sem paciente.</p>
       </div>
     </section>

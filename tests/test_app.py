@@ -151,6 +151,31 @@ class MapaSalasTestCase(unittest.TestCase):
         removido = self.client.delete(f'/api/agendamentos/{ag_id}', headers={'X-CSRFToken': self.csrf})
         self.assertEqual(removido.status_code, 200)
 
+    def test_professor_nao_duplica_pedido_aberto_para_mesmo_aluno(self):
+        self._login('professor1')
+        payload = {
+            'csrf_token': self.csrf,
+            'aluno_id': str(self.aluno1_id),
+            'vagas_paciente': '1',
+            'vagas_triagem': '0',
+            'observacao': 'Abrir paciente'
+        }
+
+        primeiro = self.client.post('/minha-supervisao/solicitacoes-vagas', data=payload)
+        segundo = self.client.post('/minha-supervisao/solicitacoes-vagas', data=payload)
+
+        self.assertEqual(primeiro.status_code, 302)
+        self.assertEqual(segundo.status_code, 302)
+        conn = mapa.get_db()
+        try:
+            total = conn.execute(
+                'SELECT COUNT(*) FROM solicitacoes_vagas WHERE professor_id=? AND aluno_id=?',
+                (self.professor_id, self.aluno1_id)
+            ).fetchone()[0]
+        finally:
+            conn.close()
+        self.assertEqual(total, 1)
+
     def test_recepcao_cria_agendamento_vinculado_ao_aluno(self):
         self._login('recepcao')
 
@@ -171,7 +196,22 @@ class MapaSalasTestCase(unittest.TestCase):
         self._login('aluno1')
         resp = self.client.get('/api/agendamentos?dia_semana=SEGUNDA')
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(len(resp.get_json()), 1)
+        dados = resp.get_json()
+        self.assertEqual(len(dados), 1)
+        self.assertEqual(dados[0]['paciente'], '')
+        self.assertEqual(dados[0]['observacao'], '')
+
+        detalhe = self.client.get(f'/api/agendamentos/{ag_id}')
+        self.assertEqual(detalhe.status_code, 200)
+        self.assertEqual(detalhe.get_json()['paciente'], '')
+
+        busca_lista = self.client.get('/api/agendamentos?dia_semana=SEGUNDA&busca=Paciente')
+        self.assertEqual(busca_lista.status_code, 200)
+        self.assertEqual(busca_lista.get_json(), [])
+
+        busca_global = self.client.get('/api/busca?q=Paciente')
+        self.assertEqual(busca_global.status_code, 200)
+        self.assertEqual(busca_global.get_json(), [])
 
     def test_agendamento_desmarcado_nao_bloqueia_sala(self):
         self._login('recepcao')

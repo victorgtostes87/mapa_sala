@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 from contextlib import contextmanager
 from functools import wraps
 import click
-from flask import Flask, render_template, render_template_string, jsonify, request, send_file, redirect, url_for, flash, session
+from flask import Flask, render_template, render_template_string, jsonify, request, send_file, redirect, url_for, flash, session, has_request_context
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from jinja2 import TemplateNotFound
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -58,6 +58,11 @@ SMTP_PORT = int(os.environ.get('SMTP_PORT', '587'))
 SMTP_USER = os.environ.get('SMTP_USER', '')
 SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
 SMTP_TLS = os.environ.get('SMTP_TLS', '1').strip().lower() not in ('0', 'false', 'nao', 'não')
+BACKUP_DIR = os.environ.get(
+    'BACKUP_DIR',
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backups')
+)
+BACKUP_RETENTION_DAYS = int(os.environ.get('BACKUP_RETENTION_DAYS', '30'))
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -474,6 +479,15 @@ def usuario_pode_ver_agendamento(row):
     )
 
 
+def agendamento_para_resposta(row):
+    item = dict(row)
+    if current_user.is_authenticated and current_user.role == 'aluno':
+        item['paciente'] = ''
+        item['observacao'] = ''
+        item['paciente_label_aluno'] = 'Triagem marcada' if int(item.get('triagem') or 0) else 'Paciente marcado'
+    return item
+
+
 def buscar_usuario_id_aluno(username, conn):
     username = (username or '').strip()
     if not username:
@@ -602,6 +616,29 @@ def normalizar_supervisor_id(valor):
 
 def email_configurado():
     return bool(SMTP_HOST and EMAIL_FROM and SMTP_USER and SMTP_PASSWORD)
+
+
+def diagnostico_smtp():
+    faltando = []
+    if not SMTP_HOST:
+        faltando.append('SMTP_HOST')
+    if not EMAIL_FROM:
+        faltando.append('EMAIL_FROM')
+    if not SMTP_USER:
+        faltando.append('SMTP_USER')
+    if not SMTP_PASSWORD:
+        faltando.append('SMTP_PASSWORD')
+    return {
+        'configurado': not faltando,
+        'host': SMTP_HOST or 'não informado',
+        'porta': SMTP_PORT,
+        'tls': SMTP_TLS,
+        'usuario_configurado': bool(SMTP_USER),
+        'senha_configurada': bool(SMTP_PASSWORD),
+        'email_saida_configurado': bool(EMAIL_FROM),
+        'base_url_configurada': bool(EMAIL_BASE_URL),
+        'faltando': faltando,
+    }
 
 
 def url_absoluta(endpoint, **valores):
@@ -1526,9 +1563,14 @@ def init_db():
 
 
 def registrar_log(acao, dados=''):
-    usuario = current_user.username if current_user.is_authenticated else 'sistema'
-    ip = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
-    user_agent = (request.headers.get('User-Agent') or '')[:300]
+    if has_request_context():
+        usuario = current_user.username if current_user.is_authenticated else 'sistema'
+        ip = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
+        user_agent = (request.headers.get('User-Agent') or '')[:300]
+    else:
+        usuario = 'sistema'
+        ip = 'console'
+        user_agent = 'flask-cli'
     with db_connection(commit=True) as conn:
         conn.execute(
             'INSERT INTO historico(usuario, acao, dados, ip, user_agent) VALUES(?,?,?,?,?)',
@@ -1557,6 +1599,7 @@ def coletar_saude_sistema():
             'logs_total': conn.execute('SELECT COUNT(*) FROM historico').fetchone()[0],
             'ultimo_backup': dict(ultimo_backup) if ultimo_backup else None,
             'migrations': [dict(row) for row in migrations],
+            'smtp': diagnostico_smtp(),
         }
 
 
@@ -1587,6 +1630,41 @@ def criar_backup_sqlite_bytes():
             destino.close()
         except sqlite3.Error:
             pass
+
+
+def limpar_backups_antigos(pasta, dias=BACKUP_RETENTION_DAYS):
+    if dias <= 0 or not os.path.isdir(pasta):
+        return 0
+    limite = datetime.now().timestamp() - (dias * 24 * 60 * 60)
+    removidos = 0
+    for nome in os.listdir(pasta):
+        if not nome.startswith('backup_mapa_') or not nome.endswith('.db'):
+            continue
+        caminho = os.path.join(pasta, nome)
+        try:
+            if os.path.isfile(caminho) and os.path.getmtime(caminho) < limite:
+                os.remove(caminho)
+                removidos += 1
+        except OSError:
+            continue
+    return removidos
+
+
+def salvar_backup_automatico():
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+    nome = f'backup_mapa_{datetime.now().strftime("%Y%m%d_%H%M%S")}.db'
+    caminho = os.path.join(BACKUP_DIR, nome)
+    with open(caminho, 'wb') as arquivo:
+        arquivo.write(criar_backup_sqlite_bytes())
+    removidos = limpar_backups_antigos(BACKUP_DIR)
+    tamanho = os.path.getsize(caminho)
+    registrar_log('BACKUP', f'Backup automático salvo em {caminho}; tamanho={tamanho} bytes; antigos_removidos={removidos}')
+    return {
+        'arquivo': caminho,
+        'tamanho': tamanho,
+        'antigos_removidos': removidos,
+        'retencao_dias': BACKUP_RETENTION_DAYS,
+    }
         try:
             os.remove(tmp_path)
         except OSError:
@@ -1970,6 +2048,8 @@ def index():
         return redirect(url_for('meus_agendamentos'))
     if current_user.role == 'professor':
         return redirect(url_for('minha_supervisao'))
+    if current_user.role == 'recepcao':
+        return redirect(url_for('painel_recepcao'))
     return renderizar_mapa_sala()
 
 
@@ -1980,6 +2060,8 @@ def mapa_sala():
         return redirect(url_for('meus_agendamentos'))
     if current_user.role == 'professor':
         return redirect(url_for('minha_supervisao'))
+    if current_user.role == 'recepcao':
+        return redirect(url_for('painel_recepcao'))
     return renderizar_mapa_sala()
 
 
@@ -2115,7 +2197,7 @@ def painel_coordenacao():
 
 @app.route('/painel')
 @login_required
-@requer_papel_page('coordenador', 'recepcao')
+@requer_papel_page('coordenador', 'recepcao', 'somente_leitura')
 def painel_recepcao():
     hoje = data_hoje_iso()
     weekday = datetime.now().weekday()
@@ -2359,6 +2441,22 @@ def criar_solicitacao_vagas():
             flash('Aluno não encontrado na sua supervisão.', 'error')
             return redirect(url_for('minha_supervisao'))
 
+        pedido_aberto = conn.execute(
+            """
+            SELECT id
+            FROM solicitacoes_vagas
+            WHERE professor_id=?
+              AND aluno_id=?
+              AND status IN ('pendente', 'em_analise', 'atendida_parcial')
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (current_user.id, aluno_id)
+        ).fetchone()
+        if pedido_aberto:
+            flash('Este aluno já tem um pedido em aberto. Acompanhe o retorno antes de enviar outro.', 'error')
+            return redirect(url_for('minha_supervisao') + '#solicitacoes-vagas')
+
         professor_nome = current_user.nome_completo or current_user.username
         aluno_nome = aluno['nome_completo'] or aluno['username']
         conn.execute(
@@ -2485,7 +2583,7 @@ def concluir_tarefa_painel(tid):
 
 @app.route('/afazeres')
 @login_required
-@requer_papel_page('coordenador', 'recepcao')
+@requer_papel_page('coordenador', 'recepcao', 'somente_leitura')
 def afazeres_recepcao():
     conn = get_db()
     try:
@@ -2529,7 +2627,7 @@ def row_coord_agendamento(conn, agendamento_id):
 
 @app.route('/coordenacao')
 @login_required
-@requer_papel_page('coordenador', 'aluno')
+@requer_papel_page('coordenador', 'aluno', 'somente_leitura')
 def coordenacao_page():
     hoje = data_hoje_iso()
     conn = get_db()
@@ -2583,7 +2681,7 @@ def coordenacao_page():
             ORDER BY ch.data_disponivel, ch.horario_inicio
             """,
             (hoje,)
-        ).fetchall() if current_user.role == 'coordenador' else []
+        ).fetchall() if current_user.role in ('coordenador', 'somente_leitura') else []
     finally:
         conn.close()
 
@@ -2813,9 +2911,16 @@ def termo_uso():
 @app.route('/ajuda/<topico>')
 @login_required
 def ajuda(topico='recepcao'):
-    topicos_validos = ('recepcao', 'coordenacao', 'backup')
+    topicos_validos = ('recepcao', 'coordenacao', 'professor', 'aluno', 'backup')
     if topico not in topicos_validos:
-        topico = 'recepcao'
+        if current_user.role == 'professor':
+            topico = 'professor'
+        elif current_user.role == 'aluno':
+            topico = 'aluno'
+        elif current_user.role in ('coordenador', 'somente_leitura'):
+            topico = 'coordenacao'
+        else:
+            topico = 'recepcao'
     return render_template(
         'ajuda.html',
         usuario=current_user.username,
@@ -2828,7 +2933,7 @@ def ajuda(topico='recepcao'):
 
 @app.route('/horarios-abertos')
 @login_required
-@requer_papel_page('coordenador', 'recepcao')
+@requer_papel_page('coordenador', 'recepcao', 'somente_leitura')
 def horarios_abertos():
     conn = get_db()
     try:
@@ -3540,7 +3645,7 @@ def trocar_senha():
 
 @app.route('/imprimir')
 @login_required
-@requer_papel_page('coordenador', 'recepcao')
+@requer_papel_page('coordenador', 'recepcao', 'somente_leitura')
 def imprimir_selecao():
     return render_template(
         'imprimir_selecao.html',
@@ -3553,7 +3658,7 @@ def imprimir_selecao():
 
 @app.route('/imprimir/<dia>')
 @login_required
-@requer_papel_page('coordenador', 'recepcao')
+@requer_papel_page('coordenador', 'recepcao', 'somente_leitura')
 def imprimir(dia):
     dia = dia.upper()
     if dia not in DIAS:
@@ -3579,14 +3684,14 @@ def imprimir(dia):
 
 @app.route('/logs')
 @login_required
-@requer_papel_page('coordenador')
+@requer_papel_page('coordenador', 'somente_leitura')
 def logs_page():
     return render_template('logs.html', usuario=current_user.username, papel=current_user.role)
 
 
 @app.route('/saude')
 @login_required
-@requer_papel_page('coordenador')
+@requer_papel_page('coordenador', 'somente_leitura')
 def saude_sistema():
     return render_template(
         'saude.html',
@@ -3602,7 +3707,7 @@ def saude_sistema():
 
 @app.route('/usuarios')
 @login_required
-@requer_papel_page('coordenador')
+@requer_papel_page('coordenador', 'somente_leitura')
 def usuarios_page():
     conn = get_db()
     try:
@@ -3637,12 +3742,12 @@ def api_list_estagiarios():
         ).fetchall()
     finally:
         conn.close()
-    return jsonify([dict(r) for r in rows])
+    return jsonify([agendamento_para_resposta(r) for r in rows])
 
 
 @app.route('/api/usuarios', methods=['GET'])
 @login_required
-@requer_papel('coordenador')
+@requer_papel('coordenador', 'somente_leitura')
 def api_list_usuarios():
     conn = get_db()
     try:
@@ -3973,9 +4078,13 @@ def list_ag():
         q += ' AND COALESCE(aluno.supervisor_id, aluno_por_nome.supervisor_id)=?'
         p.append(supervisor_id)
     if busca:
-        q += ' AND (a.estagiario LIKE ? OR a.paciente LIKE ? OR a.observacao LIKE ? OR prof.nome_completo LIKE ? OR prof.username LIKE ?)'
-        p += [f'%{busca}%'] * 3
-        p += [f'%{busca}%'] * 2
+        if current_user.role == 'aluno':
+            q += ' AND (a.estagiario LIKE ? OR a.categoria LIKE ? OR a.sala LIKE ?)'
+            p += [f'%{busca}%'] * 3
+        else:
+            q += ' AND (a.estagiario LIKE ? OR a.paciente LIKE ? OR a.observacao LIKE ? OR prof.nome_completo LIKE ? OR prof.username LIKE ?)'
+            p += [f'%{busca}%'] * 3
+            p += [f'%{busca}%'] * 2
     if current_user.role == 'aluno':
         q += ' AND (a.usuario_id = ? OR (a.usuario_id IS NULL AND a.estagiario = ?))'
         p += [current_user.id, current_user.username]
@@ -4015,7 +4124,7 @@ def get_ag(aid):
         conn.close()
     if not usuario_pode_ver_agendamento(r):
         return jsonify({'erro': 'Não encontrado'}), 404
-    return jsonify(dict(r))
+    return jsonify(agendamento_para_resposta(r))
 
 
 @app.route('/api/agendamentos', methods=['POST'])
@@ -4198,7 +4307,7 @@ def stats():
 
 @app.route('/api/export')
 @login_required
-@requer_papel('coordenador', 'recepcao')
+@requer_papel('coordenador', 'recepcao', 'somente_leitura')
 def export_xlsx():
     try:
         from openpyxl import Workbook
@@ -4264,7 +4373,7 @@ def export_xlsx():
 
 @app.route('/api/logs')
 @login_required
-@requer_papel('coordenador')
+@requer_papel('coordenador', 'somente_leitura')
 def get_logs():
     pagina, erro = inteiro_query('pagina', 1, minimo=1)
     if erro:
@@ -4347,19 +4456,29 @@ def busca_global():
     if not q_busca or len(q_busca) < 2:
         return jsonify({'erro': 'Busca deve ter ao menos 2 caracteres'}), 400
     like = f'%{q_busca}%'
-    q = ('SELECT * FROM agendamentos '
-         'WHERE (estagiario LIKE ? OR paciente LIKE ? OR observacao LIKE ?)')
-    p = [like, like, like]
     if current_user.role == 'aluno':
-        q += ' AND (usuario_id = ? OR (usuario_id IS NULL AND estagiario = ?))'
-        p += [current_user.id, current_user.username]
+        q = ('SELECT * FROM agendamentos '
+             'WHERE (estagiario LIKE ? OR categoria LIKE ? OR sala LIKE ?) '
+             'AND (usuario_id = ? OR (usuario_id IS NULL AND estagiario = ?))')
+        p = [like, like, like, current_user.id, current_user.username]
+    else:
+        q = ('SELECT * FROM agendamentos '
+             'WHERE (estagiario LIKE ? OR paciente LIKE ? OR observacao LIKE ?)')
+        p = [like, like, like]
+    if current_user.role == 'professor':
+        q += (
+            ' AND EXISTS (SELECT 1 FROM usuarios u '
+            'WHERE u.role=? AND u.supervisor_id=? '
+            'AND (agendamentos.usuario_id=u.id OR agendamentos.estagiario=u.username OR agendamentos.estagiario=u.nome_completo))'
+        )
+        p += ['aluno', current_user.id]
     q += ' ORDER BY dia_semana, horario, sala'
     conn = get_db()
     try:
         rows = conn.execute(q, p).fetchall()
     finally:
         conn.close()
-    return jsonify([dict(r) for r in rows])
+    return jsonify([agendamento_para_resposta(r) for r in rows])
 
 
 def chave_sem_acento(valor):
@@ -4836,7 +4955,7 @@ def desfazer_importacao():
 
 @app.route('/api/backup')
 @login_required
-@requer_papel('coordenador')
+@requer_papel('coordenador', 'somente_leitura')
 @limiter.limit('5 per hour')
 def backup_db():
     confirm = request.args.get('confirmar', '')
@@ -4890,6 +5009,44 @@ def comando_manutencao(vacuum):
     click.echo('Manutencao concluida.')
     for chave, valor in resultado.items():
         click.echo(f'{chave}: {valor}')
+
+
+@app.cli.command('backup-diario')
+def comando_backup_diario():
+    resultado = salvar_backup_automatico()
+    click.echo('Backup diario concluido.')
+    click.echo(f"arquivo: {resultado['arquivo']}")
+    click.echo(f"tamanho: {resultado['tamanho']} bytes")
+    click.echo(f"backups_antigos_removidos: {resultado['antigos_removidos']}")
+    click.echo(f"retencao_dias: {resultado['retencao_dias']}")
+
+
+@app.cli.command('testar-email')
+@click.option('--para', default='', help='E-mail que recebera a mensagem de teste.')
+def comando_testar_email(para):
+    destino = (para or SMTP_USER or EMAIL_FROM or '').strip()
+    status = diagnostico_smtp()
+    click.echo('Diagnostico SMTP:')
+    click.echo(f"configurado: {status['configurado']}")
+    click.echo(f"host: {status['host']}")
+    click.echo(f"porta: {status['porta']}")
+    click.echo(f"tls: {status['tls']}")
+    click.echo(f"usuario_configurado: {status['usuario_configurado']}")
+    click.echo(f"senha_configurada: {status['senha_configurada']}")
+    click.echo(f"email_saida_configurado: {status['email_saida_configurado']}")
+    if status['faltando']:
+        click.echo(f"faltando: {', '.join(status['faltando'])}")
+        raise click.ClickException('SMTP incompleto. Confira variaveis de ambiente no WSGI/.env.')
+    if not destino:
+        raise click.ClickException('Informe um destino com --para email@exemplo.com.')
+    enviado = enviar_email(
+        destino,
+        'Teste SMTP - Mapa de Sala',
+        'Este é um e-mail de teste do Mapa de Sala. Se você recebeu, o SMTP está funcionando.'
+    )
+    if not enviado:
+        raise click.ClickException('Falha ao enviar. Veja o log EMAIL_ERRO para o detalhe técnico.')
+    click.echo(f'E-mail de teste enviado para {destino}.')
 
 
 # ========================================

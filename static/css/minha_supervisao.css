@@ -26,11 +26,13 @@ h1{font-size:25px;color:#f8fafc;line-height:1.15}
 .request-panel{display:grid;grid-template-columns:260px 1fr;gap:14px;margin-top:12px;align-items:start;border-color:#7c3aed}
 .request-form{display:grid;grid-template-columns:1.4fr .7fr .7fr;gap:10px}.request-form .wide{grid-column:1/-1}.request-form select,.request-form input,.request-form textarea{width:100%;background:#111827;border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:9px 10px;outline:none}.request-form textarea{min-height:74px;resize:vertical}.request-form select:focus,.request-form input:focus,.request-form textarea:focus{border-color:var(--accent)}
 .request-form button{grid-column:1/-1;border:0;background:#7c3aed;color:#fff;border-radius:var(--radius);padding:10px 12px;font-weight:900;display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:pointer}.request-form button i{width:16px;height:16px}
+.request-helper{display:flex;align-items:flex-start;gap:8px;color:#c4b5fd;background:rgba(124,58,237,.14);border:1px solid rgba(196,181,253,.28);border-radius:var(--radius);padding:9px 10px;font-size:12px;line-height:1.35}.request-helper i{width:16px;height:16px;flex:0 0 auto;margin-top:1px}
 .students-list{display:grid;gap:14px;margin-top:16px}
 .student-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:0;overflow:hidden}
 .student-card[hidden]{display:none}.student-card details{padding:0}.student-card details[open] .student-head>i{transform:rotate(180deg)}
 .student-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:16px;cursor:pointer;list-style:none}.student-head::-webkit-details-marker{display:none}.student-head>i{width:18px;height:18px;color:#93c5fd;transition:transform .15s ease;flex:0 0 auto}
 .student-head h2{font-size:19px;color:#f8fafc}.student-head span{color:var(--text2);font-size:12px}
+.quick-request{border:1px solid #7c3aed;background:rgba(124,58,237,.16);color:#ede9fe;border-radius:999px;padding:8px 11px;font-weight:900;display:inline-flex;align-items:center;gap:7px;cursor:pointer;white-space:nowrap}.quick-request:hover{background:#7c3aed;color:#fff}.quick-request i{width:15px;height:15px}
 .student-stats{display:grid;grid-template-columns:repeat(4,auto);gap:4px 10px;text-align:center;align-items:end}
 .student-stats strong{font-size:22px;color:#f8fafc}.student-stats span{color:var(--text2);font-size:10px;text-transform:uppercase;font-weight:900}
 .student-columns{display:grid;grid-template-columns:1fr 1fr;gap:12px;border-top:1px solid var(--border);padding:12px 16px 0}
@@ -43,6 +45,7 @@ h1{font-size:25px;color:#f8fafc;line-height:1.15}
 .empty{border:1px dashed var(--border);border-radius:var(--radius);padding:18px 12px;color:var(--text2);text-align:center}
 .empty.positive{border-color:#14532d;background:rgba(5,46,22,.22);color:#bbf7d0}
 .student-request-status{padding:12px 16px 0}.student-request-status h3{font-size:14px;color:#f8fafc;display:flex;align-items:center;gap:7px;margin-bottom:8px}.student-request-status h3 i{width:16px;height:16px;color:#c4b5fd}
+.request-current{border:1px solid #7c3aed;background:rgba(124,58,237,.12);border-radius:var(--radius);padding:9px 10px;margin-bottom:8px;display:grid;gap:3px}.request-current strong{color:#f8fafc}.request-current span{color:#c4b5fd;font-size:12px;line-height:1.35}
 .status-pendente{border-color:#d97706}.status-em_analise{border-color:#2563eb}.status-atendida_parcial{border-color:#7c3aed}.status-atendida{border-color:#15803d}.status-recusada{border-color:#ef4444}
 .week{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:14px 16px 16px}
 .day{background:#111827;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
@@ -60,6 +63,7 @@ h1{font-size:25px;color:#f8fafc;line-height:1.15}
   .tools-panel,.request-panel{grid-template-columns:1fr}
   .request-form{grid-template-columns:1fr}
   .student-head{flex-direction:column}
+  .quick-request{width:100%;justify-content:center;border-radius:var(--radius)}
   .student-stats{grid-template-columns:repeat(4,1fr);width:100%}
   .student-columns{grid-template-columns:1fr}
   .week{grid-template-columns:1fr}
@@ -68,4 +72,7 @@ h1{font-size:25px;color:#f8fafc;line-height:1.15}
   .summary{grid-template-columns:1fr}
   .summary-card{display:flex;justify-content:space-between;align-items:center;gap:10px}
   .summary-card strong{margin-top:0}
+  .student-stats{grid-template-columns:repeat(2,1fr)}
+  .tools-panel,.request-panel,.student-head,.week{gap:10px}
+  .picker-list{max-height:160px}
 }

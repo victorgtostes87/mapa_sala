@@ -12,4 +12,18 @@ body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'Segoe 
 .doc-card li::marker{color:#93c5fd;font-weight:800}.note{margin-top:16px;border:1px solid #1d4ed8;background:#102554;color:#bfdbfe;border-radius:var(--radius);padding:12px;line-height:1.5}
 .note.danger{border-color:#7f1d1d;background:#2a1218;color:#fecaca}
 pre{margin-top:14px;background:#020617;border:1px solid var(--border);border-radius:var(--radius);padding:14px;overflow:auto;color:#dbeafe}
-@media (max-width:720px){.help-page{padding:0 12px;margin-top:16px}.hero h1{font-size:22px}.app-nav-actions{gap:6px}}
+@media (max-width:720px){
+  .help-page{padding:0 12px;margin-top:16px}
+  .hero,.doc-card{padding:16px}
+  .hero h1{font-size:22px}
+  .help-tabs{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}
+  .help-tabs a{flex:0 0 auto;padding:10px 11px}
+  .doc-card ol{margin-left:18px}
+  .app-nav-actions{gap:6px}
+}
+@media (max-width:420px){
+  .help-page{padding:0 9px}
+  .hero,.doc-card{padding:14px}
+  .doc-card h2{font-size:18px}
+  pre{font-size:12px}
+}

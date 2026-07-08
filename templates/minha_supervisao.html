@@ -18,6 +18,7 @@
       <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
     </div>
     <div class="app-nav-actions">
+      <a href="/ajuda/professor" class="app-btn app-btn-ghost"><i data-lucide="book-open"></i> Ajuda</a>
       <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
       <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
     </div>
@@ -106,13 +107,13 @@
       <div>
         <p class="eyebrow">Solicitar vagas</p>
         <h2>Pedido para recepção/coordenação</h2>
-        <p class="muted">Monte pedidos por aluno, separando vagas de paciente e vagas de triagem.</p>
+        <p class="muted">Monte pedidos por aluno, separando vagas de paciente e vagas de triagem. Evite reenviar pedido enquanto ainda houver análise aberta.</p>
       </div>
       <form method="post" action="{{ url_for('criar_solicitacao_vagas') }}" class="request-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label>
           Aluno
-          <select name="aluno_id" required>
+          <select name="aluno_id" id="requestAluno" required>
             <option value="" selected disabled>Selecione um aluno</option>
             {% for aluno in alunos %}
             <option value="{{ aluno.id }}">{{ aluno.nome }}</option>
@@ -121,16 +122,20 @@
         </label>
         <label>
           Paciente
-          <input type="number" name="vagas_paciente" min="0" max="20" value="0">
+          <input type="number" name="vagas_paciente" id="requestPaciente" min="0" max="20" value="0">
         </label>
         <label>
           Triagem
-          <input type="number" name="vagas_triagem" min="0" max="20" value="0">
+          <input type="number" name="vagas_triagem" id="requestTriagem" min="0" max="20" value="0">
         </label>
         <label class="wide">
           Observação
-          <textarea name="observacao" placeholder="Ex: preferência de turno, urgência ou combinação feita em supervisão"></textarea>
+          <textarea name="observacao" id="requestObs" placeholder="Ex: preferência de turno, urgência ou combinação feita em supervisão"></textarea>
         </label>
+        <div class="request-helper wide">
+          <i data-lucide="info"></i>
+          <span>Depois de enviar, o pedido aparece no histórico do aluno e na aba Reservas da recepção/coordenação.</span>
+        </div>
         <button type="submit"><i data-lucide="send"></i> Enviar pedido</button>
       </form>
     </section>
@@ -145,6 +150,9 @@
             <h2>{{ aluno.nome }}</h2>
             <span>{{ aluno.username }}{% if aluno.email %} · {{ aluno.email }}{% endif %}</span>
           </div>
+          <button type="button" class="quick-request" data-aluno-id="{{ aluno.id }}" data-aluno-nome="{{ aluno.nome }}" data-pacientes="{{ 1 if aluno.total_pacientes == 0 else 0 }}" data-triagens="{{ 1 if aluno.total_abertos == 0 else 0 }}">
+            <i data-lucide="send"></i> Pedir vagas
+          </button>
           <div class="student-stats">
             <strong>{{ aluno.total_fixos }}</strong><span>fixos</span>
             <strong>{{ aluno.total_pacientes }}</strong><span>pacientes</span>
@@ -192,6 +200,12 @@
 
         <section class="student-request-status">
           <h3><i data-lucide="clipboard-list"></i> Solicitações de vagas</h3>
+          {% if aluno.ultima_solicitacao and aluno.ultima_solicitacao.status in ['pendente', 'em_analise', 'atendida_parcial'] %}
+          <div class="request-current status-{{ aluno.ultima_solicitacao.status }}">
+            <strong>Pedido em andamento</strong>
+            <span>{{ aluno.ultima_solicitacao.status_label }} · {{ aluno.ultima_solicitacao.vagas_paciente_faltantes }} paciente(s) e {{ aluno.ultima_solicitacao.vagas_triagem_faltantes }} triagem(ns) ainda pendente(s)</span>
+          </div>
+          {% endif %}
           {% if aluno.solicitacoes %}
           <div class="mini-list">
             {% for sol in aluno.solicitacoes[:3] %}
@@ -302,6 +316,23 @@
     });
     document.getElementById('closeAllStudents')?.addEventListener('click', () => {
       studentCards.filter(card => !card.hidden).forEach(card => card.querySelector('details').open = false);
+    });
+
+    document.querySelectorAll('.quick-request').forEach((btn) => {
+      btn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const alunoSelect = document.getElementById('requestAluno');
+        const pacienteInput = document.getElementById('requestPaciente');
+        const triagemInput = document.getElementById('requestTriagem');
+        const obsInput = document.getElementById('requestObs');
+        alunoSelect.value = btn.dataset.alunoId;
+        pacienteInput.value = btn.dataset.pacientes || '0';
+        triagemInput.value = btn.dataset.triagens || '0';
+        obsInput.value = `Pedido aberto a partir do card de ${btn.dataset.alunoNome}.`;
+        document.getElementById('solicitacoes-vagas').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setTimeout(() => pacienteInput.focus(), 250);
+      });
     });
   </script>
 </body>

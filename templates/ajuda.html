@@ -35,6 +35,8 @@
     <nav class="help-tabs">
       <a class="{{ 'active' if topico == 'recepcao' else '' }}" href="/ajuda/recepcao">Recepção</a>
       <a class="{{ 'active' if topico == 'coordenacao' else '' }}" href="/ajuda/coordenacao">Coordenação</a>
+      <a class="{{ 'active' if topico == 'professor' else '' }}" href="/ajuda/professor">Professor</a>
+      <a class="{{ 'active' if topico == 'aluno' else '' }}" href="/ajuda/aluno">Aluno</a>
       <a class="{{ 'active' if topico == 'backup' else '' }}" href="/ajuda/backup">Restaurar backup</a>
     </nav>
 
@@ -61,6 +63,30 @@
         <li>Use <strong>Backup</strong> antes de importar Excel ou fazer mudanças grandes no mapa.</li>
       </ol>
       <div class="note">Permissões críticas ficam com coordenador: excluir usuário, excluir agendamento, importar Excel, baixar backup e apagar logs.</div>
+    </section>
+    {% elif topico == 'professor' %}
+    <section class="doc-card">
+      <h2>Como usar: professor</h2>
+      <ol>
+        <li>Abra <strong>Minha supervisão</strong> para ver somente os alunos vinculados ao seu usuário.</li>
+        <li>Confira quais alunos têm paciente marcado, triagem aberta e horário reservado sem paciente.</li>
+        <li>Use <strong>Pedir vagas</strong> no card do aluno para solicitar novos pacientes ou triagens para a recepção/coordenação.</li>
+        <li>Acompanhe o status do pedido: pendente, em análise, atendido parcialmente, atendido ou recusado.</li>
+        <li>Evite enviar pedido duplicado para o mesmo aluno enquanto houver um pedido em aberto.</li>
+      </ol>
+      <div class="note">O professor visualiza a parte acadêmica da supervisão. Alterações no mapa continuam com recepção e coordenação.</div>
+    </section>
+    {% elif topico == 'aluno' %}
+    <section class="doc-card">
+      <h2>Como usar: aluno</h2>
+      <ol>
+        <li>Abra <strong>Meus agendamentos</strong> para ver seus horários, salas e reservas.</li>
+        <li>A tela separa horários com paciente/triagem marcada dos horários reservados ainda sem paciente.</li>
+        <li>Use <strong>Solicitar reserva</strong> para pedir sala ou instrumento com pelo menos 24 horas de antecedência.</li>
+        <li>Use <strong>Coordenação</strong> para marcar horário de conversa quando houver disponibilidade publicada.</li>
+        <li>Não registre informações clínicas, diagnóstico, queixa ou evolução em observações do sistema.</li>
+      </ol>
+      <div class="note">Por segurança, a área do aluno não mostra dados sensíveis de paciente. O sistema é apoio operacional, não prontuário.</div>
     </section>
     {% else %}
     <section class="doc-card">

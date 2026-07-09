@@ -110,8 +110,6 @@ def gerar_csrf_token():
 
 
 def rota_inicial_por_papel(role):
-    if role == 'recepcao':
-        return '/painel'
     if role == 'professor':
         return '/minha-supervisao'
     if role == 'aluno':
@@ -122,7 +120,6 @@ def rota_inicial_por_papel(role):
 def itens_menu_por_papel(role):
     menus = {
         'coordenador': [
-            ('Mapa de Sala', '/mapa', 'layout-grid'),
             ('Painel da Recepção', '/painel', 'layout-dashboard'),
             ('Painel da Coordenação', '/painel-coordenacao', 'bar-chart-3'),
             ('Afazeres', '/afazeres', 'list-checks'),
@@ -131,12 +128,8 @@ def itens_menu_por_papel(role):
             ('Relatório semanal', '/relatorio-semanal', 'file-bar-chart'),
             ('Coordenação', '/coordenacao', 'messages-square'),
             ('Imprimir', '/imprimir', 'printer'),
-            ('Exportar', '/api/export', 'download'),
             ('Usuários', '/usuarios', 'users'),
-            ('Logs', '/logs', 'scroll-text'),
             ('Saúde e manutenção', '/saude', 'activity'),
-            ('Backup', '/api/backup', 'database-backup'),
-            ('Importar Excel', '/mapa?importar=1', 'upload'),
             ('Termo de uso', '/termo-uso', 'shield-check'),
             ('Ajuda', '/ajuda/coordenacao', 'book-open'),
             ('Sobre', '/sobre', 'info'),
@@ -176,7 +169,6 @@ def itens_menu_por_papel(role):
             ('Trocar senha', '/trocar-senha', 'key-round'),
         ],
         'somente_leitura': [
-            ('Mapa de Sala', '/mapa', 'layout-grid'),
             ('Painel da Recepção', '/painel', 'layout-dashboard'),
             ('Painel da Coordenação', '/painel-coordenacao', 'bar-chart-3'),
             ('Afazeres', '/afazeres', 'list-checks'),
@@ -185,12 +177,8 @@ def itens_menu_por_papel(role):
             ('Relatório semanal', '/relatorio-semanal', 'file-bar-chart'),
             ('Coordenação', '/coordenacao', 'messages-square'),
             ('Imprimir', '/imprimir', 'printer'),
-            ('Exportar', '/api/export', 'download'),
             ('Usuários', '/usuarios', 'users'),
-            ('Logs', '/logs', 'scroll-text'),
             ('Saúde e manutenção', '/saude', 'activity'),
-            ('Backup', '/api/backup', 'database-backup'),
-            ('Importar Excel', '/mapa?importar=1', 'upload'),
             ('Termo de uso', '/termo-uso', 'shield-check'),
             ('Ajuda', '/ajuda/coordenacao', 'book-open'),
             ('Sobre', '/sobre', 'info'),
@@ -2202,8 +2190,6 @@ def mapa_sala():
         return redirect(url_for('meus_agendamentos'))
     if current_user.role == 'professor':
         return redirect(url_for('minha_supervisao'))
-    if current_user.role == 'recepcao':
-        return redirect(url_for('painel_recepcao'))
     return renderizar_mapa_sala()
 
 

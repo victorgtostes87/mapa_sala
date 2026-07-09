@@ -156,10 +156,9 @@ class MapaSalasTestCase(unittest.TestCase):
     def test_hierarquia_redireciona_telas_iniciais_por_papel(self):
         resp_recepcao = self._login('recepcao')
         self.assertEqual(resp_recepcao.status_code, 302)
-        self.assertIn('/painel', resp_recepcao.headers['Location'])
+        self.assertIn('/mapa', resp_recepcao.headers['Location'])
         mapa_recepcao = self.client.get('/mapa')
-        self.assertEqual(mapa_recepcao.status_code, 302)
-        self.assertIn('/painel', mapa_recepcao.headers['Location'])
+        self.assertEqual(mapa_recepcao.status_code, 200)
 
         self.client.get('/logout')
         resp_professor = self._login('professor1')
@@ -315,13 +314,13 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 302)
         self.assertIn('/meus-agendamentos', resp.headers['Location'])
 
-    def test_recepcao_entra_no_painel_inicial(self):
+    def test_recepcao_entra_no_mapa_inicial(self):
         resp = self._login('recepcao')
 
         self.assertEqual(resp.status_code, 302)
-        self.assertIn('/painel', resp.headers['Location'])
+        self.assertIn('/mapa', resp.headers['Location'])
 
-    def test_recepcao_painel_tem_somente_voltar_perfil_e_sair_no_topo(self):
+    def test_recepcao_painel_tem_inicio_menu_e_sair_no_topo(self):
         self._login('recepcao')
 
         painel = self.client.get('/painel')
@@ -330,38 +329,27 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertEqual(painel.status_code, 200)
         self.assertIn('Painel da recepção', html)
         self.assertIn('Testes e instrumentos', html)
-        nav = html.split('<div class="app-nav-actions">', 1)[1].split('</div>', 1)[0]
-        self.assertIn('Voltar', nav)
-        self.assertIn('/perfil', nav)
-        self.assertIn('/logout', nav)
-        self.assertNotIn('/mapa', nav)
-        self.assertNotIn('/afazeres', nav)
-        self.assertNotIn('/reservas', nav)
-        self.assertNotIn('/horarios-abertos', nav)
+        self.assertIn('Início', html)
+        self.assertIn('Menu', html)
+        self.assertIn('/logout', html)
 
-    def test_coordenador_painel_tem_somente_voltar_perfil_e_sair_no_topo(self):
+    def test_coordenador_painel_tem_inicio_menu_e_sair_no_topo(self):
         self._login('coordenador')
 
         resp = self.client.get('/painel')
         html = resp.get_data(as_text=True)
-        nav = html.split('<div class="app-nav-actions">', 1)[1].split('</div>', 1)[0]
 
         self.assertEqual(resp.status_code, 200)
-        self.assertIn('Voltar', nav)
-        self.assertIn('/perfil', nav)
-        self.assertIn('/logout', nav)
-        self.assertNotIn('/mapa', nav)
-        self.assertNotIn('/afazeres', nav)
-        self.assertNotIn('/reservas', nav)
-        self.assertNotIn('/horarios-abertos', nav)
+        self.assertIn('Início', html)
+        self.assertIn('Menu', html)
+        self.assertIn('/logout', html)
 
-    def test_recepcao_nao_acessa_mapa_direto(self):
+    def test_recepcao_acessa_mapa_direto(self):
         self._login('recepcao')
 
         resp = self.client.get('/mapa')
 
-        self.assertEqual(resp.status_code, 302)
-        self.assertIn('/painel', resp.headers['Location'])
+        self.assertEqual(resp.status_code, 200)
 
     def test_login_aceita_email_cadastrado(self):
         conn = mapa.get_db()

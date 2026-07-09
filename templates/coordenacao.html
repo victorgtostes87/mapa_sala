@@ -38,9 +38,15 @@
 
     <section class="hero">
       <div>
+        {% if papel in ['coordenador', 'somente_leitura'] %}
+        <p class="eyebrow">Agenda da coordenação</p>
+        <h1>Gerenciar horários com a coordenação</h1>
+        <p>Use esta tela para publicar horários disponíveis, acompanhar pedidos dos alunos e cancelar reuniões quando necessário.</p>
+        {% else %}
         <p class="eyebrow">Agenda da coordenação</p>
         <h1>Horários para conversar com a coordenadora</h1>
         <p>Use esta tela para marcar conversas rápidas, tirar dúvidas ou tratar assuntos acadêmicos.</p>
+        {% endif %}
       </div>
     </section>
 

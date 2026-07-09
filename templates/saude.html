@@ -1,10 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Saúde do Sistema</title>
   <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/voltar.js') }}"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/saude.css') }}">
 </head>
@@ -18,9 +19,8 @@
       <span class="role-badge role-{{ papel }}">{{ (papeis_label|default({})).get(papel, papel) }}</span>
     </div>
     <div class="app-nav-actions">
-      <a href="{{ url_for('logs_page') }}" class="app-btn app-btn-ghost"><i data-lucide="arrow-left"></i> Logs</a>
+      <a href="/mapa" class="app-btn app-btn-ghost" onclick="voltarAbaAnterior(event, '/mapa')"><i data-lucide="arrow-left"></i> Voltar</a>
       <a href="{{ url_for('backup_db') }}" class="app-btn app-btn-primary"><i data-lucide="database-backup"></i> Backup</a>
-      <a href="{{ url_for('perfil') }}" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
     </div>
   </nav>
 
@@ -39,6 +39,40 @@
       <article><span>Agendamentos</span><strong>{{ saude.agendamentos_total }}</strong></article>
       <article><span>Reservas pendentes</span><strong>{{ saude.reservas_pendentes }}</strong></article>
       <article><span>Logs atuais</span><strong>{{ saude.logs_total }}</strong></article>
+    </section>
+
+    <section class="panel">
+      <header>
+        <div>
+          <span>Manutenção</span>
+          <h1>Ações administrativas</h1>
+        </div>
+      </header>
+      <div class="action-grid">
+        <a href="{{ url_for('logs_page') }}"><i data-lucide="clipboard-list"></i><strong>Logs</strong><span>Ver ações importantes.</span></a>
+        <a href="{{ url_for('backup_db') }}"><i data-lucide="database-backup"></i><strong>Backup manual</strong><span>Baixar cópia do banco.</span></a>
+        <a href="{{ url_for('export_xlsx') }}"><i data-lucide="download"></i><strong>Exportar</strong><span>Baixar dados para conferência.</span></a>
+        <a href="/mapa?importar=1"><i data-lucide="upload"></i><strong>Importar Excel</strong><span>Usar apenas quando necessário.</span></a>
+        <a href="{{ url_for('termo_uso') }}"><i data-lucide="shield-check"></i><strong>Termo de uso</strong><span>Orientação interna do sistema.</span></a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <header>
+        <div>
+          <span>E-mail</span>
+          <h1>Status do SMTP</h1>
+        </div>
+      </header>
+      <div class="smtp-status {% if saude.smtp.configurado %}ok{% else %}warn{% endif %}">
+        <strong>{% if saude.smtp.configurado %}Configurado{% else %}Incompleto{% endif %}</strong>
+        <span>Servidor: {{ saude.smtp.host }}:{{ saude.smtp.porta }} · TLS: {{ 'sim' if saude.smtp.tls else 'não' }}</span>
+        {% if saude.smtp.faltando %}
+        <em>Faltando: {{ saude.smtp.faltando|join(', ') }}</em>
+        {% else %}
+        <em>Senha e usuário foram informados. Use o comando de teste no console para confirmar envio real.</em>
+        {% endif %}
+      </div>
     </section>
 
     <section class="panel">

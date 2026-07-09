@@ -19,12 +19,8 @@
       <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
     </div>
     <div class="app-nav-actions">
-      <a href="/" class="app-btn app-btn-ghost" onclick="voltarAbaAnterior(event, '/')"><i data-lucide="arrow-left"></i> Voltar</a>
+      <a href="/mapa" class="app-btn app-btn-ghost" onclick="voltarAbaAnterior(event, '/mapa')"><i data-lucide="arrow-left"></i> Voltar</a>
       <a href="/termo-uso" class="app-btn app-btn-ghost"><i data-lucide="shield-check"></i> Termo</a>
-      {% if papel == 'coordenador' %}
-      <a href="/api/backup" class="app-btn app-btn-ghost"><i data-lucide="database-backup"></i> Backup</a>
-      {% endif %}
-      <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
       <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
     </div>
   </nav>

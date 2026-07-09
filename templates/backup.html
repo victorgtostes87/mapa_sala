@@ -6,12 +6,12 @@
   <title>Backup do Banco</title>
   <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/voltar.js') }}"></script>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/backup.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/backup.css') }}">
 </head>
 <body>
   <nav class="app-nav">
-    <a class="app-nav-brand" href="/mapa" title="Voltar para o mapa"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
+    <a class="app-nav-brand" href="/mapa" title="Voltar para o mapa"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policl&iacute;nica Psicologia UVV</span></span></a>
     <div class="app-nav-title">Backup</div>
     <div class="app-nav-spacer"></div>
     <div class="app-nav-user">
@@ -19,8 +19,8 @@
       <span class="role-badge role-{{ papel }}">{{ (papeis_label|default({})).get(papel, papel) }}</span>
     </div>
     <div class="app-nav-actions">
-      <a href="{{ url_for('saude_sistema') }}" class="app-btn app-btn-ghost"><i data-lucide="activity"></i> Saúde</a>
-      <a href="{{ url_for('sobre') }}" class="app-btn app-btn-ghost"><i data-lucide="info"></i> Sobre</a>
+      <a href="/mapa" class="app-btn app-btn-ghost" onclick="voltarAbaAnterior(event, '/mapa')"><i data-lucide="arrow-left"></i> Voltar</a>
+      <a href="{{ url_for('saude_sistema') }}" class="app-btn app-btn-ghost"><i data-lucide="activity"></i> Sa&uacute;de</a>
       <a href="{{ url_for('logout') }}" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
     </div>
   </nav>
@@ -29,30 +29,38 @@
     <section class="card">
       <h1>Backup do banco de dados</h1>
       <p>
-        O backup gera uma cópia completa do banco SQLite usado pelo sistema. Ele serve para recuperação em caso de erro,
-        importação incorreta, perda de dados ou necessidade de auditoria técnica.
+        O backup gera uma c&oacute;pia completa do banco SQLite usado pelo sistema. Ele serve para recupera&ccedil;&atilde;o em caso de erro,
+        importa&ccedil;&atilde;o incorreta, perda de dados ou necessidade de auditoria t&eacute;cnica.
       </p>
 
       <div class="warning">
-        Este arquivo contém informações sensíveis, incluindo usuários, agendamentos, reservas, logs e hashes de senha.
-        Baixe apenas quando necessário e guarde em local seguro.
+        Este arquivo cont&eacute;m informa&ccedil;&otilde;es sens&iacute;veis, incluindo usu&aacute;rios, agendamentos, reservas, logs e hashes de senha.
+        Baixe apenas quando necess&aacute;rio e guarde em local seguro.
       </div>
 
-      <h2>Orientação de uso</h2>
+      <h2>Orienta&ccedil;&atilde;o de uso</h2>
       <ul>
-        <li>Faça backup antes de importar Excel ou fazer mudanças grandes.</li>
-        <li>Não envie o arquivo em grupos de mensagem.</li>
-        <li>Não deixe salvo em computador compartilhado.</li>
-        <li>Guarde em pasta restrita da coordenação ou local institucional autorizado.</li>
-        <li>Se precisar restaurar, procure quem mantém o sistema antes de substituir o banco.</li>
+        <li>Fa&ccedil;a backup antes de importar Excel ou fazer mudan&ccedil;as grandes.</li>
+        <li>N&atilde;o envie o arquivo em grupos de mensagem.</li>
+        <li>N&atilde;o deixe salvo em computador compartilhado.</li>
+        <li>Guarde em pasta restrita da coordena&ccedil;&atilde;o ou local institucional autorizado.</li>
+        <li>Se precisar restaurar, procure quem mant&eacute;m o sistema antes de substituir o banco.</li>
       </ul>
+
+      <h2>Backup autom&aacute;tico di&aacute;rio</h2>
+      <p>
+        No PythonAnywhere, agende este comando uma vez por dia. Ele salva uma c&oacute;pia na pasta de backups do sistema
+        e remove arquivos antigos conforme a reten&ccedil;&atilde;o configurada.
+      </p>
+      <pre class="command-box">cd ~/mapa_sala
+flask --app app backup-diario</pre>
 
       <div class="actions">
         <a class="btn btn-primary" href="{{ url_for('backup_db', confirmar='sim') }}">Baixar backup agora</a>
-        <a class="btn btn-secondary" href="/" onclick="voltarAbaAnterior(event, '/')">Voltar</a>
+        <a class="btn btn-secondary" href="/mapa" onclick="voltarAbaAnterior(event, '/mapa')">Voltar</a>
       </div>
     </section>
-    <div class="version-footer">Versão {{ versao }}</div>
+    <div class="version-footer">Vers&atilde;o {{ versao }}</div>
   </main>
   <script>lucide.createIcons();</script>
 </body>

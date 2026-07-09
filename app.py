@@ -130,9 +130,7 @@ def itens_menu_por_papel(role):
             ('Imprimir', '/imprimir', 'printer'),
             ('Usuários', '/usuarios', 'users'),
             ('Saúde e manutenção', '/saude', 'activity'),
-            ('Termo de uso', '/termo-uso', 'shield-check'),
             ('Ajuda', '/ajuda/coordenacao', 'book-open'),
-            ('Sobre', '/sobre', 'info'),
             ('Perfil', '/perfil', 'user-round'),
             ('Trocar senha', '/trocar-senha', 'key-round'),
         ],
@@ -142,18 +140,14 @@ def itens_menu_por_papel(role):
             ('Reservas', '/reservas', 'bell'),
             ('Horários abertos', '/horarios-abertos', 'calendar-plus'),
             ('Imprimir', '/imprimir', 'printer'),
-            ('Termo de uso', '/termo-uso', 'shield-check'),
             ('Ajuda', '/ajuda/recepcao', 'book-open'),
-            ('Sobre', '/sobre', 'info'),
             ('Perfil', '/perfil', 'user-round'),
             ('Trocar senha', '/trocar-senha', 'key-round'),
         ],
         'professor': [
             ('Minha Supervisão', '/minha-supervisao', 'users-round'),
             ('Pedidos de vagas', '/minha-supervisao#solicitacoes-vagas', 'clipboard-plus'),
-            ('Termo de uso', '/termo-uso', 'shield-check'),
             ('Ajuda', '/ajuda/professor', 'book-open'),
-            ('Sobre', '/sobre', 'info'),
             ('Perfil', '/perfil', 'user-round'),
             ('Trocar senha', '/trocar-senha', 'key-round'),
         ],
@@ -162,9 +156,7 @@ def itens_menu_por_papel(role):
             ('Reservar sala', '/reservas#reserva-sala', 'door-open'),
             ('Reservar instrumentos', '/reservas#reserva-instrumentos', 'clipboard-list'),
             ('Horário com Coordenação', '/coordenacao', 'messages-square'),
-            ('Termo de uso', '/termo-uso', 'shield-check'),
             ('Ajuda', '/ajuda/aluno', 'book-open'),
-            ('Sobre', '/sobre', 'info'),
             ('Perfil', '/perfil', 'user-round'),
             ('Trocar senha', '/trocar-senha', 'key-round'),
         ],
@@ -179,9 +171,7 @@ def itens_menu_por_papel(role):
             ('Imprimir', '/imprimir', 'printer'),
             ('Usuários', '/usuarios', 'users'),
             ('Saúde e manutenção', '/saude', 'activity'),
-            ('Termo de uso', '/termo-uso', 'shield-check'),
             ('Ajuda', '/ajuda/coordenacao', 'book-open'),
-            ('Sobre', '/sobre', 'info'),
             ('Perfil', '/perfil', 'user-round'),
             ('Trocar senha', '/trocar-senha', 'key-round'),
         ],
@@ -3034,25 +3024,13 @@ def cancelar_agendamento_coordenacao(agendamento_id):
 @app.route('/sobre')
 @login_required
 def sobre():
-    return render_template(
-        'sobre.html',
-        usuario=current_user.username,
-        papel=current_user.role,
-        papel_label=PAPEIS_LABEL.get(current_user.role, current_user.role),
-        versao=VERSAO
-    )
+    return redirect('/ajuda#sobre')
 
 
 @app.route('/termo-uso')
 @login_required
 def termo_uso():
-    return render_template(
-        'termo_uso.html',
-        usuario=current_user.username,
-        papel=current_user.role,
-        papel_label=PAPEIS_LABEL.get(current_user.role, current_user.role),
-        versao=VERSAO
-    )
+    return redirect('/ajuda#termo')
 
 
 @app.route('/ajuda')

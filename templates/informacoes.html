@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Informações</title>
+  <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/ajuda.css') }}">
+</head>
+<body>
+  <nav class="app-nav">
+    <a class="app-nav-brand" href="{{ nav_home_url }}" title="Ir para o início"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
+    <div class="app-nav-title">Informações</div>
+    <div class="app-nav-spacer"></div>
+    <div class="app-nav-user">
+      <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
+      <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
+    </div>
+    {% include '_nav_actions.html' %}
+  </nav>
+
+  <main class="help-page">
+    <section class="hero" id="sobre">
+      <p class="eyebrow">Sobre o sistema</p>
+      <h1>Mapa de Sala - Policlínica Psicologia UVV</h1>
+      <p>Sistema interno para organizar salas, reservas, instrumentos, horários acadêmicos e tarefas da recepção.</p>
+    </section>
+
+    <section class="doc-card">
+      <h2>Informações gerais</h2>
+      <p><strong>Versão atual:</strong> {{ versao }}</p>
+      <p>O sistema apoia a rotina da clínica escola, reduzindo conflitos de horário, retrabalho e falta de visibilidade sobre salas, reservas e solicitações.</p>
+      <div class="note">O sistema não substitui o sistema clínico oficial nem o prontuário.</div>
+    </section>
+
+    <section class="doc-card" id="termo">
+      <h2>Termo de uso interno</h2>
+      <p>Este sistema deve ser usado apenas para informações operacionais da rotina da policlínica.</p>
+      <ol>
+        <li>Pode registrar: sala, horário, aluno, professor, tipo de uso, reserva e observações operacionais simples.</li>
+        <li>Não registre evolução, diagnóstico, hipótese clínica, queixa, conteúdo de sessão ou dados sensíveis de pacientes.</li>
+        <li>Em computador compartilhado, saia do sistema ao terminar.</li>
+        <li>Em caso de dúvida, não registre a informação e procure a coordenação.</li>
+      </ol>
+    </section>
+
+    <section class="doc-card">
+      <h2>Responsabilidade de uso</h2>
+      <p>Cada usuário deve acessar apenas as informações necessárias para sua função. Alterações importantes, importação de Excel, restauração de backup e exclusões definitivas devem ficar sob responsabilidade da coordenação.</p>
+    </section>
+  </main>
+
+  <script>lucide.createIcons();</script>
+</body>
+</html>

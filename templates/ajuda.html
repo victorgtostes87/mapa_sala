@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Ajuda e informações</title>
+  <title>Ajuda</title>
   <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ajuda.css') }}">
@@ -11,7 +11,7 @@
 <body>
   <nav class="app-nav">
     <a class="app-nav-brand" href="{{ nav_home_url }}" title="Ir para o início"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
-    <div class="app-nav-title">Ajuda e informações</div>
+    <div class="app-nav-title">Ajuda</div>
     <div class="app-nav-spacer"></div>
     <div class="app-nav-user">
       <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
@@ -21,39 +21,19 @@
   </nav>
 
   <main class="help-page">
-    <section class="hero" id="sobre">
-      <p class="eyebrow">Ajuda, termo e sobre</p>
-      <h1>Informações do sistema</h1>
-      <p>Guia rápido para uso diário. O sistema é um apoio operacional e não substitui o prontuário nem o sistema clínico oficial.</p>
+    <section class="hero">
+      <p class="eyebrow">Guia rápido</p>
+      <h1>Como usar o sistema</h1>
+      <p>Orientações práticas para a rotina de cada perfil.</p>
     </section>
 
     <nav class="help-tabs">
-      <a href="#sobre">Sobre</a>
-      <a href="#termo">Termo de uso</a>
       <a class="{{ 'active' if topico == 'recepcao' else '' }}" href="/ajuda/recepcao">Recepção</a>
       <a class="{{ 'active' if topico == 'coordenacao' else '' }}" href="/ajuda/coordenacao">Coordenação</a>
       <a class="{{ 'active' if topico == 'professor' else '' }}" href="/ajuda/professor">Professor</a>
       <a class="{{ 'active' if topico == 'aluno' else '' }}" href="/ajuda/aluno">Aluno</a>
       <a class="{{ 'active' if topico == 'backup' else '' }}" href="/ajuda/backup">Backup</a>
     </nav>
-
-    <section class="doc-card">
-      <h2>Sobre o Mapa de Sala</h2>
-      <p>Versão atual: <strong>{{ versao }}</strong></p>
-      <p>O sistema organiza salas, reservas, instrumentos, horários acadêmicos, tarefas da recepção e comunicações internas da Policlínica de Psicologia UVV.</p>
-      <div class="note">Objetivo principal: reduzir conflitos de horário, retrabalho e falta de visibilidade no uso das salas.</div>
-    </section>
-
-    <section class="doc-card" id="termo">
-      <h2>Termo simples de uso</h2>
-      <p>Este sistema é uma ferramenta operacional. Ele não deve receber evolução, diagnóstico, queixa clínica, conteúdo de sessão ou informações sensíveis de pacientes.</p>
-      <ol>
-        <li>Registre apenas dados necessários para organizar sala, horário, aluno, reserva e uso operacional.</li>
-        <li>Não registre informações clínicas sensíveis em observações.</li>
-        <li>Ao terminar em computador compartilhado, saia do sistema.</li>
-        <li>Em caso de dúvida, não registre o dado e procure a coordenação.</li>
-      </ol>
-    </section>
 
     {% if topico == 'recepcao' %}
     <section class="doc-card">
@@ -65,7 +45,6 @@
         <li>Use <strong>Afazeres</strong> como lista compartilhada, no lugar de post-its no monitor.</li>
         <li>No mapa, cadastre somente informações operacionais.</li>
       </ol>
-      <div class="note">Se a informação pertence ao atendimento clínico, ela deve ficar no sistema clínico oficial.</div>
     </section>
     {% elif topico == 'coordenacao' %}
     <section class="doc-card">
@@ -76,16 +55,15 @@
         <li>Use <strong>Usuários</strong> para cadastrar, editar, inativar ou excluir cadastros criados por engano.</li>
         <li>Use <strong>Saúde e manutenção</strong> para acessar logs, backup, exportação e importação.</li>
       </ol>
-      <div class="note">Ações críticas ficam com coordenador: excluir usuário, excluir agendamento, importar Excel, baixar/restaurar backup e apagar logs.</div>
     </section>
     {% elif topico == 'professor' %}
     <section class="doc-card">
       <h2>Como usar: professor</h2>
       <ol>
         <li>Abra <strong>Minha supervisão</strong> para ver somente os alunos vinculados ao seu usuário.</li>
-        <li>Confira quais alunos têm paciente marcado, triagem aberta e horário reservado sem paciente.</li>
+        <li>Confira alunos com paciente marcado, triagem aberta e horário reservado sem paciente.</li>
         <li>Use <strong>Pedidos de vagas</strong> para solicitar novos pacientes ou triagens para um aluno.</li>
-        <li>Acompanhe o status do pedido antes de enviar outro parecido.</li>
+        <li>Acompanhe o status antes de enviar outro pedido parecido.</li>
       </ol>
     </section>
     {% elif topico == 'aluno' %}
@@ -103,7 +81,7 @@
       <h2>Como restaurar backup</h2>
       <ol>
         <li>Avise a coordenação e combine um horário sem usuários usando o sistema.</li>
-        <li>Baixe ou escolha o backup correto em formato <strong>.db</strong>.</li>
+        <li>Escolha o backup correto em formato <strong>.db</strong>.</li>
         <li>Na tela de Backup, envie o arquivo e digite <strong>RESTAURAR</strong>.</li>
         <li>Depois, faça reload do Web App no PythonAnywhere.</li>
         <li>Confira usuários, mapa, reservas e logs principais.</li>

@@ -1,0 +1,29 @@
+<div class="app-nav-actions">
+  <a href="{{ nav_home_url }}" class="app-btn app-btn-ghost"><i data-lucide="home"></i> Início</a>
+  <div class="app-dropdown">
+    <button type="button" class="app-btn app-btn-ghost" onclick="toggleAppMenu(event)">
+      <i data-lucide="menu"></i> Menu
+    </button>
+    <div class="app-dropdown-menu app-menu">
+      {% for label, href, icon in nav_items %}
+      <a href="{{ href }}"><i data-lucide="{{ icon }}"></i> {{ label }}</a>
+      {% endfor %}
+    </div>
+  </div>
+  <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
+</div>
+<script>
+function toggleAppMenu(event){
+  event.preventDefault();
+  const menu = event.currentTarget.parentElement.querySelector('.app-menu');
+  document.querySelectorAll('.app-menu.open').forEach((item) => {
+    if(item !== menu) item.classList.remove('open');
+  });
+  menu.classList.toggle('open');
+}
+document.addEventListener('click', function(event){
+  if(!event.target.closest('.app-dropdown')){
+    document.querySelectorAll('.app-menu.open').forEach((menu) => menu.classList.remove('open'));
+  }
+});
+</script>

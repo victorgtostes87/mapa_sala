@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-br">
 <head>
   <meta charset="utf-8">
@@ -11,30 +11,26 @@
 </head>
 <body>
   <nav class="app-nav">
-    <a class="app-nav-brand" href="/mapa" title="Voltar para o mapa"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
+    <a class="app-nav-brand" href="/mapa" title="Voltar para o mapa"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>PoliclÃ­nica Psicologia UVV</span></span></a>
     <div class="app-nav-title">Ajuda</div>
     <div class="app-nav-spacer"></div>
     <div class="app-nav-user">
       <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
       <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
     </div>
-    <div class="app-nav-actions">
-      <a href="/mapa" class="app-btn app-btn-ghost" onclick="voltarAbaAnterior(event, '/mapa')"><i data-lucide="arrow-left"></i> Voltar</a>
-      <a href="/sobre" class="app-btn app-btn-ghost"><i data-lucide="info"></i> Sobre</a>
-      <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
-    </div>
+    {% include '_nav_actions.html' %}
   </nav>
 
   <main class="help-page">
     <section class="hero">
-      <p class="eyebrow">Documentação curta</p>
+      <p class="eyebrow">DocumentaÃ§Ã£o curta</p>
       <h1>Como usar o sistema</h1>
-      <p>Guia rápido para consulta no dia a dia. O sistema é um apoio operacional e não substitui o prontuário nem o sistema clínico oficial.</p>
+      <p>Guia rÃ¡pido para consulta no dia a dia. O sistema Ã© um apoio operacional e nÃ£o substitui o prontuÃ¡rio nem o sistema clÃ­nico oficial.</p>
     </section>
 
     <nav class="help-tabs">
-      <a class="{{ 'active' if topico == 'recepcao' else '' }}" href="/ajuda/recepcao">Recepção</a>
-      <a class="{{ 'active' if topico == 'coordenacao' else '' }}" href="/ajuda/coordenacao">Coordenação</a>
+      <a class="{{ 'active' if topico == 'recepcao' else '' }}" href="/ajuda/recepcao">RecepÃ§Ã£o</a>
+      <a class="{{ 'active' if topico == 'coordenacao' else '' }}" href="/ajuda/coordenacao">CoordenaÃ§Ã£o</a>
       <a class="{{ 'active' if topico == 'professor' else '' }}" href="/ajuda/professor">Professor</a>
       <a class="{{ 'active' if topico == 'aluno' else '' }}" href="/ajuda/aluno">Aluno</a>
       <a class="{{ 'active' if topico == 'backup' else '' }}" href="/ajuda/backup">Restaurar backup</a>
@@ -42,67 +38,67 @@
 
     {% if topico == 'recepcao' %}
     <section class="doc-card">
-      <h2>Como usar: recepção</h2>
+      <h2>Como usar: recepÃ§Ã£o</h2>
       <ol>
-        <li>Abra o <strong>Painel</strong> para ver pendências do turno.</li>
-        <li>Use <strong>Horários abertos</strong> para encontrar alunos que ainda podem receber paciente ou triagem.</li>
+        <li>Abra o <strong>Painel</strong> para ver pendÃªncias do turno.</li>
+        <li>Use <strong>HorÃ¡rios abertos</strong> para encontrar alunos que ainda podem receber paciente ou triagem.</li>
         <li>Use <strong>Reservas</strong> para aprovar ou recusar pedidos de sala e acompanhar instrumentos.</li>
         <li>Use <strong>Afazeres</strong> como lista compartilhada, no lugar de post-its no monitor.</li>
-        <li>No mapa, cadastre somente informações operacionais: aluno, sala, horário, categoria e se é triagem.</li>
+        <li>No mapa, cadastre somente informaÃ§Ãµes operacionais: aluno, sala, horÃ¡rio, categoria e se Ã© triagem.</li>
       </ol>
-      <div class="note">Evite colocar dados clínicos sensíveis em observações. Se a informação pertence ao atendimento, ela deve ficar no sistema clínico oficial.</div>
+      <div class="note">Evite colocar dados clÃ­nicos sensÃ­veis em observaÃ§Ãµes. Se a informaÃ§Ã£o pertence ao atendimento, ela deve ficar no sistema clÃ­nico oficial.</div>
     </section>
     {% elif topico == 'coordenacao' %}
     <section class="doc-card">
-      <h2>Como usar: coordenação</h2>
+      <h2>Como usar: coordenaÃ§Ã£o</h2>
       <ol>
-        <li>Use o <strong>Painel da coordenação</strong> para acompanhar alunos sem paciente, triagens abertas e horários ociosos.</li>
-        <li>Use <strong>Relatório semanal</strong> para uma visão resumida do uso das salas e supervisões.</li>
-        <li>Use <strong>Usuários</strong> para cadastrar, editar, inativar ou excluir cadastros criados por engano.</li>
-        <li>Use <strong>Logs</strong> para conferir ações importantes: login, criação, edição, exclusão, importação, backup e apagamento de logs.</li>
-        <li>Use <strong>Backup</strong> antes de importar Excel ou fazer mudanças grandes no mapa.</li>
+        <li>Use o <strong>Painel da coordenaÃ§Ã£o</strong> para acompanhar alunos sem paciente, triagens abertas e horÃ¡rios ociosos.</li>
+        <li>Use <strong>RelatÃ³rio semanal</strong> para uma visÃ£o resumida do uso das salas e supervisÃµes.</li>
+        <li>Use <strong>UsuÃ¡rios</strong> para cadastrar, editar, inativar ou excluir cadastros criados por engano.</li>
+        <li>Use <strong>Logs</strong> para conferir aÃ§Ãµes importantes: login, criaÃ§Ã£o, ediÃ§Ã£o, exclusÃ£o, importaÃ§Ã£o, backup e apagamento de logs.</li>
+        <li>Use <strong>Backup</strong> antes de importar Excel ou fazer mudanÃ§as grandes no mapa.</li>
       </ol>
-      <div class="note">Permissões críticas ficam com coordenador: excluir usuário, excluir agendamento, importar Excel, baixar backup e apagar logs.</div>
+      <div class="note">PermissÃµes crÃ­ticas ficam com coordenador: excluir usuÃ¡rio, excluir agendamento, importar Excel, baixar backup e apagar logs.</div>
     </section>
     {% elif topico == 'professor' %}
     <section class="doc-card">
       <h2>Como usar: professor</h2>
       <ol>
-        <li>Abra <strong>Minha supervisão</strong> para ver somente os alunos vinculados ao seu usuário.</li>
-        <li>Confira quais alunos têm paciente marcado, triagem aberta e horário reservado sem paciente.</li>
-        <li>Use <strong>Pedir vagas</strong> no card do aluno para solicitar novos pacientes ou triagens para a recepção/coordenação.</li>
-        <li>Acompanhe o status do pedido: pendente, em análise, atendido parcialmente, atendido ou recusado.</li>
+        <li>Abra <strong>Minha supervisÃ£o</strong> para ver somente os alunos vinculados ao seu usuÃ¡rio.</li>
+        <li>Confira quais alunos tÃªm paciente marcado, triagem aberta e horÃ¡rio reservado sem paciente.</li>
+        <li>Use <strong>Pedir vagas</strong> no card do aluno para solicitar novos pacientes ou triagens para a recepÃ§Ã£o/coordenaÃ§Ã£o.</li>
+        <li>Acompanhe o status do pedido: pendente, em anÃ¡lise, atendido parcialmente, atendido ou recusado.</li>
         <li>Evite enviar pedido duplicado para o mesmo aluno enquanto houver um pedido em aberto.</li>
       </ol>
-      <div class="note">O professor visualiza a parte acadêmica da supervisão. Alterações no mapa continuam com recepção e coordenação.</div>
+      <div class="note">O professor visualiza a parte acadÃªmica da supervisÃ£o. AlteraÃ§Ãµes no mapa continuam com recepÃ§Ã£o e coordenaÃ§Ã£o.</div>
     </section>
     {% elif topico == 'aluno' %}
     <section class="doc-card">
       <h2>Como usar: aluno</h2>
       <ol>
-        <li>Abra <strong>Meus agendamentos</strong> para ver seus horários, salas e reservas.</li>
-        <li>A tela separa horários com paciente/triagem marcada dos horários reservados ainda sem paciente.</li>
-        <li>Use <strong>Solicitar reserva</strong> para pedir sala ou instrumento com pelo menos 24 horas de antecedência.</li>
-        <li>Use <strong>Coordenação</strong> para marcar horário de conversa quando houver disponibilidade publicada.</li>
-        <li>Não registre informações clínicas, diagnóstico, queixa ou evolução em observações do sistema.</li>
+        <li>Abra <strong>Meus agendamentos</strong> para ver seus horÃ¡rios, salas e reservas.</li>
+        <li>A tela separa horÃ¡rios com paciente/triagem marcada dos horÃ¡rios reservados ainda sem paciente.</li>
+        <li>Use <strong>Solicitar reserva</strong> para pedir sala ou instrumento com pelo menos 24 horas de antecedÃªncia.</li>
+        <li>Use <strong>CoordenaÃ§Ã£o</strong> para marcar horÃ¡rio de conversa quando houver disponibilidade publicada.</li>
+        <li>NÃ£o registre informaÃ§Ãµes clÃ­nicas, diagnÃ³stico, queixa ou evoluÃ§Ã£o em observaÃ§Ãµes do sistema.</li>
       </ol>
-      <div class="note">Por segurança, a área do aluno não mostra dados sensíveis de paciente. O sistema é apoio operacional, não prontuário.</div>
+      <div class="note">Por seguranÃ§a, a Ã¡rea do aluno nÃ£o mostra dados sensÃ­veis de paciente. O sistema Ã© apoio operacional, nÃ£o prontuÃ¡rio.</div>
     </section>
     {% else %}
     <section class="doc-card">
       <h2>Como restaurar backup</h2>
       <ol>
-        <li>Avise a coordenação e combine um horário sem usuários usando o sistema.</li>
-        <li>Baixe o backup mais seguro disponível e guarde uma cópia do banco atual antes de substituir qualquer arquivo.</li>
+        <li>Avise a coordenaÃ§Ã£o e combine um horÃ¡rio sem usuÃ¡rios usando o sistema.</li>
+        <li>Baixe o backup mais seguro disponÃ­vel e guarde uma cÃ³pia do banco atual antes de substituir qualquer arquivo.</li>
         <li>No PythonAnywhere, abra o console Bash e entre na pasta do projeto.</li>
         <li>Substitua o arquivo do banco SQLite pelo backup escolhido.</li>
-        <li>Rode o comando de manutenção e depois faça reload do Web App.</li>
-        <li>Entre no sistema e confira usuários, mapa, reservas e logs principais.</li>
+        <li>Rode o comando de manutenÃ§Ã£o e depois faÃ§a reload do Web App.</li>
+        <li>Entre no sistema e confira usuÃ¡rios, mapa, reservas e logs principais.</li>
       </ol>
       <pre><code>cd ~/mapa_sala
 flask --app app manutencao
 flask --app app manutencao --vacuum</code></pre>
-      <div class="note danger">Restaurar backup troca o estado do sistema. Faça isso só quando houver erro real, importação incorreta ou perda de dados.</div>
+      <div class="note danger">Restaurar backup troca o estado do sistema. FaÃ§a isso sÃ³ quando houver erro real, importaÃ§Ã£o incorreta ou perda de dados.</div>
     </section>
     {% endif %}
   </main>

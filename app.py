@@ -109,13 +109,108 @@ def gerar_csrf_token():
     return session['_csrf_token']
 
 
+def rota_inicial_por_papel(role):
+    if role == 'recepcao':
+        return '/painel'
+    if role == 'professor':
+        return '/minha-supervisao'
+    if role == 'aluno':
+        return '/meus-agendamentos'
+    return '/mapa'
+
+
+def itens_menu_por_papel(role):
+    menus = {
+        'coordenador': [
+            ('Mapa de Sala', '/mapa', 'layout-grid'),
+            ('Painel da Recepção', '/painel', 'layout-dashboard'),
+            ('Painel da Coordenação', '/painel-coordenacao', 'bar-chart-3'),
+            ('Afazeres', '/afazeres', 'list-checks'),
+            ('Reservas', '/reservas', 'bell'),
+            ('Horários abertos', '/horarios-abertos', 'calendar-plus'),
+            ('Relatório semanal', '/relatorio-semanal', 'file-bar-chart'),
+            ('Coordenação', '/coordenacao', 'messages-square'),
+            ('Imprimir', '/imprimir', 'printer'),
+            ('Exportar', '/api/export', 'download'),
+            ('Usuários', '/usuarios', 'users'),
+            ('Logs', '/logs', 'scroll-text'),
+            ('Saúde e manutenção', '/saude', 'activity'),
+            ('Backup', '/api/backup', 'database-backup'),
+            ('Importar Excel', '/mapa?importar=1', 'upload'),
+            ('Termo de uso', '/termo-uso', 'shield-check'),
+            ('Ajuda', '/ajuda/coordenacao', 'book-open'),
+            ('Sobre', '/sobre', 'info'),
+            ('Perfil', '/perfil', 'user-round'),
+            ('Trocar senha', '/trocar-senha', 'key-round'),
+        ],
+        'recepcao': [
+            ('Painel', '/painel', 'layout-dashboard'),
+            ('Afazeres', '/afazeres', 'list-checks'),
+            ('Reservas', '/reservas', 'bell'),
+            ('Horários abertos', '/horarios-abertos', 'calendar-plus'),
+            ('Imprimir', '/imprimir', 'printer'),
+            ('Termo de uso', '/termo-uso', 'shield-check'),
+            ('Ajuda', '/ajuda/recepcao', 'book-open'),
+            ('Sobre', '/sobre', 'info'),
+            ('Perfil', '/perfil', 'user-round'),
+            ('Trocar senha', '/trocar-senha', 'key-round'),
+        ],
+        'professor': [
+            ('Minha Supervisão', '/minha-supervisao', 'users-round'),
+            ('Pedidos de vagas', '/minha-supervisao#solicitacoes-vagas', 'clipboard-plus'),
+            ('Termo de uso', '/termo-uso', 'shield-check'),
+            ('Ajuda', '/ajuda/professor', 'book-open'),
+            ('Sobre', '/sobre', 'info'),
+            ('Perfil', '/perfil', 'user-round'),
+            ('Trocar senha', '/trocar-senha', 'key-round'),
+        ],
+        'aluno': [
+            ('Meus Agendamentos', '/meus-agendamentos', 'calendar-days'),
+            ('Reservar sala', '/reservas#reserva-sala', 'door-open'),
+            ('Reservar instrumentos', '/reservas#reserva-instrumentos', 'clipboard-list'),
+            ('Horário com Coordenação', '/coordenacao', 'messages-square'),
+            ('Termo de uso', '/termo-uso', 'shield-check'),
+            ('Ajuda', '/ajuda/aluno', 'book-open'),
+            ('Sobre', '/sobre', 'info'),
+            ('Perfil', '/perfil', 'user-round'),
+            ('Trocar senha', '/trocar-senha', 'key-round'),
+        ],
+        'somente_leitura': [
+            ('Mapa de Sala', '/mapa', 'layout-grid'),
+            ('Painel da Recepção', '/painel', 'layout-dashboard'),
+            ('Painel da Coordenação', '/painel-coordenacao', 'bar-chart-3'),
+            ('Afazeres', '/afazeres', 'list-checks'),
+            ('Reservas', '/reservas', 'bell'),
+            ('Horários abertos', '/horarios-abertos', 'calendar-plus'),
+            ('Relatório semanal', '/relatorio-semanal', 'file-bar-chart'),
+            ('Coordenação', '/coordenacao', 'messages-square'),
+            ('Imprimir', '/imprimir', 'printer'),
+            ('Exportar', '/api/export', 'download'),
+            ('Usuários', '/usuarios', 'users'),
+            ('Logs', '/logs', 'scroll-text'),
+            ('Saúde e manutenção', '/saude', 'activity'),
+            ('Backup', '/api/backup', 'database-backup'),
+            ('Importar Excel', '/mapa?importar=1', 'upload'),
+            ('Termo de uso', '/termo-uso', 'shield-check'),
+            ('Ajuda', '/ajuda/coordenacao', 'book-open'),
+            ('Sobre', '/sobre', 'info'),
+            ('Perfil', '/perfil', 'user-round'),
+            ('Trocar senha', '/trocar-senha', 'key-round'),
+        ],
+    }
+    return menus.get(role, [])
+
+
 @app.context_processor
 def injetar_csrf_token():
+    role = current_user.role if current_user.is_authenticated else ''
     return {
         'csrf_token': gerar_csrf_token,
         'versao': VERSAO,
         'papeis_label': PAPEIS_LABEL,
-        'reservas_pendentes_count': contar_reservas_pendentes()
+        'reservas_pendentes_count': contar_reservas_pendentes(),
+        'nav_home_url': rota_inicial_por_papel(role),
+        'nav_items': itens_menu_por_papel(role),
     }
 
 

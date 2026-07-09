@@ -1,9 +1,8 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Lista de Pacientes – {{ dia_nome }}</title>
-<script src="{{ url_for('static', filename='js/voltar.js') }}"></script>
+<title>Lista de Pacientes â€“ {{ dia_nome }}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; font-size: 13px; color: #111; background: #fff; padding: 24px; }
@@ -22,7 +21,7 @@
 
   .rodape { margin-top: 24px; font-size: 10px; color: #aaa; text-align: center; border-top: 1px solid #eee; padding-top: 8px; }
 
-  /* Botoes — sumiram na impressao */
+  /* Botoes â€” sumiram na impressao */
   .no-print { margin-bottom: 16px; display: flex; gap: 10px; }
   .btn { padding: 8px 18px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
   .btn-print { background: #1d4ed8; color: #fff; }
@@ -37,20 +36,20 @@
 <body>
 
 <div class="no-print">
-  <a href="/" class="btn btn-back" onclick="voltarAbaAnterior(event, '/')">← Voltar</a>
-  <button class="btn btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+  <a href="/imprimir" class="btn btn-back">Escolher outro dia</a>
+  <button class="btn btn-print" onclick="window.print()">ðŸ–¨ï¸ Imprimir / Salvar PDF</button>
 </div>
 
 <div class="header">
-  <h1>Lista de Pacientes – {{ dia_nome }}</h1>
-  <p>Policlínica de Psicologia &nbsp;|&nbsp; Gerado em: {{ gerado_em }}</p>
+  <h1>Lista de Pacientes â€“ {{ dia_nome }}</h1>
+  <p>PoliclÃ­nica de Psicologia &nbsp;|&nbsp; Gerado em: {{ gerado_em }}</p>
 </div>
 
 {% if pacientes %}
 <table>
   <thead>
     <tr>
-      <th style="width:90px">Horário</th>
+      <th style="width:90px">HorÃ¡rio</th>
       <th>Paciente</th>
     </tr>
   </thead>
@@ -65,7 +64,7 @@
 </table>
 <p class="total">Total: {{ pacientes|length }} paciente(s)</p>
 {% else %}
-<p class="empty">📂 Nenhum paciente cadastrado para {{ dia_nome }}.</p>
+<p class="empty">ðŸ“‚ Nenhum paciente cadastrado para {{ dia_nome }}.</p>
 {% endif %}
 
 <div class="rodape">Lista gerada automaticamente pelo sistema de agendamento.</div>

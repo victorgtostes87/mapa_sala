@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-br">
 <head>
   <meta charset="utf-8">
@@ -19,11 +19,7 @@
       <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
       <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
     </div>
-    <div class="app-nav-actions">
-      <a href="/" class="app-btn app-btn-ghost" onclick="voltarAbaAnterior(event, '/')"><i data-lucide="arrow-left"></i> Voltar</a>
-      <a href="/trocar-senha" class="app-btn app-btn-ghost"><i data-lucide="key-round"></i> Senha</a>
-      <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
-    </div>
+    {% include '_nav_actions.html' %}
   </nav>
 
   <div class="container">
@@ -42,8 +38,8 @@
 
         <div class="info"><strong>Usuário</strong><span>{{ usuario }}</span></div>
         <div class="info"><strong>Cargo / Papel</strong><span class="badge">{{ papel_label }}</span></div>
-        <div class="info"><strong>Nome completo</strong><span>{{ nome_completo or '—' }}</span></div>
-        <div class="info"><strong>E-mail</strong><span>{{ email or '—' }}</span></div>
+        <div class="info"><strong>Nome completo</strong><span>{{ nome_completo or '-' }}</span></div>
+        <div class="info"><strong>E-mail</strong><span>{{ email or '-' }}</span></div>
 
         <div class="actions">
           <a class="btn primary" href="/trocar-senha"><i data-lucide="lock-keyhole"></i> Alterar senha</a>
@@ -52,7 +48,7 @@
 
       <div class="card">
         <h2 class="title"><i data-lucide="pencil-line"></i> Atualizar dados</h2>
-        <p class="muted">Preencha seus dados pessoais. Campos obrigatórios.</p>
+        <p class="muted">Preencha seus dados pessoais. Campos obrigatérios.</p>
 
         <form method="post">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

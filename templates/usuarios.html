@@ -18,11 +18,7 @@
       <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
       <span class="role-badge role-{{ papel }}">{{ (papeis_label|default({})).get(papel, papel) }}</span>
     </div>
-    <div class="app-nav-actions">
-      <a href="/" class="app-btn app-btn-ghost" onclick="voltarAbaAnterior(event, '/')"><i data-lucide="arrow-left"></i> Voltar</a>
-      <a href="{{ url_for('perfil') }}" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
-      <a href="{{ url_for('logout') }}" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
-    </div>
+    {% include '_nav_actions.html' %}
   </nav>
 
   <div class="container">

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -18,10 +18,7 @@
     <div class="app-nav-user">
       <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
     </div>
-    <div class="app-nav-actions">
-      <a href="/" class="app-btn app-btn-ghost" onclick="voltarAbaAnterior(event, '/')"><i data-lucide="arrow-left"></i> Voltar</a>
-      <a href="{{ url_for('logout') }}" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
-    </div>
+    {% include '_nav_actions.html' %}
   </nav>
   <div class="container">
     <h1>Trocar Senha</h1>
@@ -49,7 +46,7 @@
 
       <div class="actions">
         <button type="submit" class="btn btn-primary">Salvar nova senha</button>
-        <a href="/" class="btn btn-secondary" onclick="voltarAbaAnterior(event, '/')">Voltar</a>
+        <a href="{{ nav_home_url }}" class="btn btn-secondary">Início</a>
       </div>
     </form>
   </div>

@@ -18,11 +18,7 @@
       <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
       <span class="role-badge role-{{ papel }}">{{ (papeis_label|default({})).get(papel, papel) }}</span>
     </div>
-    <div class="app-nav-actions">
-      <a href="/mapa" class="app-btn app-btn-ghost" onclick="voltarAbaAnterior(event, '/mapa')"><i data-lucide="arrow-left"></i> Voltar</a>
-      <a href="{{ url_for('saude_sistema') }}" class="app-btn app-btn-ghost"><i data-lucide="activity"></i> Sa&uacute;de</a>
-      <a href="{{ url_for('logout') }}" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
-    </div>
+    {% include '_nav_actions.html' %}
   </nav>
 
   <main class="container">
@@ -67,7 +63,7 @@ flask --app app backup-diario</pre>
 
       <div class="actions">
         <a class="btn btn-primary" href="{{ url_for('backup_db', confirmar='sim') }}">Baixar backup agora</a>
-        <a class="btn btn-secondary" href="/mapa" onclick="voltarAbaAnterior(event, '/mapa')">Voltar</a>
+        <a class="btn btn-secondary" href="{{ nav_home_url }}">Início</a>
       </div>
     </section>
 

@@ -7,7 +7,8 @@
   <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/voltar.js') }}"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/painel_recepcao.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/painel_recepcao.css') }}?v={{ versao }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_pages.css') }}?v={{ versao }}">
 </head>
 <body>
   <nav class="app-nav">
@@ -18,10 +19,7 @@
       <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
       <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
     </div>
-    <div class="app-nav-actions">
-      <a href="/mapa" class="app-btn app-btn-ghost" onclick="voltarAbaAnterior(event, '/mapa')"><i data-lucide="arrow-left"></i> Voltar</a>
-      <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
-    </div>
+    {% include '_nav_actions.html' %}
   </nav>
 
   <main class="dashboard-page">

@@ -24,42 +24,8 @@
     {% if papel == 'coordenador' %}
     <button class="app-btn app-btn-primary" onclick="openModal(null)"><i data-lucide="circle-plus"></i> Novo</button>
     {% endif %}
-    <div class="app-dropdown" id="menuDropdown">
-    <button class="app-btn app-btn-ghost" onclick="toggleMenu(event)">
-      <i data-lucide="menu"></i> Menu
-    </button>
-    <div class="app-dropdown-menu" id="dropdownMenu">
-      {% if papel in ['coordenador', 'somente_leitura'] %}
-      <a href="/painel-coordenacao"><i data-lucide="bar-chart-3"></i> Painel coordenação</a>
-      <a href="/painel"><i data-lucide="layout-dashboard"></i> Painel</a>
-      <a href="/reservas"><i data-lucide="bell"></i> Reservas {% if reservas_pendentes_count %}<span class="nav-badge">{{ reservas_pendentes_count }}</span>{% endif %}</a>
-      <a href="/horarios-abertos"><i data-lucide="calendar-plus"></i> Horários abertos</a>
-      <a href="/afazeres"><i data-lucide="list-checks"></i> Afazeres</a>
-      <a href="/usuarios"><i data-lucide="users"></i> Usuários</a>
-      <a href="/relatorio-semanal"><i data-lucide="file-bar-chart"></i> Relatório semanal</a>
-      <a href="/coordenacao"><i data-lucide="messages-square"></i> Coordenação</a>
-      <a href="/saude"><i data-lucide="activity"></i> Saúde e manutenção</a>
-      <a href="/ajuda/coordenacao"><i data-lucide="book-open"></i> Ajuda</a>
-      {% elif papel == 'recepcao' %}
-      <a href="/painel"><i data-lucide="layout-dashboard"></i> Painel</a>
-      <a href="/reservas"><i data-lucide="bell"></i> Reservas {% if reservas_pendentes_count %}<span class="nav-badge">{{ reservas_pendentes_count }}</span>{% endif %}</a>
-      <a href="/horarios-abertos"><i data-lucide="calendar-plus"></i> Horários abertos</a>
-      <a href="/afazeres"><i data-lucide="list-checks"></i> Afazeres</a>
-      <button onclick="exportCSV()"><i data-lucide="download"></i> Exportar</button>
-      <a href="/imprimir" target="_blank"><i data-lucide="printer"></i> Imprimir</a>
-      <a href="/ajuda/recepcao"><i data-lucide="book-open"></i> Ajuda</a>
-      {% elif papel == 'somente_leitura' %}
-      <a href="/painel-coordenacao"><i data-lucide="bar-chart-3"></i> Painel coordenação</a>
-      <a href="/relatorio-semanal"><i data-lucide="file-bar-chart"></i> Relatório semanal</a>
-      <a href="/ajuda/coordenacao"><i data-lucide="book-open"></i> Ajuda</a>
-      {% endif %}
-      <a href="/perfil"><i data-lucide="user-round"></i> Perfil</a>
-      <a href="/sobre"><i data-lucide="info"></i> Sobre</a>
-    </div>
-    </div>
-    <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
   </div>
-</nav>
+  {% include '_nav_actions.html' %}</nav>
 
 <div class="tabs" id="dayTabs">
   {% for d in dias %}

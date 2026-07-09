@@ -18,11 +18,7 @@
       <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
       <span class="role-badge role-{{ papel }}">{{ papel_label }}</span>
     </div>
-    <div class="app-nav-actions">
-      <a href="/" class="app-btn app-btn-ghost" onclick="voltarAbaAnterior(event, '/mapa')"><i data-lucide="arrow-left"></i> Voltar</a>
-      <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
-      <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
-    </div>
+    {% include '_nav_actions.html' %}
   </nav>
 
   {% macro sala_card(r, modo='leitura') %}
@@ -240,7 +236,7 @@
 
     {% if papel == 'aluno' %}
     <section class="form-grid">
-      <form class="form-card" method="post" action="/reservas/sala">
+      <form class="form-card" id="reserva-sala" method="post" action="/reservas/sala">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <h2><i data-lucide="door-open"></i> Reservar sala</h2>
         <p>Escolha o tipo de sala, data e intervalo. O sistema verifica a disponibilidade.</p>
@@ -278,7 +274,7 @@
         <button class="btn primary" type="submit"><i data-lucide="send"></i> Enviar solicitação</button>
       </form>
 
-      <form class="form-card" method="post" action="/reservas/instrumento">
+      <form class="form-card" id="reserva-instrumentos" method="post" action="/reservas/instrumento">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <h2><i data-lucide="clipboard-list"></i> Reservar teste</h2>
         <p>Use para solicitar testes ou instrumentos da recepção.</p>

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -40,11 +40,7 @@ a.back:hover{color:var(--text)}
     <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
     <span class="role-badge role-{{ papel }}">{{ (papeis_label|default({})).get(papel, papel) }}</span>
   </div>
-  <div class="app-nav-actions">
-    <a href="/" class="app-btn app-btn-ghost" onclick="voltarAbaAnterior(event, '/')"><i data-lucide="arrow-left"></i> Voltar</a>
-    <a href="/perfil" class="app-btn app-btn-ghost"><i data-lucide="user-round"></i> Perfil</a>
-    <a href="/logout" class="app-btn app-btn-danger"><i data-lucide="log-out"></i> Sair</a>
-  </div>
+  {% include '_nav_actions.html' %}
 </nav>
 
 <div class="wrap">
@@ -56,7 +52,7 @@ a.back:hover{color:var(--text)}
       <a class="dia-btn" href="/imprimir/{{ d }}" target="_blank">{{ dias_pt[d] }}</a>
       {% endfor %}
     </div>
-    <a class="back" href="/" onclick="voltarAbaAnterior(event, '/')"><i data-lucide="arrow-left"></i> Voltar</a>
+    <a class="back" href="{{ nav_home_url }}"><i data-lucide="home"></i> Início</a>
   </div>
 </div>
 

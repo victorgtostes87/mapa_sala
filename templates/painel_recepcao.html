@@ -177,14 +177,20 @@
         {% if solicitacoes_vagas %}
         <div class="slot-request-list">
           {% for sol in solicitacoes_vagas %}
+          {% if papel in ['coordenador', 'recepcao'] %}
           <form class="slot-request-card status-{{ sol.status }}" method="post" action="{{ url_for('atualizar_solicitacao_vagas', solicitacao_id=sol.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          {% else %}
+          <article class="slot-request-card status-{{ sol.status }}">
+          {% endif %}
             <div>
               <strong>{{ sol.aluno_nome }}</strong>
               <span>{{ sol.professor_nome }}</span>
               <em>{{ sol.vagas_paciente }} vaga(s) de paciente · {{ sol.vagas_triagem }} vaga(s) de triagem</em>
               {% if sol.observacao %}<small>{{ sol.observacao }}</small>{% endif %}
+              {% if papel == 'somente_leitura' and sol.resposta %}<small>Resposta: {{ sol.resposta }}</small>{% endif %}
             </div>
+            {% if papel in ['coordenador', 'recepcao'] %}
             <div class="slot-request-actions">
               <select name="status">
                 <option value="pendente" {% if sol.status == 'pendente' %}selected{% endif %}>Pendente</option>
@@ -196,7 +202,12 @@
               <textarea name="resposta" placeholder="Resposta para o professor">{{ sol.resposta }}</textarea>
               <button type="submit"><i data-lucide="save"></i> Salvar</button>
             </div>
+            {% endif %}
+          {% if papel in ['coordenador', 'recepcao'] %}
           </form>
+          {% else %}
+          </article>
+          {% endif %}
           {% endfor %}
         </div>
         {% else %}

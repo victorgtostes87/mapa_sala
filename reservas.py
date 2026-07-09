@@ -6,7 +6,7 @@ from flask_login import current_user
 
 
 def contar_reservas_pendentes(get_db):
-    if not current_user.is_authenticated or current_user.role not in ('coordenador', 'recepcao'):
+    if not current_user.is_authenticated or current_user.role not in ('coordenador', 'recepcao', 'somente_leitura'):
         return 0
     try:
         conn = get_db()
@@ -33,7 +33,7 @@ def validar_antecedencia_minima(data_uso, horario_inicio):
     except ValueError:
         return None, 'Data ou horário inválido.'
     if inicio < datetime.now() + timedelta(hours=24):
-        return None, 'Reservas precisam ser feitas com não mínimo 24h de antecedência.'
+        return None, 'Reservas precisam ser feitas com no mínimo 24h de antecedência.'
     return inicio, None
 
 
@@ -130,6 +130,18 @@ def label_status_solicitacao_vaga(status):
         'atendida': 'Atendida',
         'recusada': 'Recusada',
     }.get(status, status)
+
+
+def preparar_solicitacao_vaga(row):
+    item = dict(row)
+    item['status_label'] = label_status_solicitacao_vaga(item.get('status'))
+    item['vagas_paciente'] = int(item.get('vagas_paciente') or 0)
+    item['vagas_triagem'] = int(item.get('vagas_triagem') or 0)
+    item['vagas_paciente_liberadas'] = int(item.get('vagas_paciente_liberadas') or 0)
+    item['vagas_triagem_liberadas'] = int(item.get('vagas_triagem_liberadas') or 0)
+    item['vagas_paciente_faltantes'] = max(0, item['vagas_paciente'] - item['vagas_paciente_liberadas'])
+    item['vagas_triagem_faltantes'] = max(0, item['vagas_triagem'] - item['vagas_triagem_liberadas'])
+    return item
 
 
 def preparar_reserva(row, candidatos_sala):
@@ -259,7 +271,7 @@ def registrar_rotas_reservas(app, deps):
                     (current_user.id, data_hoje_iso())
                 ).fetchall()
                 pendentes = []
-            elif current_user.role in ('coordenador', 'recepcao'):
+            elif current_user.role in ('coordenador', 'recepcao', 'somente_leitura'):
                 pendentes = conn.execute(
                     reserva_select + """
                     WHERE r.status='pendente'
@@ -308,9 +320,7 @@ def registrar_rotas_reservas(app, deps):
         caderno_instrumentos = [preparar_reserva(r, candidatos_sala) for r in caderno_rows]
         solicitacoes_vagas = []
         for row in solicitacoes_vagas_rows:
-            item = dict(row)
-            item['status_label'] = label_status_solicitacao_vaga(item.get('status'))
-            solicitacoes_vagas.append(item)
+            solicitacoes_vagas.append(preparar_solicitacao_vaga(row))
         aprovadas_sala = [
             r for r in minhas_reservas
             if r.get('tipo') == 'sala' and r.get('status') == 'aprovada'

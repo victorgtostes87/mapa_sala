@@ -123,6 +123,14 @@ class MapaSalasTestCase(unittest.TestCase):
 
         mapa_resp = self.client.get('/mapa')
         painel_resp = self.client.get('/painel-coordenacao')
+        painel_recepcao = self.client.get('/painel')
+        usuarios = self.client.get('/usuarios')
+        logs = self.client.get('/logs')
+        saude = self.client.get('/saude')
+        reservas = self.client.get('/reservas')
+        horarios_abertos = self.client.get('/horarios-abertos')
+        stats = self.client.get('/api/stats')
+        backup = self.client.get('/api/backup')
         criar_resp = self._criar_agendamento_api()
         importar_resp = self.client.post(
             '/api/import',
@@ -132,8 +140,46 @@ class MapaSalasTestCase(unittest.TestCase):
 
         self.assertEqual(mapa_resp.status_code, 200)
         self.assertEqual(painel_resp.status_code, 200)
+        self.assertEqual(painel_recepcao.status_code, 200)
+        self.assertEqual(usuarios.status_code, 200)
+        self.assertEqual(logs.status_code, 200)
+        self.assertEqual(saude.status_code, 200)
+        self.assertEqual(reservas.status_code, 200)
+        self.assertEqual(horarios_abertos.status_code, 200)
+        self.assertEqual(stats.status_code, 200)
+        self.assertEqual(backup.status_code, 200)
+        self.assertNotIn('Novo usuário', usuarios.get_data(as_text=True))
+        self.assertNotIn('btnApagarLogs', logs.get_data(as_text=True))
         self.assertEqual(criar_resp.status_code, 403)
         self.assertEqual(importar_resp.status_code, 403)
+
+    def test_hierarquia_redireciona_telas_iniciais_por_papel(self):
+        resp_recepcao = self._login('recepcao')
+        self.assertEqual(resp_recepcao.status_code, 302)
+        self.assertIn('/painel', resp_recepcao.headers['Location'])
+        mapa_recepcao = self.client.get('/mapa')
+        self.assertEqual(mapa_recepcao.status_code, 302)
+        self.assertIn('/painel', mapa_recepcao.headers['Location'])
+
+        self.client.get('/logout')
+        resp_professor = self._login('professor1')
+        self.assertEqual(resp_professor.status_code, 302)
+        self.assertIn('/minha-supervisao', resp_professor.headers['Location'])
+        mapa_professor = self.client.get('/mapa')
+        self.assertEqual(mapa_professor.status_code, 302)
+        self.assertIn('/minha-supervisao', mapa_professor.headers['Location'])
+        stats_professor = self.client.get('/api/stats')
+        self.assertEqual(stats_professor.status_code, 403)
+
+        self.client.get('/logout')
+        resp_aluno = self._login('aluno1')
+        self.assertEqual(resp_aluno.status_code, 302)
+        self.assertIn('/meus-agendamentos', resp_aluno.headers['Location'])
+        mapa_aluno = self.client.get('/mapa')
+        self.assertEqual(mapa_aluno.status_code, 302)
+        self.assertIn('/meus-agendamentos', mapa_aluno.headers['Location'])
+        stats_aluno = self.client.get('/api/stats')
+        self.assertEqual(stats_aluno.status_code, 403)
 
     def test_apenas_coordenador_remove_agendamento(self):
         self._login('coordenador')
@@ -243,11 +289,11 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 302)
         self.assertIn('/meus-agendamentos', resp.headers['Location'])
 
-    def test_recepcao_entra_no_mapa_inicial(self):
+    def test_recepcao_entra_no_painel_inicial(self):
         resp = self._login('recepcao')
 
-        self.assertEqual(resp.status_code, 200)
-        self.assertIn('Mapa de Sala', resp.get_data(as_text=True))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn('/painel', resp.headers['Location'])
 
     def test_recepcao_painel_tem_somente_voltar_perfil_e_sair_no_topo(self):
         self._login('recepcao')
@@ -283,13 +329,13 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertNotIn('/reservas', nav)
         self.assertNotIn('/horarios-abertos', nav)
 
-    def test_recepcao_acessa_mapa(self):
+    def test_recepcao_nao_acessa_mapa_direto(self):
         self._login('recepcao')
 
         resp = self.client.get('/mapa')
 
-        self.assertEqual(resp.status_code, 200)
-        self.assertIn('Mapa de Sala', resp.get_data(as_text=True))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn('/painel', resp.headers['Location'])
 
     def test_login_aceita_email_cadastrado(self):
         conn = mapa.get_db()

@@ -29,7 +29,9 @@
     <div class="card">
       <div class="header-row">
         <h1 style="margin:0;display:flex;align-items:center;gap:8px"><i data-lucide="users"></i> Gerenciar Usuários</h1>
+        {% if papel == 'coordenador' %}
         <button type="button" class="btn btn-primary" id="btnNovoUsuario"><i data-lucide="plus"></i> Novo usuário</button>
+        {% endif %}
       </div>
 
       <div class="user-tools">
@@ -50,7 +52,7 @@
             <th>Supervisor</th>
             <th>Status</th>
             <th>Criado em</th>
-            <th>Ações</th>
+            {% if papel == 'coordenador' %}<th>Ações</th>{% endif %}
           </tr>
         </thead>
         <tbody>
@@ -66,6 +68,7 @@
               <td>{{ u.supervisor_nome or '-' }}</td>
               <td>{{ 'Ativo' if u.ativo else 'Inativo' }}</td>
               <td>{{ u.created_at[:10] if u.created_at else '-' }}</td>
+              {% if papel == 'coordenador' %}
               <td>
                 <div class="actions">
                   <button type="button" class="btn btn-secondary btn-editar" data-id="{{ u.id }}" data-username="{{ u.username }}" data-nome-completo="{{ u.nome_completo or '' }}" data-email="{{ u.email or '' }}" data-role="{{ u.role }}" data-supervisor-id="{{ u.supervisor_id or '' }}" data-ativo="{{ 1 if u.ativo else 0 }}">Editar</button>
@@ -79,15 +82,16 @@
                   {% endif %}
                 </div>
               </td>
+              {% endif %}
             </tr>
             {% endfor %}
           {% else %}
             <tr>
-              <td colspan="8">Nenhum usuário cadastrado.</td>
+              <td colspan="{{ 8 if papel == 'coordenador' else 7 }}">Nenhum usuário cadastrado.</td>
             </tr>
           {% endif %}
           <tr id="semResultadoUsuarios" hidden>
-            <td colspan="8">Nenhum usuário encontrado com essa busca.</td>
+            <td colspan="{{ 8 if papel == 'coordenador' else 7 }}">Nenhum usuário encontrado com essa busca.</td>
           </tr>
         </tbody>
       </table>
@@ -315,7 +319,7 @@
       erroUsuario.style.display = 'block';
     }
 
-    btnNovoUsuario.addEventListener('click', abrirModalUsuario);
+    btnNovoUsuario?.addEventListener('click', abrirModalUsuario);
     btnCancelarUsuario.addEventListener('click', fecharModalUsuario);
     roleSelect.addEventListener('change', atualizarSupervisorVisivel);
     conviteInput.addEventListener('change', atualizarSenhaObrigatoria);

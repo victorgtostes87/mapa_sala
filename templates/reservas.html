@@ -37,7 +37,7 @@
 
     <div class="meta-list">
       <span><i data-lucide="user"></i>{{ r.usuario }}</span>
-      {% if papel in ['coordenador', 'recepcao'] and r.supervisor_nome %}
+      {% if papel in ['coordenador', 'recepcao', 'somente_leitura'] and r.supervisor_nome %}
       <span><i data-lucide="graduation-cap"></i>{{ r.supervisor_nome }}</span>
       {% endif %}
       <span><i data-lucide="calendar"></i>{{ r.data_label }}</span>
@@ -46,10 +46,10 @@
     </div>
 
     {% if r.finalidade %}<p><strong>Finalidade:</strong> {{ r.finalidade }}</p>{% endif %}
-    {% if papel in ['coordenador', 'recepcao'] and r.observacao %}<p><strong>Observação:</strong> {{ r.observacao }}</p>{% endif %}
+    {% if papel in ['coordenador', 'recepcao', 'somente_leitura'] and r.observacao %}<p><strong>Observação:</strong> {{ r.observacao }}</p>{% endif %}
     {% if r.resposta %}<p><strong>Resposta:</strong> {{ r.resposta }}</p>{% endif %}
 
-    {% if modo == 'aprovar' %}
+    {% if modo == 'aprovar' and papel in ['coordenador', 'recepcao'] %}
     <div class="actions-grid">
       <form method="post" action="/reservas/{{ r.id }}/aprovar">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -69,7 +69,7 @@
         <button class="btn danger" type="submit"><i data-lucide="x"></i> Recusar</button>
       </form>
     </div>
-    {% elif modo == 'corrigir' %}
+    {% elif modo == 'corrigir' and papel in ['coordenador', 'recepcao'] %}
     <form class="correction-box" method="post" action="/reservas/{{ r.id }}/corrigir-sala">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label>Corrigir reserva</label>
@@ -100,7 +100,7 @@
 
     <div class="meta-list">
       <span><i data-lucide="user"></i>{{ r.usuario }}</span>
-      {% if papel in ['coordenador', 'recepcao'] and r.supervisor_nome %}
+      {% if papel in ['coordenador', 'recepcao', 'somente_leitura'] and r.supervisor_nome %}
       <span><i data-lucide="graduation-cap"></i>{{ r.supervisor_nome }}</span>
       {% endif %}
       <span><i data-lucide="calendar"></i>{{ r.data_label }}</span>
@@ -108,10 +108,10 @@
     </div>
 
     {% if r.finalidade %}<p><strong>Finalidade:</strong> {{ r.finalidade }}</p>{% endif %}
-    {% if papel in ['coordenador', 'recepcao'] and r.observacao %}<p><strong>Observação:</strong> {{ r.observacao }}</p>{% endif %}
+    {% if papel in ['coordenador', 'recepcao', 'somente_leitura'] and r.observacao %}<p><strong>Observação:</strong> {{ r.observacao }}</p>{% endif %}
     {% if r.resposta %}<p><strong>Resposta:</strong> {{ r.resposta }}</p>{% endif %}
 
-    {% if modo == 'aprovar' %}
+    {% if modo == 'aprovar' and papel in ['coordenador', 'recepcao'] %}
     <div class="actions-grid">
       <form method="post" action="/reservas/{{ r.id }}/aprovar">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -126,7 +126,7 @@
         <button class="btn danger" type="submit"><i data-lucide="x"></i> Recusar</button>
       </form>
     </div>
-    {% elif modo == 'corrigir' %}
+    {% elif modo == 'corrigir' and papel in ['coordenador', 'recepcao'] %}
     <form class="correction-box" method="post" action="/reservas/{{ r.id }}/status">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label>Corrigir status do teste</label>
@@ -188,6 +188,7 @@
     {% if sol.observacao %}<p><strong>Observação do professor:</strong> {{ sol.observacao }}</p>{% endif %}
     {% if sol.resposta %}<p><strong>Resposta anterior:</strong> {{ sol.resposta }}</p>{% endif %}
 
+    {% if papel in ['coordenador', 'recepcao'] %}
     <form class="vaga-actions" method="post" action="{{ url_for('atualizar_solicitacao_vagas', solicitacao_id=sol.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="next" value="/reservas#pedidos-vagas">
@@ -210,6 +211,7 @@
         <button class="btn danger" type="submit" name="status" value="recusada"><i data-lucide="x"></i> Recusar</button>
       </div>
     </form>
+    {% endif %}
   </article>
   {% endmacro %}
 

@@ -472,8 +472,10 @@ def preparar_dados_agendamento(dados, usuario_id_padrao=None):
 def usuario_pode_ver_agendamento(row):
     if not row:
         return False
-    if current_user.role != 'aluno':
+    if current_user.role in ('coordenador', 'recepcao', 'somente_leitura'):
         return True
+    if current_user.role == 'professor':
+        return row['supervisor_id'] == current_user.id if 'supervisor_id' in row.keys() else False
     return row['usuario_id'] == current_user.id or (
         row['usuario_id'] is None and row['estagiario'] == current_user.username
     )
@@ -3727,6 +3729,7 @@ def usuarios_page():
 
 @app.route('/api/estagiarios', methods=['GET'])
 @login_required
+@requer_papel('coordenador', 'recepcao', 'somente_leitura')
 def api_list_estagiarios():
     conn = get_db()
     try:
@@ -3992,7 +3995,7 @@ def api_conflito():
         dia = dia_semana_da_data(data_esp)
     conflito = checar_conflito(dia, horario, sala, data_especifica=data_esp, excluir_id=excluir)
     if conflito:
-        if current_user.role == 'aluno':
+        if current_user.role in ('aluno', 'professor'):
             return jsonify({'conflito': True})
         return jsonify({
             'conflito': True,
@@ -4088,6 +4091,9 @@ def list_ag():
     if current_user.role == 'aluno':
         q += ' AND (a.usuario_id = ? OR (a.usuario_id IS NULL AND a.estagiario = ?))'
         p += [current_user.id, current_user.username]
+    elif current_user.role == 'professor':
+        q += ' AND COALESCE(aluno.supervisor_id, aluno_por_nome.supervisor_id)=?'
+        p.append(current_user.id)
     q += (
         ' ORDER BY a.horario, a.sala, '
         'a.ocupa_sala DESC, '
@@ -4099,7 +4105,7 @@ def list_ag():
         rows = conn.execute(q, p).fetchall()
     finally:
         conn.close()
-    return jsonify([dict(r) for r in rows])
+    return jsonify([agendamento_para_resposta(r) for r in rows])
 
 
 @app.route('/api/agendamentos/<int:aid>', methods=['GET'])
@@ -4264,6 +4270,7 @@ def delete_ag(aid):
 
 @app.route('/api/stats')
 @login_required
+@requer_papel('coordenador', 'recepcao', 'somente_leitura')
 def stats():
     dia = request.args.get('dia_semana', 'SEGUNDA')
     supervisor_id = normalizar_supervisor_id(request.args.get('supervisor_id'))
@@ -4307,7 +4314,7 @@ def stats():
 
 @app.route('/api/export')
 @login_required
-@requer_papel('coordenador', 'recepcao', 'somente_leitura')
+@requer_papel('coordenador', 'somente_leitura')
 def export_xlsx():
     try:
         from openpyxl import Workbook

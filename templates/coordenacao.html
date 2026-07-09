@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-br">
 <head>
   <meta charset="utf-8">
@@ -44,8 +44,9 @@
       </div>
     </section>
 
-    {% if papel == 'coordenador' %}
+    {% if papel in ['coordenador', 'somente_leitura'] %}
     <section class="layout-grid">
+      {% if papel == 'coordenador' %}
       <form class="panel form-panel" method="post" action="/coordenacao/horarios">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <h2><i data-lucide="calendar-plus"></i> Disponibilizar horário</h2>
@@ -72,6 +73,7 @@
         <textarea name="observacao" placeholder="Ex: horário para assuntos rápidos, até 20 minutos"></textarea>
         <button class="btn primary" type="submit"><i data-lucide="plus"></i> Publicar horário</button>
       </form>
+      {% endif %}
 
       <section class="panel">
         <h2><i data-lucide="users-round"></i> Horários marcados</h2>
@@ -86,7 +88,7 @@
                 {% if ag.resposta %}<small>Resposta: {{ ag.resposta }}</small>{% endif %}
               </div>
               <span class="status">{{ 'Cancelado' if ag.status == 'cancelado' else 'Confirmado' }}</span>
-              {% if ag.status == 'confirmado' %}
+              {% if papel == 'coordenador' and ag.status == 'confirmado' %}
               <form method="post" action="/coordenacao/agendamentos/{{ ag.id }}/cancelar">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input name="resposta" placeholder="Motivo opcional">
@@ -113,7 +115,7 @@
             {% if h.observacao %}<small>{{ h.observacao }}</small>{% endif %}
             {% if h.ocupado %}<small>Reservado por {{ h.aluno_nome }}</small>{% endif %}
           </div>
-          {% if not h.ocupado %}
+          {% if papel == 'coordenador' and not h.ocupado %}
           <form method="post" action="/coordenacao/horarios/{{ h.id }}/desativar">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button class="btn ghost" type="submit"><i data-lucide="trash-2"></i> Remover</button>

@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-br">
 <head>
   <meta charset="utf-8">
@@ -42,6 +42,7 @@
       </div>
     </section>
 
+    {% if papel in ['coordenador', 'recepcao'] %}
     <form class="todo-create" method="post" action="/painel/tarefas">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div>
@@ -54,6 +55,7 @@
       </div>
       <button type="submit"><i data-lucide="plus"></i> Adicionar afazer</button>
     </form>
+    {% endif %}
 
     <section class="todo-section">
       <div class="section-head">
@@ -80,12 +82,14 @@
               {% endif %}
               <span>Criado por {{ t.criado_por or 'recepção' }}</span>
             </div>
+            {% if papel in ['coordenador', 'recepcao'] %}
             <div class="note-action">
               <form class="todo-complete-form" method="post" action="/painel/tarefas/{{ t.id }}/concluir">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit"><i data-lucide="check"></i> Concluir tarefa</button>
               </form>
             </div>
+            {% endif %}
           </article>
           {% endfor %}
         {% else %}

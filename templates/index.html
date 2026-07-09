@@ -21,7 +21,7 @@
   </div>
 
   <div class="app-nav-actions">
-    {% if papel in ['coordenador', 'recepcao'] %}
+    {% if papel == 'coordenador' %}
     <button class="app-btn app-btn-primary" onclick="openModal(null)"><i data-lucide="circle-plus"></i> Novo</button>
     {% endif %}
     <div class="app-dropdown" id="menuDropdown">
@@ -29,27 +29,22 @@
       <i data-lucide="menu"></i> Menu
     </button>
     <div class="app-dropdown-menu" id="dropdownMenu">
-      {% if papel == 'coordenador' %}
+      {% if papel in ['coordenador', 'somente_leitura'] %}
       <a href="/painel-coordenacao"><i data-lucide="bar-chart-3"></i> Painel coordenação</a>
-      <a href="/relatorio-semanal"><i data-lucide="file-bar-chart"></i> Relatório semanal</a>
-      <a href="/coordenacao"><i data-lucide="messages-square"></i> Coordenação</a>
       <a href="/painel"><i data-lucide="layout-dashboard"></i> Painel</a>
-      <a href="/afazeres"><i data-lucide="list-checks"></i> Afazeres</a>
       <a href="/reservas"><i data-lucide="bell"></i> Reservas {% if reservas_pendentes_count %}<span class="nav-badge">{{ reservas_pendentes_count }}</span>{% endif %}</a>
       <a href="/horarios-abertos"><i data-lucide="calendar-plus"></i> Horários abertos</a>
+      <a href="/afazeres"><i data-lucide="list-checks"></i> Afazeres</a>
       <a href="/usuarios"><i data-lucide="users"></i> Usuários</a>
-      <a href="/logs"><i data-lucide="clipboard-list"></i> Logs</a>
-      <a href="/api/backup"><i data-lucide="database-backup"></i> Backup</a>
-      <a href="/termo-uso"><i data-lucide="shield-check"></i> Termo de uso</a>
-      <button onclick="openImportModal()"><i data-lucide="upload"></i> Importar Excel</button>
-      <button onclick="exportCSV()"><i data-lucide="download"></i> Exportar</button>
-      <a href="/imprimir" target="_blank"><i data-lucide="printer"></i> Imprimir</a>
+      <a href="/relatorio-semanal"><i data-lucide="file-bar-chart"></i> Relatório semanal</a>
+      <a href="/coordenacao"><i data-lucide="messages-square"></i> Coordenação</a>
+      <a href="/saude"><i data-lucide="activity"></i> Saúde e manutenção</a>
       <a href="/ajuda/coordenacao"><i data-lucide="book-open"></i> Ajuda</a>
       {% elif papel == 'recepcao' %}
       <a href="/painel"><i data-lucide="layout-dashboard"></i> Painel</a>
-      <a href="/afazeres"><i data-lucide="list-checks"></i> Afazeres</a>
       <a href="/reservas"><i data-lucide="bell"></i> Reservas {% if reservas_pendentes_count %}<span class="nav-badge">{{ reservas_pendentes_count }}</span>{% endif %}</a>
       <a href="/horarios-abertos"><i data-lucide="calendar-plus"></i> Horários abertos</a>
+      <a href="/afazeres"><i data-lucide="list-checks"></i> Afazeres</a>
       <button onclick="exportCSV()"><i data-lucide="download"></i> Exportar</button>
       <a href="/imprimir" target="_blank"><i data-lucide="printer"></i> Imprimir</a>
       <a href="/ajuda/recepcao"><i data-lucide="book-open"></i> Ajuda</a>

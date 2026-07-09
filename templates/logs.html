@@ -47,7 +47,9 @@
     <button type="button" class="btn-secondary" id="btnFiltrar">Filtrar</button>
     <button type="button" class="btn-secondary" id="btnLimpar">Limpar</button>
     <a href="/api/backup" class="btn-secondary">Backup</a>
+    {% if papel == 'coordenador' %}
     <button type="button" class="btn-danger" id="btnApagarLogs">Apagar logs recentes</button>
+    {% endif %}
   </section>
 
   <section class="table-wrap">
@@ -216,7 +218,7 @@ async function apagarLogsRecentes(){
   }
 }
 
-document.getElementById('btnApagarLogs').addEventListener('click', apagarLogsRecentes);
+document.getElementById('btnApagarLogs')?.addEventListener('click', apagarLogsRecentes);
 document.getElementById('btnFiltrar').addEventListener('click', aplicarFiltros);
 document.getElementById('btnLimpar').addEventListener('click', limparFiltros);
 document.getElementById('busca').addEventListener('keydown', function(ev){

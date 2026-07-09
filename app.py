@@ -733,9 +733,28 @@ def url_absoluta(endpoint, **valores):
     return url_for(endpoint, _external=True, **valores)
 
 
+def email_de_teste_ou_invalido(email):
+    email = (email or '').strip().lower()
+    if not email or '@' not in email:
+        return True
+    dominio = email.rsplit('@', 1)[1]
+    dominios_bloqueados = {
+        'example.com',
+        'example.org',
+        'example.net',
+        'teste.com',
+        'test.com',
+        'email.com',
+    }
+    return dominio in dominios_bloqueados or dominio.endswith('.example')
+
+
 def enviar_email(destinatario, assunto, corpo):
     destinatario = (destinatario or '').strip()
     if not destinatario:
+        return False
+    if email_de_teste_ou_invalido(destinatario):
+        registrar_log('EMAIL_IGNORADO', f'E-mail de teste/inválido ignorado: {destinatario} | {assunto}')
         return False
     if not email_configurado():
         registrar_log('EMAIL_NAO_CONFIGURADO', f'E-mail não enviado para {destinatario}: {assunto}')

@@ -373,6 +373,11 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 302)
         self.assertEqual(resp.headers['Location'], '/')
 
+    def test_email_de_exemplo_e_ignorado_para_envio_real(self):
+        self.assertTrue(mapa.email_de_teste_ou_invalido('aluno1@example.com'))
+        self.assertTrue(mapa.email_de_teste_ou_invalido('teste@teste.com'))
+        self.assertFalse(mapa.email_de_teste_ou_invalido('aluno@gmail.com'))
+
     def test_coordenador_exclui_usuario_criado_por_engano(self):
         conn = mapa.get_db()
         try:

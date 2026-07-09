@@ -5,6 +5,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import smtplib
 import sqlite3
 import tempfile
@@ -1638,6 +1639,50 @@ def criar_backup_sqlite_bytes():
             pass
 
 
+def validar_backup_sqlite(caminho):
+    try:
+        conn = sqlite3.connect(caminho)
+        try:
+            integridade = conn.execute('PRAGMA integrity_check').fetchone()[0]
+            if integridade != 'ok':
+                return False, f'Arquivo SQLite com falha de integridade: {integridade}'
+
+            tabelas = {
+                row[0] for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            obrigatorias = {'usuarios', 'agendamentos', 'logs'}
+            faltando = sorted(obrigatorias - tabelas)
+            if faltando:
+                return False, 'Backup não parece ser deste sistema. Tabelas faltando: ' + ', '.join(faltando)
+        finally:
+            conn.close()
+    except sqlite3.Error as exc:
+        return False, f'Arquivo inválido para SQLite: {exc}'
+
+    return True, ''
+
+
+def salvar_backup_antes_da_restauracao():
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+    nome = f'antes_restauracao_{datetime.now().strftime("%Y%m%d_%H%M%S")}.db'
+    caminho = os.path.join(BACKUP_DIR, nome)
+    with open(caminho, 'wb') as arquivo:
+        arquivo.write(criar_backup_sqlite_bytes())
+    return caminho
+
+
+def remover_arquivos_sqlite_auxiliares():
+    for sufixo in ('-wal', '-shm'):
+        caminho = DB_PATH + sufixo
+        try:
+            if os.path.exists(caminho):
+                os.remove(caminho)
+        except OSError:
+            pass
+
+
 def limpar_backups_antigos(pasta, dias=BACKUP_RETENTION_DAYS):
     if dias <= 0 or not os.path.isdir(pasta):
         return 0
@@ -2379,6 +2424,7 @@ def painel_recepcao():
         horarios_abertos_preview=[dict(r) for r in horarios_abertos_rows],
         total_horarios_abertos=total_horarios_abertos,
         solicitacoes_vagas=[preparar_solicitacao_vaga(r) for r in solicitacoes_vagas_pendentes],
+        versao=VERSAO,
     )
 
 
@@ -3326,7 +3372,8 @@ def relatorio_semanal():
         dias_relatorio=dias_relatorio,
         professores=professores,
         supervisor_id=supervisor_id,
-        por_supervisor=[dict(r) for r in por_supervisor]
+        por_supervisor=[dict(r) for r in por_supervisor],
+        versao=VERSAO
     )
 
 
@@ -4982,6 +5029,56 @@ def backup_db():
         as_attachment=True,
         download_name=f'backup_mapa_{datetime.now().strftime("%Y%m%d_%H%M")}.db'
     )
+
+
+@app.route('/api/backup/restaurar', methods=['POST'])
+@login_required
+@requer_papel('coordenador')
+@limiter.limit('3 per hour')
+def restaurar_backup_db():
+    confirmacao = (request.form.get('confirmacao') or '').strip().upper()
+    if confirmacao != 'RESTAURAR':
+        flash('Digite RESTAURAR para confirmar a troca do banco.', 'error')
+        return redirect(url_for('backup_db'))
+
+    arquivo = request.files.get('backup_file')
+    if not arquivo or not arquivo.filename:
+        flash('Selecione um arquivo de backup .db.', 'error')
+        return redirect(url_for('backup_db'))
+
+    if not arquivo.filename.lower().endswith('.db'):
+        flash('Envie apenas arquivo de backup no formato .db.', 'error')
+        return redirect(url_for('backup_db'))
+
+    tmp = tempfile.NamedTemporaryFile(prefix='restore_mapa_', suffix='.db', delete=False)
+    tmp_path = tmp.name
+    tmp.close()
+    try:
+        arquivo.save(tmp_path)
+        valido, erro = validar_backup_sqlite(tmp_path)
+        if not valido:
+            flash(erro, 'error')
+            return redirect(url_for('backup_db'))
+
+        backup_atual = salvar_backup_antes_da_restauracao()
+        remover_arquivos_sqlite_auxiliares()
+        shutil.copy2(tmp_path, DB_PATH)
+        executar_manutencao(vacuum=True)
+        registrar_log(
+            'RESTAURAR_BACKUP',
+            f'Backup restaurado por coordenador #{current_user.id}. Cópia anterior salva em {backup_atual}'
+        )
+        flash('Backup restaurado com sucesso. Faça reload do Web App e confira o mapa, usuários e reservas.', 'success')
+    except Exception as exc:
+        app.logger.exception('Falha ao restaurar backup')
+        flash(f'Não foi possível restaurar o backup: {exc}', 'error')
+    finally:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+
+    return redirect(url_for('backup_db'))
 
 
 def executar_manutencao(vacuum=False):

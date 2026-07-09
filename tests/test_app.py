@@ -197,6 +197,32 @@ class MapaSalasTestCase(unittest.TestCase):
         removido = self.client.delete(f'/api/agendamentos/{ag_id}', headers={'X-CSRFToken': self.csrf})
         self.assertEqual(removido.status_code, 200)
 
+    def test_apenas_coordenador_pode_restaurar_backup(self):
+        self._login('recepcao')
+        negado = self.client.post(
+            '/api/backup/restaurar',
+            data={
+                'confirmacao': 'RESTAURAR',
+                'backup_file': (io.BytesIO(b'nao importa'), 'backup.db')
+            },
+            headers={'X-CSRFToken': self.csrf},
+            content_type='multipart/form-data'
+        )
+        self.assertEqual(negado.status_code, 403)
+
+    def test_restaurar_backup_exige_confirmacao_escrita(self):
+        self._login('coordenador')
+        resp = self.client.post(
+            '/api/backup/restaurar',
+            data={
+                'confirmacao': 'sim',
+                'backup_file': (io.BytesIO(b'nao importa'), 'backup.db')
+            },
+            headers={'X-CSRFToken': self.csrf},
+            content_type='multipart/form-data'
+        )
+        self.assertEqual(resp.status_code, 302)
+
     def test_professor_nao_duplica_pedido_aberto_para_mesmo_aluno(self):
         self._login('professor1')
         payload = {

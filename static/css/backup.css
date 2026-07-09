@@ -3,11 +3,23 @@
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;min-height:100vh}
 .container{max-width:720px;margin:48px auto;padding:0 20px}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px}
+.flash-wrap{display:grid;gap:8px;margin-bottom:14px}
+.flash{border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-weight:700}
+.flash.success{background:#052e1a;border-color:#16a34a;color:#bbf7d0}
+.flash.error{background:#450a0a;border-color:#ef4444;color:#fecaca}
 h1{font-size:22px;color:#f8fafc;margin-bottom:12px}
 p{color:var(--text2);line-height:1.6;margin-bottom:16px}
 .warning{background:#431407;border:1px solid #ef4444;border-radius:var(--radius);color:#fca5a5;line-height:1.5;padding:12px 14px;margin:18px 0}
+.command-box{background:#0f172a;border:1px solid var(--border);border-radius:var(--radius);color:#bfdbfe;font-family:Consolas,'Courier New',monospace;font-size:13px;line-height:1.5;margin:10px 0 18px;padding:12px 14px;white-space:pre-wrap}
 .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
 .btn{display:inline-flex;align-items:center;justify-content:center;border-radius:var(--radius);padding:10px 14px;text-decoration:none;font-size:13px;font-weight:700}
 .btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
 .btn-secondary{background:transparent;color:var(--text2);border:1px solid var(--border)}.btn-secondary:hover{background:#263348;color:var(--text)}
+.btn-danger{background:#991b1b;color:#fff;border:0;cursor:pointer}.btn-danger:hover{background:#7f1d1d}
+.restore-card{margin-top:18px;border-color:#7f1d1d}
+.restore-form{display:grid;gap:10px;margin-top:14px}
+.restore-form label{color:#bfdbfe;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+.restore-form input{width:100%;background:#0f172a;border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:10px 12px}
+.restore-form small{color:var(--text2);line-height:1.4;margin-bottom:4px}
+.restore-form button{width:max-content}
 .version-footer{margin:18px 0;text-align:center;color:var(--text2);font-size:12px}

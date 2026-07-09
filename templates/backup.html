@@ -26,6 +26,16 @@
   </nav>
 
   <main class="container">
+    {% with mensagens = get_flashed_messages(with_categories=true) %}
+      {% if mensagens %}
+      <div class="flash-wrap">
+        {% for categoria, mensagem in mensagens %}
+        <div class="flash {{ categoria }}">{{ mensagem }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    {% endwith %}
+
     <section class="card">
       <h1>Backup do banco de dados</h1>
       <p>
@@ -60,6 +70,35 @@ flask --app app backup-diario</pre>
         <a class="btn btn-secondary" href="/mapa" onclick="voltarAbaAnterior(event, '/mapa')">Voltar</a>
       </div>
     </section>
+
+    {% if papel == 'coordenador' %}
+    <section class="card restore-card">
+      <h1>Restaurar backup</h1>
+      <p>
+        Use esta op&ccedil;&atilde;o somente em caso de erro real, importa&ccedil;&atilde;o incorreta ou perda de dados.
+        Restaurar um backup troca o banco atual inteiro pelo arquivo enviado.
+      </p>
+
+      <div class="warning">
+        Antes de restaurar, o sistema salva uma c&oacute;pia do banco atual na pasta de backups. Mesmo assim,
+        confirme se voc&ecirc; escolheu o arquivo certo.
+      </div>
+
+      <form method="post" action="{{ url_for('restaurar_backup_db') }}" enctype="multipart/form-data" class="restore-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <label>Arquivo de backup (.db)</label>
+        <input type="file" name="backup_file" accept=".db" required>
+
+        <label>Confirma&ccedil;&atilde;o</label>
+        <input type="text" name="confirmacao" placeholder="Digite RESTAURAR" autocomplete="off" required>
+        <small>Para evitar clique acidental, escreva exatamente: <strong>RESTAURAR</strong></small>
+
+        <button type="submit" class="btn btn-danger">Restaurar banco</button>
+      </form>
+    </section>
+    {% endif %}
+
     <div class="version-footer">Vers&atilde;o {{ versao }}</div>
   </main>
   <script>lucide.createIcons();</script>

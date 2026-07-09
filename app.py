@@ -1632,6 +1632,10 @@ def criar_backup_sqlite_bytes():
             destino.close()
         except sqlite3.Error:
             pass
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
 
 
 def limpar_backups_antigos(pasta, dias=BACKUP_RETENTION_DAYS):
@@ -1667,10 +1671,6 @@ def salvar_backup_automatico():
         'antigos_removidos': removidos,
         'retencao_dias': BACKUP_RETENTION_DAYS,
     }
-        try:
-            os.remove(tmp_path)
-        except OSError:
-            pass
 
 
 def checar_conflito(dia, horario, sala, data_especifica='', excluir_id=None):

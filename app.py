@@ -6,11 +6,9 @@ import os
 import re
 import secrets
 import shutil
-import smtplib
 import sqlite3
 import tempfile
 import unicodedata
-from email.message import EmailMessage
 from datetime import datetime, timedelta, timezone
 from contextlib import contextmanager
 from functools import wraps
@@ -23,6 +21,8 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 import reservas as reservas_mod
+import email_utils
+from user_utils import normalizar_supervisor_id, sugerir_username_por_nome, valor_ativo
 from migrations import adicionar_coluna_se_ausente, executar_migration
 
 
@@ -697,59 +697,24 @@ def inserir_agendamento(conn, dados_ag):
     return cur.lastrowid
 
 
-def valor_ativo(valor, padrao=1):
-    if valor is None:
-        return padrao
-    if isinstance(valor, bool):
-        return 1 if valor else 0
-    return 0 if str(valor).strip().lower() in ('0', 'false', 'nao', 'não', 'inativo') else 1
-
-
-def sugerir_username_por_nome(nome_completo):
-    partes = unicodedata.normalize('NFKD', nome_completo or '')
-    partes = ''.join(ch for ch in partes if not unicodedata.combining(ch))
-    partes = re.sub(r'[^a-zA-Z\s]+', ' ', partes).lower().strip().split()
-    if not partes:
-        return ''
-    if len(partes) == 1:
-        return partes[0]
-    return f'{partes[0]}.{partes[-1]}'
-
-
-def normalizar_supervisor_id(valor):
-    if str(valor or '').strip() == '':
-        return None
-    try:
-        return int(valor)
-    except (TypeError, ValueError):
-        return 'invalido'
+def config_email():
+    return {
+        'host': SMTP_HOST,
+        'port': SMTP_PORT,
+        'user': SMTP_USER,
+        'password': SMTP_PASSWORD,
+        'tls': SMTP_TLS,
+        'from': EMAIL_FROM,
+        'base_url': EMAIL_BASE_URL,
+    }
 
 
 def email_configurado():
-    return bool(SMTP_HOST and EMAIL_FROM and SMTP_USER and SMTP_PASSWORD)
+    return email_utils.email_configurado(config_email())
 
 
 def diagnostico_smtp():
-    faltando = []
-    if not SMTP_HOST:
-        faltando.append('SMTP_HOST')
-    if not EMAIL_FROM:
-        faltando.append('EMAIL_FROM')
-    if not SMTP_USER:
-        faltando.append('SMTP_USER')
-    if not SMTP_PASSWORD:
-        faltando.append('SMTP_PASSWORD')
-    return {
-        'configurado': not faltando,
-        'host': SMTP_HOST or 'não informado',
-        'porta': SMTP_PORT,
-        'tls': SMTP_TLS,
-        'usuario_configurado': bool(SMTP_USER),
-        'senha_configurada': bool(SMTP_PASSWORD),
-        'email_saida_configurado': bool(EMAIL_FROM),
-        'base_url_configurada': bool(EMAIL_BASE_URL),
-        'faltando': faltando,
-    }
+    return email_utils.diagnostico_smtp(config_email())
 
 
 def url_absoluta(endpoint, **valores):
@@ -759,30 +724,11 @@ def url_absoluta(endpoint, **valores):
 
 
 def email_de_teste_ou_invalido(email):
-    email = (email or '').strip().lower()
-    if not email or '@' not in email:
-        return True
-    dominio = email.rsplit('@', 1)[1]
-    dominios_bloqueados = {
-        'example.com',
-        'example.org',
-        'example.net',
-        'teste.com',
-        'test.com',
-        'email.com',
-    }
-    return dominio in dominios_bloqueados or dominio.endswith('.example')
+    return email_utils.email_de_teste_ou_invalido(email)
 
 
 def validar_email_usuario(email, obrigatorio=False):
-    email = (email or '').strip()
-    if not email:
-        if obrigatorio:
-            return 'Informe um e-mail real.'
-        return None
-    if email_de_teste_ou_invalido(email):
-        return 'Use um e-mail real. E-mails de teste como @example.com não podem ser cadastrados.'
-    return None
+    return email_utils.validar_email_usuario(email, obrigatorio)
 
 
 def enviar_email(destinatario, assunto, corpo):
@@ -796,19 +742,8 @@ def enviar_email(destinatario, assunto, corpo):
         registrar_log('EMAIL_NAO_CONFIGURADO', f'E-mail não enviado para {destinatario}: {assunto}')
         return False
 
-    msg = EmailMessage()
-    msg['From'] = EMAIL_FROM
-    msg['To'] = destinatario
-    msg['Subject'] = assunto
-    msg.set_content(corpo)
-
     try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as smtp:
-            if SMTP_TLS:
-                smtp.starttls()
-            if SMTP_USER and SMTP_PASSWORD:
-                smtp.login(SMTP_USER, SMTP_PASSWORD)
-            smtp.send_message(msg)
+        email_utils.enviar_email_smtp(config_email(), destinatario, assunto, corpo)
         return True
     except Exception as exc:
         registrar_log('EMAIL_ERRO', f'Falha ao enviar para {destinatario}: {assunto} | {exc}')

@@ -3,12 +3,10 @@ import hashlib
 import io
 import json
 import os
-import re
 import secrets
 import shutil
 import sqlite3
 import tempfile
-import unicodedata
 from datetime import datetime, timedelta, timezone
 from contextlib import contextmanager
 from functools import wraps
@@ -21,8 +19,11 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 import reservas as reservas_mod
+import agendamento_utils
 import backup_utils
 import email_utils
+import excel_import_utils
+import system_utils
 from user_utils import normalizar_supervisor_id, sugerir_username_por_nome, valor_ativo
 from migrations import adicionar_coluna_se_ausente, executar_migration
 
@@ -423,41 +424,21 @@ LOG_RETENCAO_DIAS = 15
 # ========================================
 
 def normalizar_data_especifica(data_especifica):
-    data_especifica = (data_especifica or '').strip()
-    if not data_especifica:
-        return '', None
-
-    try:
-        data_obj = datetime.strptime(data_especifica, '%Y-%m-%d')
-    except ValueError:
-        return None, 'Data especifica invalida. Use o formato AAAA-MM-DD (ex: 2026-08-15).'
-
-    if data_obj.weekday() >= len(DIAS):
-        return None, 'Data especifica deve cair entre segunda e sexta-feira.'
-
-    return data_especifica, None
+    return agendamento_utils.normalizar_data_especifica(data_especifica, DIAS)
 
 
 def dia_semana_da_data(data_especifica):
-    data_obj = datetime.strptime(data_especifica, '%Y-%m-%d')
-    return DIAS[data_obj.weekday()]
+    return agendamento_utils.dia_semana_da_data(data_especifica, DIAS)
 
 
 def numero_semana_sqlite(dia):
-    # SQLite usa domingo=0, segunda=1 ... sexta=5.
-    return str(DIAS.index(dia) + 1)
+    return agendamento_utils.numero_semana_sqlite(dia, DIAS)
 
 
 def validar_valores_agendamento(dia, horario, sala, categoria=''):
-    if dia not in DIAS:
-        return 'Escolha um dia da semana válido.'
-    if horario not in HORARIOS:
-        return 'Escolha um horário disponível na lista.'
-    if sala not in SALAS:
-        return 'Escolha uma sala cadastrada no sistema.'
-    if categoria and categoria not in CATEGORIAS:
-        return 'Escolha uma categoria cadastrada no sistema.'
-    return None
+    return agendamento_utils.validar_valores_agendamento(
+        dia, horario, sala, categoria, DIAS, HORARIOS, SALAS, CATEGORIAS
+    )
 
 
 def data_hoje_iso():
@@ -478,105 +459,44 @@ def inteiro_query(nome, padrao, minimo=None, maximo=None):
 
 
 def normalizar_categoria_triagem(categoria):
-    categoria = (categoria or '').strip()
-    if categoria == 'ESTAGIÁRIO 10° TRIAGEM':
-        return 'ESTAGIÁRIO 10°', 1
-    if categoria == 'ESTAGIÁRIO 9° TRIAGEM':
-        return 'ESTAGIÁRIO 9°', 1
-    return categoria, None
+    return agendamento_utils.normalizar_categoria_triagem(categoria)
 
 
 def texto_indica_triagem(estagiario, paciente):
-    return 'TRIAGEM' in normalize(f'{estagiario} {paciente}').upper()
+    return agendamento_utils.texto_indica_triagem(estagiario, paciente)
 
 
 def valor_triagem(valor, padrao=0):
-    if valor is None:
-        return padrao
-    if isinstance(valor, bool):
-        return 1 if valor else 0
-    return 1 if str(valor).strip().lower() in ('1', 'true', 'sim', 'yes') else 0
+    return agendamento_utils.valor_triagem(valor, padrao)
 
 
 def valor_ocupa_sala(valor, padrao=None):
-    if valor in (None, ''):
-        return padrao
-    if isinstance(valor, bool):
-        return 1 if valor else 0
-    return 1 if str(valor).strip().lower() in ('1', 'true', 'sim', 'yes') else 0
+    return agendamento_utils.valor_ocupa_sala(valor, padrao)
 
 
 def motivo_ocupacao_sala(categoria, paciente='', observacao='', data_especifica='', triagem=0):
-    categoria = (categoria or '').strip().upper()
-    paciente = (paciente or '').strip()
-    observacao = (observacao or '').strip()
-    data_especifica = (data_especifica or '').strip()
-
-    if paciente:
-        return 'paciente'
-    if valor_triagem(triagem, 0) and paciente:
-        return 'triagem_com_paciente'
-    if categoria in CATEGORIAS_OCUPAM_SALA:
-        return 'categoria'
-    if data_especifica and observacao:
-        return 'reserva_pontual'
-    return ''
+    return agendamento_utils.motivo_ocupacao_sala(
+        categoria, paciente, observacao, data_especifica, triagem, CATEGORIAS_OCUPAM_SALA
+    )
 
 
 def calcular_ocupa_sala(categoria, paciente='', observacao='', data_especifica='', triagem=0):
-    if motivo_ocupacao_sala(categoria, paciente, observacao, data_especifica, triagem):
-        return 1
-    return 0
+    return agendamento_utils.calcular_ocupa_sala(
+        categoria, paciente, observacao, data_especifica, triagem, CATEGORIAS_OCUPAM_SALA
+    )
 
 
 def preparar_dados_agendamento(dados, usuario_id_padrao=None):
-    dia = (dados.get('dia_semana') or 'SEGUNDA').strip()
-    horario = (dados.get('horario') or '').strip()
-    sala = (dados.get('sala') or '').strip()
-    data_esp = (dados.get('data_especifica') or '').strip()
-    categoria_informada, triagem_categoria = normalizar_categoria_triagem(dados.get('categoria'))
-
-    if not horario or not sala:
-        return None, 'Os campos horário e sala são obrigatórios.'
-
-    data_esp, erro_data = normalizar_data_especifica(data_esp)
-    if erro_data:
-        return None, erro_data
-    if data_esp:
-        dia = dia_semana_da_data(data_esp)
-
-    erro_validacao = validar_valores_agendamento(dia, horario, sala, categoria_informada)
-    if erro_validacao:
-        return None, erro_validacao
-
-    estagiario = dados.get('estagiario', '')
-    paciente = dados.get('paciente', '')
-    categoria = categoria_informada or detect_cat(estagiario, paciente)
-    semestre = dados.get('semestre', 0) or detect_sem(estagiario)
-    triagem_padrao = 1 if texto_indica_triagem(estagiario, paciente) else 0
-    triagem = triagem_categoria if triagem_categoria is not None else valor_triagem(dados.get('triagem'), triagem_padrao)
-    observacao = dados.get('observacao', '')
-    status_atendimento = (dados.get('status_atendimento') or '').strip()
-    if status_atendimento not in STATUS_ATENDIMENTO:
-        return None, 'Escolha um status de atendimento válido.'
-    ocupa_calculado = calcular_ocupa_sala(categoria, paciente, observacao, data_esp, triagem)
-    ocupa_sala = 0 if status_atendimento else valor_ocupa_sala(dados.get('ocupa_sala'), ocupa_calculado)
-
-    return {
-        'dia': dia,
-        'horario': horario,
-        'sala': sala,
-        'estagiario': estagiario,
-        'paciente': paciente,
-        'categoria': categoria,
-        'semestre': semestre,
-        'triagem': triagem,
-        'observacao': observacao,
-        'data_especifica': data_esp,
-        'usuario_id': dados.get('usuario_id') or usuario_id_padrao,
-        'ocupa_sala': ocupa_sala,
-        'status_atendimento': status_atendimento,
-    }, None
+    return agendamento_utils.preparar_dados_agendamento(
+        dados,
+        usuario_id_padrao,
+        DIAS,
+        HORARIOS,
+        SALAS,
+        CATEGORIAS,
+        CATEGORIAS_OCUPAM_SALA,
+        STATUS_ATENDIMENTO,
+    )
 
 
 def usuario_pode_ver_agendamento(row):
@@ -1630,26 +1550,7 @@ def registrar_log(acao, dados=''):
 
 def coletar_saude_sistema():
     with db_connection() as conn:
-        integridade = conn.execute('PRAGMA integrity_check').fetchone()[0]
-        ultimo_backup = conn.execute(
-            "SELECT ts, usuario, dados FROM historico WHERE acao='BACKUP' ORDER BY ts DESC LIMIT 1"
-        ).fetchone()
-        migrations = conn.execute(
-            'SELECT version, description, applied_at FROM schema_migrations ORDER BY applied_at DESC, version DESC'
-        ).fetchall()
-        return {
-            'versao': VERSAO,
-            'banco_ok': integridade == 'ok',
-            'integridade': integridade,
-            'usuarios_total': conn.execute('SELECT COUNT(*) FROM usuarios').fetchone()[0],
-            'usuarios_ativos': conn.execute('SELECT COUNT(*) FROM usuarios WHERE ativo=1').fetchone()[0],
-            'agendamentos_total': conn.execute('SELECT COUNT(*) FROM agendamentos').fetchone()[0],
-            'reservas_pendentes': conn.execute("SELECT COUNT(*) FROM reservas WHERE status='pendente'").fetchone()[0],
-            'logs_total': conn.execute('SELECT COUNT(*) FROM historico').fetchone()[0],
-            'ultimo_backup': dict(ultimo_backup) if ultimo_backup else None,
-            'migrations': [dict(row) for row in migrations],
-            'smtp': diagnostico_smtp(),
-        }
+        return system_utils.coletar_saude_sistema(conn, VERSAO, diagnostico_smtp())
 
 
 def descricao_agendamento_log(agendamento_id, dados):
@@ -1804,56 +1705,15 @@ def label_status_reserva(status):
 # ========================================
 
 def normalize(t):
-    if not t:
-        return ''
-    for o, n in [('ş', 'º'), ('Ş', 'º'), ('ţ', 'ç')]:
-        t = t.replace(o, n)
-    return t.strip()
+    return agendamento_utils.normalize(t)
 
 
 def detect_cat(est, pac):
-    c = normalize(est + ' ' + pac).upper()
-    if 'NÃO MARCAR' in c or 'NAO MARCAR' in c:
-        return 'NÃO MARCAR'
-    if 'PSICODIAG' in c:
-        return 'PSICODIAGNÓSTICO'
-    if 'SUPERVISÃO' in c or 'SUPERVISAO' in c or 'PROF.' in c or re.search(r'PROF\s+\w', c):
-        return 'SUPERVISÃO'
-    if 'NACE' in c:
-        return 'NACE'
-    if re.search(r'\bSOU\b', c):
-        return 'SOU'
-    if 'MARCAR' in c:
-        return 'MARCAR'
-    if 'NUTRIÇÃO' in c or 'NUTRICAO' in c:
-        return 'NUTRIÇÃO'
-    if 'PSIQUIATRIA' in c:
-        return 'PSIQUIATRIA'
-    if 'AMBULAT' in c:
-        return 'AMBULATÓRIO NEUROPSICOLOGIA'
-    if 'PLANTÃO' in c or 'PLANTAO' in c:
-        return 'PLANTÃO PSICOLÓGICO'
-    if 'PRONTUÁRIO' in c or 'PRONTUARIO' in c or 'ESTUDAR' in c:
-        return 'PRONTUÁRIO/ESTUDAR'
-    if re.search(r'10[°º]', c):
-        return 'ESTAGIÁRIO 10°'
-    if re.search(r'9[°º]', c):
-        return 'ESTAGIÁRIO 9°'
-    en = normalize(est).strip()
-    if en and not any(x in en.upper() for x in ['PSICODIAG', 'NÃO', 'MARCAR', 'SUPERVISÃO']):
-        return 'ESTAGIÁRIO 9°'
-    if not normalize(est).strip() and not normalize(pac).strip():
-        return 'LIVRE'
-    return 'OUTRO'
+    return agendamento_utils.detect_cat(est, pac)
 
 
 def detect_sem(t):
-    t = normalize(t)
-    if re.search(r'10[°º]', t):
-        return 10
-    if re.search(r'9[°º]', t):
-        return 9
-    return 0
+    return agendamento_utils.detect_sem(t)
 
 
 # ========================================
@@ -4516,195 +4376,45 @@ def busca_global():
 
 
 def chave_sem_acento(valor):
-    valor = unicodedata.normalize('NFKD', str(valor or ''))
-    valor = ''.join(ch for ch in valor if not unicodedata.combining(ch))
-    return re.sub(r'[^a-z0-9]+', '', valor.lower())
+    return excel_import_utils.chave_sem_acento(valor)
 
 
 def normalizar_sala_excel(valor):
-    mapa = {chave_sem_acento(sala): sala for sala in SALAS}
-    chave = chave_sem_acento(valor)
-    if chave in mapa:
-        return mapa[chave]
-    aliases = {
-        'consultorio1': 'Consultório 1',
-        'consultorio2': 'Consultório 2',
-        'consultorio3': 'Consultório 3',
-        'consultorio4': 'Consultório 4',
-        'consultorio5': 'Consultório 5',
-        'consultorio6diva': 'Consultório 6 (Divã)',
-        'consultorio7diva': 'Consultório 7 (Divã)',
-        'consultorio8': 'Consultório 8',
-        'sounace': 'SOU / NACE',
-        'saladegrupo1': 'Sala de Grupo 1',
-        'saladegrupo2': 'Sala de Grupo 2',
-        'supervisao': 'Supervisão',
-        'salasupervisao': 'Supervisão',
-        'coordenacao': 'Coordenação',
-    }
-    return aliases.get(chave)
+    return excel_import_utils.normalizar_sala_excel(valor, SALAS)
 
 
 def texto_celula_excel(valor):
-    if valor is None:
-        return ''
-    texto = str(valor).replace('\r', '\n')
-    partes = [p.strip() for p in texto.split('\n') if p and p.strip()]
-    return ' - '.join(partes).strip()
+    return excel_import_utils.texto_celula_excel(valor)
 
 
 def horario_excel(valor):
-    if valor is None or valor == '':
-        return ''
-    if hasattr(valor, 'strftime'):
-        return valor.strftime('%H:%M')
-    try:
-        numero = float(valor)
-        minutos = int(round(numero * 24 * 60))
-        return f'{minutos // 60:02d}:{minutos % 60:02d}'
-    except (TypeError, ValueError):
-        texto = str(valor).strip()
-        m = re.search(r'(\d{1,2})[:h](\d{2})', texto)
-        if m:
-            return f'{int(m.group(1)):02d}:{int(m.group(2)):02d}'
-        return texto
+    return excel_import_utils.horario_excel(valor)
 
 
 def extrair_data_pontual_excel(texto, ano=None):
-    ano = ano or datetime.now().year
-    if not re.search(r'\b(s[óo]|somente|apenas|dia)\b', texto, flags=re.I):
-        return ''
-
-    m = re.search(
-        r'\b(?:s[óo]|somente|apenas)\s+(?:dia\s+)?(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?',
-        texto,
-        flags=re.I
-    )
-    if not m:
-        m = re.search(
-            r'\bdia\s+(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?',
-            texto,
-            flags=re.I
-        )
-    if not m:
-        m = re.search(r'(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?', texto)
-    if not m:
-        return ''
-    dia = int(m.group(1))
-    mes = int(m.group(2))
-    ano_encontrado = int(m.group(3)) if m.group(3) else ano
-    if ano_encontrado < 100:
-        ano_encontrado += 2000
-    try:
-        return datetime(ano_encontrado, mes, dia).strftime('%Y-%m-%d')
-    except ValueError:
-        return ''
+    return excel_import_utils.extrair_data_pontual_excel(texto, ano)
 
 
 def limpar_marcadores_excel(texto):
-    texto = re.sub(r'\(?\btriagem\b\)?', '', texto, flags=re.I)
-    texto = re.sub(r'\b(s[óo]|somente|apenas)\s+(dia\s+)?\d{1,2}/\d{1,2}(/\d{2,4})?', '', texto, flags=re.I)
-    texto = re.sub(r'\bdia\s+\d{1,2}/\d{1,2}(/\d{2,4})?', '', texto, flags=re.I)
-    return re.sub(r'\s+', ' ', texto).strip(' -')
+    return excel_import_utils.limpar_marcadores_excel(texto)
 
 
 def categoria_por_texto_excel(texto):
-    up = texto.upper()
-    if 'NÃO MARCAR' in up or 'NAO MARCAR' in up:
-        return 'NÃO MARCAR'
-    if 'MARCAR' in up:
-        return 'MARCAR'
-    if 'SUPERVIS' in up or up.startswith('PROF.'):
-        return 'SUPERVISÃO'
-    if 'NACE' in up:
-        return 'NACE'
-    if re.search(r'\bSOU\b', up):
-        return 'SOU'
-    if 'PRONT' in up or 'ESTUDAR' in up:
-        return 'PRONTUÁRIO/ESTUDAR'
-    if 'NUTRI' in up:
-        return 'NUTRIÇÃO'
-    if 'PSICODIAGN' in up:
-        return 'PSICODIAGNÓSTICO'
-    if 'PSIQUIATR' in up:
-        return 'PSIQUIATRIA'
-    if 'AMBULAT' in up or 'NEUROPSICOLOGIA' in up:
-        return 'AMBULATÓRIO NEUROPSICOLOGIA'
-    if 'PLANT' in up:
-        return 'PLANTÃO PSICOLÓGICO'
-    return 'OUTRO'
+    return excel_import_utils.categoria_por_texto_excel(texto)
 
 
 def semestre_por_texto_excel(texto):
-    if re.search(r'\b10\s*[°º]', texto or ''):
-        return 10
-    if re.search(r'\b9\s*[°º]', texto or ''):
-        return 9
-    return 0
+    return excel_import_utils.semestre_por_texto_excel(texto)
 
 
 def texto_excel_eh_marcador_operacional(texto):
-    categoria = categoria_por_texto_excel(texto or '')
-    return categoria if categoria in ('MARCAR', 'NÃO MARCAR') else ''
+    return excel_import_utils.texto_excel_eh_marcador_operacional(texto)
 
 
 def montar_agendamento_excel(dia, horario, sala, texto_principal, texto_secundario, ano=None):
-    textos = [t for t in (texto_principal, texto_secundario) if t]
-    if not textos:
-        return None, 'Célula vazia'
-    texto_total = ' - '.join(textos)
-    if chave_sem_acento(texto_total) in ('tt', 't'):
-        return None, 'Marcador interno ignorado'
-
-    triagem = 1 if re.search(r'\btriagem\b', texto_total, flags=re.I) else 0
-    data_especifica = extrair_data_pontual_excel(texto_total, ano)
-    semestre = semestre_por_texto_excel(texto_total)
-    categoria_principal = categoria_por_texto_excel(texto_principal)
-    categoria_secundaria = categoria_por_texto_excel(texto_secundario)
-    marcador_secundario = texto_excel_eh_marcador_operacional(texto_secundario)
-    categoria = categoria_por_texto_excel(texto_total)
-    estagiario = ''
-    paciente = ''
-    observacao = ''
-
-    if marcador_secundario and semestre:
-        estagiario = limpar_marcadores_excel(texto_principal)
-        categoria = marcador_secundario
-        observacao = limpar_marcadores_excel(texto_secundario)
-    elif categoria in ('MARCAR', 'NÃO MARCAR'):
-        estagiario = limpar_marcadores_excel(texto_principal)
-        observacao = limpar_marcadores_excel(texto_total)
-        if categoria == 'MARCAR':
-            estagiario = ''
-    elif semestre:
-        estagiario = limpar_marcadores_excel(texto_principal)
-        paciente = limpar_marcadores_excel(texto_secundario)
-        if categoria_principal != 'OUTRO':
-            categoria = categoria_principal
-        elif categoria_secundaria != 'OUTRO':
-            categoria = categoria_secundaria
-        else:
-            categoria = 'OUTRO'
-    else:
-        estagiario = limpar_marcadores_excel(texto_principal)
-        observacao = limpar_marcadores_excel(texto_total)
-
-    if not estagiario and categoria == 'OUTRO':
-        estagiario = limpar_marcadores_excel(texto_principal) or 'Importado do Excel'
-
-    dados_ag, erro = preparar_dados_agendamento({
-        'dia_semana': dia,
-        'horario': horario,
-        'sala': sala,
-        'estagiario': estagiario,
-        'paciente': paciente,
-        'categoria': categoria,
-        'semestre': semestre,
-        'triagem': triagem,
-        'observacao': observacao,
-        'data_especifica': data_especifica,
-    })
-    return dados_ag, erro
+    return excel_import_utils.montar_agendamento_excel(
+        dia, horario, sala, texto_principal, texto_secundario, preparar_dados_agendamento, ano
+    )
 
 
 COLUNAS_AGENDAMENTO_BACKUP = (
@@ -5064,24 +4774,7 @@ def restaurar_backup_db():
 def executar_manutencao(vacuum=False):
     conn = get_db()
     try:
-        integridade = conn.execute('PRAGMA integrity_check').fetchone()[0]
-        logs_removidos = limpar_logs_antigos(conn)
-        total_usuarios = conn.execute('SELECT COUNT(*) FROM usuarios').fetchone()[0]
-        usuarios_ativos = conn.execute('SELECT COUNT(*) FROM usuarios WHERE ativo=1').fetchone()[0]
-        total_agendamentos = conn.execute('SELECT COUNT(*) FROM agendamentos').fetchone()[0]
-        total_logs = conn.execute('SELECT COUNT(*) FROM historico').fetchone()[0]
-        conn.commit()
-        if vacuum:
-            conn.execute('VACUUM')
-        return {
-            'integridade': integridade,
-            'logs_removidos': logs_removidos,
-            'usuarios_total': total_usuarios,
-            'usuarios_ativos': usuarios_ativos,
-            'agendamentos_total': total_agendamentos,
-            'logs_total': total_logs,
-            'vacuum_executado': vacuum
-        }
+        return system_utils.executar_manutencao(conn, limpar_logs_antigos, vacuum)
     finally:
         conn.close()
 

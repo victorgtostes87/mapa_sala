@@ -1,12 +1,17 @@
 <div class="app-nav-actions">
-  <a href="{{ nav_home_url }}" class="app-btn app-btn-ghost"><i data-lucide="home"></i> Início</a>
+  <a href="{{ nav_home_url }}" class="app-btn app-btn-ghost"><i data-lucide="home"></i> In&iacute;cio</a>
   <div class="app-dropdown">
     <button type="button" class="app-btn app-btn-ghost" onclick="toggleAppMenu(event)">
       <i data-lucide="menu"></i> Menu
     </button>
     <div class="app-dropdown-menu app-menu">
-      {% for label, href, icon in nav_items %}
-      <a href="{{ href }}"><i data-lucide="{{ icon }}"></i> {{ label }}</a>
+      {% for grupo, itens in nav_items %}
+      <div class="app-menu-group">
+        <div class="app-menu-title">{{ grupo }}</div>
+        {% for label, href, icon in itens %}
+        <a href="{{ href }}"><i data-lucide="{{ icon }}"></i> {{ label }}</a>
+        {% endfor %}
+      </div>
       {% endfor %}
     </div>
   </div>

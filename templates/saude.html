@@ -7,6 +7,7 @@
   <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/voltar.js') }}"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_pages.css') }}?v={{ versao }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/saude.css') }}">
 </head>
 <body>
@@ -47,10 +48,12 @@
       </header>
       <div class="action-grid">
         <a href="{{ url_for('logs_page') }}"><i data-lucide="clipboard-list"></i><strong>Logs</strong><span>Ver ações importantes.</span></a>
+        {% if papel == 'coordenador' %}
         <a href="{{ url_for('backup_db') }}"><i data-lucide="database-backup"></i><strong>Backup manual</strong><span>Baixar cópia do banco.</span></a>
         <a href="{{ url_for('export_xlsx') }}"><i data-lucide="download"></i><strong>Exportar</strong><span>Baixar dados para conferência.</span></a>
         <a href="/mapa?importar=1"><i data-lucide="upload"></i><strong>Importar Excel</strong><span>Usar apenas quando necessário.</span></a>
-        <a href="{{ url_for('termo_uso') }}"><i data-lucide="shield-check"></i><strong>Termo de uso</strong><span>Orientação interna do sistema.</span></a>
+        {% endif %}
+        <a href="{{ url_for('informacoes') }}"><i data-lucide="info"></i><strong>Informações</strong><span>Sobre o sistema e termo de uso.</span></a>
       </div>
     </section>
 

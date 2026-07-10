@@ -131,6 +131,7 @@ class MapaSalasTestCase(unittest.TestCase):
         horarios_abertos = self.client.get('/horarios-abertos')
         stats = self.client.get('/api/stats')
         backup = self.client.get('/api/backup')
+        exportacao = self.client.get('/api/export')
         criar_resp = self._criar_agendamento_api()
         importar_resp = self.client.post(
             '/api/import',
@@ -147,7 +148,8 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertEqual(reservas.status_code, 200)
         self.assertEqual(horarios_abertos.status_code, 200)
         self.assertEqual(stats.status_code, 200)
-        self.assertEqual(backup.status_code, 200)
+        self.assertEqual(backup.status_code, 403)
+        self.assertEqual(exportacao.status_code, 403)
         self.assertNotIn('Novo usuário', usuarios.get_data(as_text=True))
         self.assertNotIn('btnApagarLogs', logs.get_data(as_text=True))
         self.assertEqual(criar_resp.status_code, 403)
@@ -1650,7 +1652,7 @@ class MapaSalasTestCase(unittest.TestCase):
             '/api/usuarios',
             json={
                 'username': 'novo_aluno',
-                'email': 'novo.aluno@example.com',
+                'email': 'novo.aluno@gmail.com',
                 'password': 'senha123',
                 'role': 'aluno',
                 'ativo': True
@@ -1666,7 +1668,25 @@ class MapaSalasTestCase(unittest.TestCase):
         finally:
             conn.close()
 
-        self.assertEqual(row['email'], 'novo.aluno@example.com')
+        self.assertEqual(row['email'], 'novo.aluno@gmail.com')
+
+    def test_cria_usuario_bloqueia_email_ficticio(self):
+        self._login('coordenador')
+
+        resp = self.client.post(
+            '/api/usuarios',
+            json={
+                'username': 'novo_aluno',
+                'email': 'novo.aluno@example.com',
+                'password': 'senha123',
+                'role': 'aluno',
+                'ativo': True
+            },
+            headers={'X-CSRFToken': self.csrf}
+        )
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('e-mail real', resp.get_json()['erro'])
 
     def test_cria_usuario_com_senha_envia_aviso_por_email(self):
         emails = self._capturar_emails()
@@ -1676,7 +1696,7 @@ class MapaSalasTestCase(unittest.TestCase):
             '/api/usuarios',
             json={
                 'username': 'novo_com_email',
-                'email': 'novo.email@example.com',
+                'email': 'novo.email@gmail.com',
                 'password': 'senha123',
                 'role': 'aluno',
                 'ativo': True
@@ -1687,7 +1707,7 @@ class MapaSalasTestCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 201)
         self.assertTrue(resp.get_json()['email_enviado'])
         self.assertEqual(len(emails), 1)
-        self.assertEqual(emails[0]['destinatario'], 'novo.email@example.com')
+        self.assertEqual(emails[0]['destinatario'], 'novo.email@gmail.com')
         self.assertEqual(emails[0]['assunto'], 'Conta criada no Mapa de Sala')
         self.assertIn('Atenciosamente,', emails[0]['corpo'])
 
@@ -1698,7 +1718,7 @@ class MapaSalasTestCase(unittest.TestCase):
             '/api/usuarios',
             json={
                 'username': 'aluno_convite',
-                'email': 'aluno.convite@example.com',
+                'email': 'aluno.convite@gmail.com',
                 'role': 'aluno',
                 'ativo': True,
                 'enviar_convite': True

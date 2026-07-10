@@ -23,6 +23,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 import reservas as reservas_mod
+from migrations import adicionar_coluna_se_ausente, executar_migration
 
 
 # ========================================
@@ -771,6 +772,17 @@ def email_de_teste_ou_invalido(email):
         'email.com',
     }
     return dominio in dominios_bloqueados or dominio.endswith('.example')
+
+
+def validar_email_usuario(email, obrigatorio=False):
+    email = (email or '').strip()
+    if not email:
+        if obrigatorio:
+            return 'Informe um e-mail real.'
+        return None
+    if email_de_teste_ou_invalido(email):
+        return 'Use um e-mail real. E-mails de teste como @example.com não podem ser cadastrados.'
+    return None
 
 
 def enviar_email(destinatario, assunto, corpo):
@@ -1557,34 +1569,6 @@ def criar_supervisores_padrao(conn):
         )
 
 
-def adicionar_coluna_se_ausente(conn, tabela, coluna, sql_alter):
-    cols = [r[1] for r in conn.execute(f"PRAGMA table_info({tabela})").fetchall()]
-    if coluna in cols:
-        return False
-    conn.execute(sql_alter)
-    return True
-
-
-def migration_ja_aplicada(conn, version):
-    row = conn.execute('SELECT 1 FROM schema_migrations WHERE version=?', (version,)).fetchone()
-    return bool(row)
-
-
-def registrar_migration(conn, version, description):
-    conn.execute(
-        'INSERT OR IGNORE INTO schema_migrations(version, description) VALUES(?,?)',
-        (version, description)
-    )
-
-
-def executar_migration(conn, version, description, func):
-    if migration_ja_aplicada(conn, version):
-        return False
-    func(conn)
-    registrar_migration(conn, version, description)
-    return True
-
-
 def aplicar_migracoes_simples(conn):
     ocupa_col_criada = adicionar_coluna_se_ausente(
         conn,
@@ -2362,7 +2346,8 @@ def painel_coordenacao():
         usuario=current_user.username,
         papel=current_user.role,
         papel_label=PAPEIS_LABEL.get(current_user.role, current_user.role),
-        dados=dados
+        dados=dados,
+        versao=VERSAO
     )
 
 
@@ -3955,6 +3940,9 @@ def api_criar_usuario():
         return jsonify({'erro': 'Nome completo é obrigatório'}), 400
     if not username:
         return jsonify({'erro': 'Usuário é obrigatório'}), 400
+    erro_email = validar_email_usuario(email, obrigatorio=enviar_convite)
+    if erro_email:
+        return jsonify({'erro': erro_email}), 400
     if not password and not (enviar_convite and email):
         return jsonify({'erro': 'Informe uma senha ou marque para enviar convite por e-mail'}), 400
     if password and len(password) < 8:
@@ -4023,6 +4011,9 @@ def api_editar_usuario(uid):
             return jsonify({'erro': 'Nome completo é obrigatório'}), 400
         if not new_username:
             return jsonify({'erro': 'Informe o nome de usuário.'}), 400
+        erro_email = validar_email_usuario(new_email, obrigatorio=bool(d.get('enviar_convite')))
+        if erro_email:
+            return jsonify({'erro': erro_email}), 400
         new_role = (d.get('role') or row['role']).strip()
         if new_role not in PAPEIS_VALIDOS:
             return jsonify({'erro': 'Papel inválido'}), 400
@@ -4485,7 +4476,7 @@ def stats():
 
 @app.route('/api/export')
 @login_required
-@requer_papel('coordenador', 'somente_leitura')
+@requer_papel('coordenador')
 def export_xlsx():
     try:
         from openpyxl import Workbook
@@ -5133,7 +5124,7 @@ def desfazer_importacao():
 
 @app.route('/api/backup')
 @login_required
-@requer_papel('coordenador', 'somente_leitura')
+@requer_papel('coordenador')
 @limiter.limit('5 per hour')
 def backup_db():
     confirm = request.args.get('confirmar', '')

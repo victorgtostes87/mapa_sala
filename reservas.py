@@ -184,6 +184,7 @@ def registrar_rotas_reservas(app, deps):
     registrar_log = deps['registrar_log']
     notificar_reserva_email = deps.get('notificar_reserva_email')
     notificar_reserva_solicitada_email = deps.get('notificar_reserva_solicitada_email')
+    validar_observacao_operacional = deps.get('validar_observacao_operacional', lambda observacao: None)
     horarios = deps['HORARIOS']
     salas = deps['SALAS']
     salas_reservaveis = deps['SALAS_RESERVAVEIS']
@@ -380,6 +381,10 @@ def registrar_rotas_reservas(app, deps):
         tipo_sala = request.form.get('tipo_sala', 'comum').strip()
         finalidade = request.form.get('finalidade', '').strip()
         observacao = request.form.get('observacao', '').strip()
+        erro_observacao = validar_observacao_operacional(observacao)
+        if erro_observacao:
+            flash(erro_observacao, 'error')
+            return redirect(url_for('reservas'))
 
         if tipo_sala not in ('comum', 'computador'):
             flash('Tipo de sala inválido.', 'error')
@@ -453,6 +458,10 @@ def registrar_rotas_reservas(app, deps):
         instrumento = request.form.get('instrumento', '').strip()
         finalidade = request.form.get('finalidade', '').strip()
         observacao = request.form.get('observacao', '').strip()
+        erro_observacao = validar_observacao_operacional(observacao)
+        if erro_observacao:
+            flash(erro_observacao, 'error')
+            return redirect(url_for('reservas'))
 
         if not instrumento:
             flash('Informe qual teste ou instrumento você precisa reservar.', 'error')

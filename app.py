@@ -443,6 +443,10 @@ def validar_valores_agendamento(dia, horario, sala, categoria=''):
     )
 
 
+def validar_observacao_operacional(observacao):
+    return agendamento_utils.validar_observacao_operacional(observacao)
+
+
 def data_hoje_iso():
     return datetime.now().strftime('%Y-%m-%d')
 
@@ -2150,6 +2154,10 @@ def criar_tarefa_painel():
 def criar_solicitacao_vagas():
     aluno_id_raw = request.form.get('aluno_id', '').strip()
     observacao = request.form.get('observacao', '').strip()
+    erro_observacao = validar_observacao_operacional(observacao)
+    if erro_observacao:
+        flash(erro_observacao, 'error')
+        return redirect(url_for('minha_supervisao'))
 
     try:
         aluno_id = int(aluno_id_raw)
@@ -2464,6 +2472,10 @@ def criar_horario_coordenacao():
     horario_fim = request.form.get('horario_fim', '').strip()
     local = request.form.get('local', '').strip()
     observacao = request.form.get('observacao', '').strip()
+    erro_observacao = validar_observacao_operacional(observacao)
+    if erro_observacao:
+        flash(erro_observacao, 'error')
+        return redirect(url_for('coordenacao_page'))
 
     data_disponivel, erro_data = normalizar_data_especifica(data_disponivel)
     if erro_data:
@@ -2543,6 +2555,10 @@ def desativar_horario_coordenacao(horario_id):
 def agendar_horario_coordenacao(horario_id):
     assunto = request.form.get('assunto', '').strip()
     observacao = request.form.get('observacao', '').strip()
+    erro_observacao = validar_observacao_operacional(observacao)
+    if erro_observacao:
+        flash(erro_observacao, 'error')
+        return redirect(url_for('coordenacao_page'))
     if not assunto:
         flash('Informe rapidamente o assunto da conversa.', 'error')
         return redirect(url_for('coordenacao_page'))
@@ -3186,6 +3202,7 @@ reservas_mod.registrar_rotas_reservas(app, {
     'data_hoje_iso': data_hoje_iso,
     'normalizar_data_especifica': normalizar_data_especifica,
     'dia_semana_da_data': dia_semana_da_data,
+    'validar_observacao_operacional': validar_observacao_operacional,
     'checar_conflito': checar_conflito,
     'inserir_agendamento': inserir_agendamento,
     'detect_sem': detect_sem,
@@ -3372,7 +3389,7 @@ def usuarios_page():
 @app.route('/api/estagiarios', methods=['GET'])
 @login_required
 @requer_papel('coordenador', 'recepcao', 'somente_leitura')
-def api_list_estagiarios():
+def api_listar_estagiarios():
     conn = get_db()
     try:
         rows = conn.execute(
@@ -3387,7 +3404,7 @@ def api_list_estagiarios():
         ).fetchall()
     finally:
         conn.close()
-    return jsonify([agendamento_para_resposta(r) for r in rows])
+    return jsonify([dict(r) for r in rows])
 
 
 @app.route('/api/usuarios', methods=['GET'])
@@ -3413,6 +3430,8 @@ def api_criar_usuario():
 
     nome_completo = (d.get('nome_completo') or '').strip()
     username = sugerir_username_por_nome(nome_completo) or (d.get('username') or '').strip()
+    if not nome_completo:
+        nome_completo = username
     email = (d.get('email') or '').strip()
     password = (d.get('password') or '').strip()
     enviar_convite = bool(d.get('enviar_convite'))
@@ -3422,8 +3441,6 @@ def api_criar_usuario():
     if supervisor_id == 'invalido':
         return jsonify({'erro': 'Supervisor inválido'}), 400
 
-    if not nome_completo:
-        return jsonify({'erro': 'Nome completo é obrigatório'}), 400
     if not username:
         return jsonify({'erro': 'Usuário é obrigatório'}), 400
     erro_email = validar_email_usuario(email, obrigatorio=enviar_convite)

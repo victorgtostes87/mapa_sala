@@ -71,8 +71,8 @@
         </div>
         <label>Local</label>
         <input name="local" placeholder="Ex: Coordenação, sala da coordenação">
-        <label>Observação</label>
-        <textarea name="observacao" placeholder="Ex: horário para assuntos rápidos, até 20 minutos"></textarea>
+        <label>Observação operacional</label>
+        <textarea name="observacao" maxlength="500" placeholder="Ex: horário para assuntos rápidos, até 20 minutos. Não registre dados clínicos."></textarea>
         <button class="btn primary" type="submit"><i data-lucide="plus"></i> Publicar horário</button>
       </form>
       {% endif %}
@@ -168,7 +168,7 @@
           <form method="post" action="/coordenacao/agendar/{{ h.id }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input name="assunto" placeholder="Assunto da conversa" required>
-            <textarea name="observacao" placeholder="Detalhe opcional"></textarea>
+            <textarea name="observacao" maxlength="500" placeholder="Detalhe operacional opcional, sem dados clínicos"></textarea>
             <button class="btn primary" type="submit"><i data-lucide="check"></i> Marcar horário</button>
           </form>
         </article>

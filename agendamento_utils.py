@@ -2,6 +2,14 @@ import re
 from datetime import datetime
 
 
+TERMOS_CLINICOS_OBSERVACAO = (
+    'diagnóstico', 'diagnostico', 'cid', 'hipótese', 'hipotese',
+    'queixa', 'evolução', 'evolucao', 'sessão', 'sessao',
+    'trauma', 'abuso', 'suicid', 'medicação', 'medicacao',
+    'laudo', 'sintoma', 'transtorno', 'relato clínico', 'relato clinico',
+)
+
+
 def normalize(t):
     if not t:
         return ''
@@ -45,6 +53,21 @@ def validar_valores_agendamento(dia, horario, sala, categoria, dias, horarios, s
         return 'Escolha uma sala cadastrada no sistema.'
     if categoria and categoria not in categorias:
         return 'Escolha uma categoria cadastrada no sistema.'
+    return None
+
+
+def validar_observacao_operacional(observacao):
+    observacao = (observacao or '').strip()
+    if len(observacao) > 500:
+        return 'A observação deve ter no máximo 500 caracteres.'
+
+    texto = normalize(observacao).lower()
+    for termo in TERMOS_CLINICOS_OBSERVACAO:
+        if termo in texto:
+            return (
+                'Use a observação apenas para informações operacionais. '
+                'Não registre diagnóstico, queixa, evolução, sessão, CID ou outros dados clínicos do paciente.'
+            )
     return None
 
 
@@ -187,7 +210,10 @@ def preparar_dados_agendamento(
     semestre = dados.get('semestre', 0) or detect_sem(estagiario)
     triagem_padrao = 1 if texto_indica_triagem(estagiario, paciente) else 0
     triagem = triagem_categoria if triagem_categoria is not None else valor_triagem(dados.get('triagem'), triagem_padrao)
-    observacao = dados.get('observacao', '')
+    observacao = (dados.get('observacao') or '').strip()
+    erro_observacao = validar_observacao_operacional(observacao)
+    if erro_observacao:
+        return None, erro_observacao
     status_atendimento = (dados.get('status_atendimento') or '').strip()
     if status_atendimento not in status_atendimento_validos:
         return None, 'Escolha um status de atendimento válido.'

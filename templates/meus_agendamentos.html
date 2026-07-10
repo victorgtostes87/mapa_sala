@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="pt-br">
 <head>
   <meta charset="utf-8">
@@ -10,7 +10,7 @@
 </head>
 <body>
   <nav class="app-nav">
-    <a class="app-nav-brand" href="/mapa" title="Voltar para o mapa"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>PoliclÃ­nica Psicologia UVV</span></span></a>
+    <a class="app-nav-brand" href="/mapa" title="Voltar para o mapa"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
     <div class="app-nav-title">Meus agendamentos</div>
     <div class="app-nav-spacer"></div>
     <div class="app-nav-user">
@@ -23,24 +23,24 @@
   <main class="student-page">
     <section class="hero">
       <div>
-        <p class="eyebrow">Ãrea do aluno</p>
+        <p class="eyebrow">Área do aluno</p>
         <h1>Seu mapa pessoal</h1>
-        <p class="muted">Veja seus horÃ¡rios, salas e reservas. Por seguranÃ§a, esta tela nÃ£o exibe dados sensÃ­veis de pacientes.</p>
+        <p class="muted">Veja seus horários, salas e reservas. Por segurança, esta tela não exibe dados sensíveis de pacientes.</p>
       </div>
       <div class="hero-actions">
         <a href="#pacientes" class="filter-btn active"><i data-lucide="users"></i> Pacientes</a>
-        <a href="#horarios" class="filter-btn"><i data-lucide="clock"></i> HorÃ¡rios</a>
+        <a href="#horarios" class="filter-btn"><i data-lucide="clock"></i> Horários</a>
         <a href="#reservas" class="filter-btn"><i data-lucide="clipboard-list"></i> Reservas</a>
       </div>
     </section>
 
     <section class="summary">
       <a class="summary-card patient-summary" href="#pacientes">
-        <span>HorÃ¡rios com paciente</span>
+        <span>Horários com paciente</span>
         <strong>{{ total_atendimentos }}</strong>
       </a>
       <a class="summary-card open-summary" href="#horarios">
-        <span>HorÃ¡rios sem paciente</span>
+        <span>Horários sem paciente</span>
         <strong>{{ total_fixos }}</strong>
       </a>
       <a class="summary-card pending-summary" href="#reservas">
@@ -58,20 +58,20 @@
         <i data-lucide="sparkles"></i>
         <div>
           <p class="eyebrow">O que preciso saber agora?</p>
-          <h2>Resumo rÃ¡pido</h2>
+          <h2>Resumo rápido</h2>
         </div>
       </div>
       <div class="now-list">
         {% if total_atendimentos %}
-        <div class="now-item ok"><i data-lucide="user-check"></i><span>VocÃª tem horÃ¡rio com paciente marcado. Confira dia, horÃ¡rio e sala.</span></div>
+        <div class="now-item ok"><i data-lucide="user-check"></i><span>Você tem horário com paciente marcado. Confira dia, horário e sala.</span></div>
         {% else %}
-        <div class="now-item quiet"><i data-lucide="user-x"></i><span>VocÃª ainda nÃ£o tem paciente marcado.</span></div>
+        <div class="now-item quiet"><i data-lucide="user-x"></i><span>Você ainda não tem paciente marcado.</span></div>
         {% endif %}
         {% if total_triagens_livres %}
-        <div class="now-item warn"><i data-lucide="clipboard-check"></i><span>VocÃª tem triagem aguardando paciente.</span></div>
+        <div class="now-item warn"><i data-lucide="clipboard-check"></i><span>Você tem triagem aguardando paciente.</span></div>
         {% endif %}
         {% if reservas_pendentes_aluno %}
-        <div class="now-item pending"><i data-lucide="bell"></i><span>VocÃª tem reserva aguardando anÃ¡lise da recepÃ§Ã£o ou coordenaÃ§Ã£o.</span></div>
+        <div class="now-item pending"><i data-lucide="bell"></i><span>Você tem reserva aguardando análise da recepção ou coordenação.</span></div>
         {% endif %}
         {% if not total_atendimentos and not total_triagens_livres and not reservas_pendentes_aluno %}
         <div class="now-item quiet"><i data-lucide="badge-check"></i><span>Nenhum alerta importante no momento.</span></div>
@@ -82,9 +82,9 @@
     <section class="section-head" id="pacientes">
       <div>
         <p class="eyebrow">Pacientes</p>
-        <h2>HorÃ¡rios com paciente ou triagem marcada</h2>
+        <h2>Horários com paciente ou triagem marcada</h2>
       </div>
-      <span>{{ total_atendimentos }} horÃ¡rio(s)</span>
+      <span>{{ total_atendimentos }} horário(s)</span>
     </section>
 
     {% if atendimentos_paciente %}
@@ -99,7 +99,7 @@
           <div class="card-top">
             <div>
               <h2>{{ ag.paciente_label_aluno }}</h2>
-              <p>{{ ag.sala }} Â· {{ ag.categoria or 'Sem categoria' }}</p>
+              <p>{{ ag.sala }} · {{ ag.categoria or 'Sem categoria' }}</p>
             </div>
             <div class="badges">
               <span class="badge {{ ag.tipo_slug }}">{{ ag.tipo }}</span>
@@ -120,17 +120,17 @@
     {% else %}
     <section class="empty-state compact">
       <i data-lucide="calendar-x"></i>
-      <h2>VocÃª ainda nÃ£o tem paciente marcado</h2>
-      <p>Quando a recepÃ§Ã£o marcar um paciente fixo ou uma triagem pontual, o horÃ¡rio aparecerÃ¡ nesta parte.</p>
+      <h2>Você ainda não tem paciente marcado</h2>
+      <p>Quando a recepção marcar um paciente fixo ou uma triagem pontual, o horário aparecerá nesta parte.</p>
     </section>
     {% endif %}
 
     <section class="section-head" id="horarios">
       <div>
-        <p class="eyebrow">HorÃ¡rios</p>
-        <h2>HorÃ¡rios reservados sem paciente</h2>
+        <p class="eyebrow">Horários</p>
+        <h2>Horários reservados sem paciente</h2>
       </div>
-      <span>{{ total_fixos }} horÃ¡rio(s)</span>
+      <span>{{ total_fixos }} horário(s)</span>
     </section>
 
     {% if horarios_fixos %}
@@ -153,7 +153,7 @@
             <div><i data-lucide="calendar-check"></i><span>{{ ag.paciente_pontual_label }}</span></div>
             {% endif %}
             {% if ag.triagem and not ag.paciente_pontual_label %}
-            <div class="triagem-warning"><i data-lucide="clipboard-check"></i><span>Aguardando paciente da recepÃ§Ã£o</span></div>
+            <div class="triagem-warning"><i data-lucide="clipboard-check"></i><span>Aguardando paciente da recepção</span></div>
             {% endif %}
           </div>
         </div>
@@ -163,8 +163,8 @@
     {% else %}
     <section class="empty-state compact">
       <i data-lucide="calendar-days"></i>
-      <h2>Nenhum horÃ¡rio reservado sem paciente</h2>
-      <p>Quando a coordenaÃ§Ã£o liberar um horÃ¡rio fixo para vocÃª, ele aparecerÃ¡ nesta parte.</p>
+      <h2>Nenhum horário reservado sem paciente</h2>
+      <p>Quando a coordenação liberar um horário fixo para você, ele aparecerá nesta parte.</p>
     </section>
     {% endif %}
 
@@ -182,7 +182,7 @@
       <article class="reservation-card status-{{ reserva.status }}">
         <div class="reservation-date">
           <strong>{{ reserva.data_label }}</strong>
-          <span>{{ reserva.horario_inicio }}{% if reserva.horario_fim %} atÃ© {{ reserva.horario_fim }}{% endif %}</span>
+          <span>{{ reserva.horario_inicio }}{% if reserva.horario_fim %} até {{ reserva.horario_fim }}{% endif %}</span>
         </div>
         <div class="reservation-body">
           <div class="fixed-title">
@@ -199,7 +199,7 @@
     <section class="empty-state compact">
       <i data-lucide="clipboard-list"></i>
       <h2>Nenhuma reserva futura</h2>
-      <p>Quando vocÃª reservar uma sala ou instrumento, a solicitaÃ§Ã£o aparecerÃ¡ aqui atÃ© a data de uso.</p>
+      <p>Quando você reservar uma sala ou instrumento, a solicitação aparecerá aqui até a data de uso.</p>
     </section>
     {% endif %}
   </main>

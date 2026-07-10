@@ -146,10 +146,11 @@
           <option value="profissional_desmarcou">Profissional desmarcou</option>
           <option value="paciente_desmarcou">Paciente desmarcou</option>
         </select>
-        <div class="occupancy-hint">Use apenas quando o atendimento foi cancelado. O horario fica visivel, mas a sala volta a aparecer como disponivel.</div>
+        <div class="occupancy-hint">Use apenas quando o atendimento foi cancelado. O horário fica visível, mas a sala volta a aparecer como disponível.</div>
       </div>
-      <div class="form-row"><label>Observação</label>
-        <textarea id="fObs" placeholder="Ex: estudar, lançar prontuário, professor não liberou, uso interno..." oninput="atualizarOcupacaoPreview();verificarConflito()"></textarea></div>
+      <div class="form-row"><label>Observação operacional</label>
+        <textarea id="fObs" maxlength="500" placeholder="Ex: estudar, lançar prontuário, professor não liberou. Não registre diagnóstico, queixa, sessão ou dados clínicos." oninput="atualizarOcupacaoPreview();verificarConflito()"></textarea>
+        <div class="occupancy-hint">Use este campo só para organização da sala. O sistema não é prontuário.</div></div>
       <div class="form-row"><label>Ocupa sala?</label>
         <select id="fOcupaSala" onchange="atualizarOcupacaoPreview();verificarConflito()">
           <option value="">Automático</option>

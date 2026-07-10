@@ -21,6 +21,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 import reservas as reservas_mod
+import backup_utils
 import email_utils
 from user_utils import normalizar_supervisor_id, sugerir_username_por_nome, valor_ativo
 from migrations import adicionar_coluna_se_ausente, executar_migration
@@ -1662,105 +1663,34 @@ def descricao_agendamento_log(agendamento_id, dados):
 
 
 def criar_backup_sqlite_bytes():
-    origem = sqlite3.connect(DB_PATH, timeout=10)
-    tmp = tempfile.NamedTemporaryFile(prefix='backup_mapa_', suffix='.db', delete=False)
-    tmp_path = tmp.name
-    tmp.close()
-    destino = sqlite3.connect(tmp_path)
-    try:
-        origem.backup(destino)
-        destino.close()
-        with open(tmp_path, 'rb') as f:
-            return f.read()
-    finally:
-        origem.close()
-        try:
-            destino.close()
-        except sqlite3.Error:
-            pass
-        try:
-            os.remove(tmp_path)
-        except OSError:
-            pass
+    return backup_utils.criar_backup_sqlite_bytes(DB_PATH)
 
 
 def validar_backup_sqlite(caminho):
-    try:
-        conn = sqlite3.connect(caminho)
-        try:
-            integridade = conn.execute('PRAGMA integrity_check').fetchone()[0]
-            if integridade != 'ok':
-                return False, f'Arquivo SQLite com falha de integridade: {integridade}'
-
-            tabelas = {
-                row[0] for row in conn.execute(
-                    "SELECT name FROM sqlite_master WHERE type='table'"
-                ).fetchall()
-            }
-            obrigatorias = {'usuarios', 'agendamentos', 'logs'}
-            faltando = sorted(obrigatorias - tabelas)
-            if faltando:
-                return False, 'Backup não parece ser deste sistema. Tabelas faltando: ' + ', '.join(faltando)
-        finally:
-            conn.close()
-    except sqlite3.Error as exc:
-        return False, f'Arquivo inválido para SQLite: {exc}'
-
-    return True, ''
+    return backup_utils.validar_backup_sqlite(caminho)
 
 
 def salvar_backup_antes_da_restauracao():
-    os.makedirs(BACKUP_DIR, exist_ok=True)
-    nome = f'antes_restauracao_{datetime.now().strftime("%Y%m%d_%H%M%S")}.db'
-    caminho = os.path.join(BACKUP_DIR, nome)
-    with open(caminho, 'wb') as arquivo:
-        arquivo.write(criar_backup_sqlite_bytes())
-    return caminho
+    return backup_utils.salvar_backup_antes_da_restauracao(DB_PATH, BACKUP_DIR)
 
 
 def remover_arquivos_sqlite_auxiliares():
-    for sufixo in ('-wal', '-shm'):
-        caminho = DB_PATH + sufixo
-        try:
-            if os.path.exists(caminho):
-                os.remove(caminho)
-        except OSError:
-            pass
+    backup_utils.remover_arquivos_sqlite_auxiliares(DB_PATH)
 
 
 def limpar_backups_antigos(pasta, dias=BACKUP_RETENTION_DAYS):
-    if dias <= 0 or not os.path.isdir(pasta):
-        return 0
-    limite = datetime.now().timestamp() - (dias * 24 * 60 * 60)
-    removidos = 0
-    for nome in os.listdir(pasta):
-        if not nome.startswith('backup_mapa_') or not nome.endswith('.db'):
-            continue
-        caminho = os.path.join(pasta, nome)
-        try:
-            if os.path.isfile(caminho) and os.path.getmtime(caminho) < limite:
-                os.remove(caminho)
-                removidos += 1
-        except OSError:
-            continue
-    return removidos
+    return backup_utils.limpar_backups_antigos(pasta, dias)
 
 
 def salvar_backup_automatico():
-    os.makedirs(BACKUP_DIR, exist_ok=True)
-    nome = f'backup_mapa_{datetime.now().strftime("%Y%m%d_%H%M%S")}.db'
-    caminho = os.path.join(BACKUP_DIR, nome)
-    with open(caminho, 'wb') as arquivo:
-        arquivo.write(criar_backup_sqlite_bytes())
-    removidos = limpar_backups_antigos(BACKUP_DIR)
-    tamanho = os.path.getsize(caminho)
-    registrar_log('BACKUP', f'Backup automático salvo em {caminho}; tamanho={tamanho} bytes; antigos_removidos={removidos}')
-    return {
-        'arquivo': caminho,
-        'tamanho': tamanho,
-        'antigos_removidos': removidos,
-        'retencao_dias': BACKUP_RETENTION_DAYS,
-    }
+    resultado = backup_utils.salvar_backup_automatico(DB_PATH, BACKUP_DIR, BACKUP_RETENTION_DAYS)
+    registrar_log(
+        'BACKUP',
+        f'Backup automático salvo em {resultado["arquivo"]}; '
+        f'tamanho={resultado["tamanho"]} bytes; '
+        f'antigos_removidos={resultado["antigos_removidos"]}'
+    )
+    return resultado
 
 
 def checar_conflito(dia, horario, sala, data_especifica='', excluir_id=None):

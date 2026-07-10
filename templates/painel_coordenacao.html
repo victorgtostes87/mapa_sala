@@ -1,18 +1,17 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="pt-br">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Painel da CoordenaÃ§Ã£o</title>
+  <title>Painel da Coordenação</title>
   <script src="{{ url_for('static', filename='js/lucide.min.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/voltar.js') }}"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/painel_coordenacao.css') }}">
 </head>
 <body>
   <nav class="app-nav">
-    <a class="app-nav-brand" href="/mapa" title="Voltar para o mapa"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>PoliclÃ­nica Psicologia UVV</span></span></a>
-    <div class="app-nav-title">Painel da coordenaÃ§Ã£o</div>
+    <a class="app-nav-brand" href="{{ nav_home_url }}" title="Ir para o início"><i data-lucide="layout-grid"></i><span>Mapa de Sala - <span>Policlínica Psicologia UVV</span></span></a>
+    <div class="app-nav-title">Painel da coordenação</div>
     <div class="app-nav-spacer"></div>
     <div class="app-nav-user">
       <span class="app-nav-user-name"><i data-lucide="user-round"></i> {{ usuario }}</span>
@@ -24,9 +23,9 @@
   <main class="coord-page">
     <section class="hero">
       <div>
-        <p class="eyebrow">VisÃ£o acadÃªmica e operacional</p>
-        <h1>Painel da coordenaÃ§Ã£o</h1>
-        <p>Indicadores simples para acompanhar alunos sem paciente, triagens abertas e horÃ¡rios que ainda podem ser aproveitados.</p>
+        <p class="eyebrow">Visão acadêmica e operacional</p>
+        <h1>Painel da coordenação</h1>
+        <p>Indicadores simples para acompanhar alunos sem paciente, triagens abertas e horários que ainda podem ser aproveitados.</p>
       </div>
     </section>
 
@@ -44,7 +43,7 @@
         <strong>{{ dados.triagens_abertas|length }}</strong>
       </article>
       <article class="neutral">
-        <span>HorÃ¡rios ociosos</span>
+        <span>Horários ociosos</span>
         <strong>{{ dados.horarios_ociosos|length }}</strong>
       </article>
     </section>
@@ -53,7 +52,7 @@
       <article class="panel">
         <header>
           <div>
-            <span>RelatÃ³rio</span>
+            <span>Relatório</span>
             <h2>Alunos sem paciente</h2>
           </div>
         </header>
@@ -67,14 +66,14 @@
           {% endfor %}
         </div>
         {% else %}
-        <div class="empty">Todos os alunos ativos tÃªm pelo menos um paciente ou triagem marcada.</div>
+        <div class="empty">Todos os alunos ativos têm pelo menos um paciente ou triagem marcada.</div>
         {% endif %}
       </article>
 
       <article class="panel">
         <header>
           <div>
-            <span>RelatÃ³rio</span>
+            <span>Relatório</span>
             <h2>Triagens abertas</h2>
           </div>
         </header>
@@ -82,8 +81,8 @@
         <div class="list">
           {% for item in dados.triagens_abertas %}
           <div class="row schedule">
-            <strong>{{ item.aluno or 'Aluno nÃ£o identificado' }}</strong>
-            <span>{{ item.supervisor }} Â· {{ item.dia_semana }} {{ item.horario }} Â· {{ item.sala }}</span>
+            <strong>{{ item.aluno or 'Aluno não identificado' }}</strong>
+            <span>{{ item.supervisor }} · {{ item.dia_semana }} {{ item.horario }} · {{ item.sala }}</span>
           </div>
           {% endfor %}
         </div>
@@ -95,21 +94,21 @@
       <article class="panel">
         <header>
           <div>
-            <span>RelatÃ³rio</span>
-            <h2>HorÃ¡rios ociosos</h2>
+            <span>Relatório</span>
+            <h2>Horários ociosos</h2>
           </div>
         </header>
         {% if dados.horarios_ociosos %}
         <div class="list">
           {% for item in dados.horarios_ociosos %}
           <div class="row schedule">
-            <strong>{{ item.dia_semana }} {{ item.horario }} Â· {{ item.sala }}</strong>
-            <span>{{ item.aluno or item.categoria or 'DisponÃ­vel' }}{% if item.supervisor %} Â· {{ item.supervisor }}{% endif %}</span>
+            <strong>{{ item.dia_semana }} {{ item.horario }} · {{ item.sala }}</strong>
+            <span>{{ item.aluno or item.categoria or 'Disponível' }}{% if item.supervisor %} · {{ item.supervisor }}{% endif %}</span>
           </div>
           {% endfor %}
         </div>
         {% else %}
-        <div class="empty">Nenhum horÃ¡rio ocioso encontrado pelos critÃ©rios atuais.</div>
+        <div class="empty">Nenhum horário ocioso encontrado pelos critérios atuais.</div>
         {% endif %}
       </article>
 
